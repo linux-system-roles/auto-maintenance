@@ -43,6 +43,7 @@ curl --retry 5 --silent -u "${GIT_USER}:${GITHUB_TOKEN}" https://api.github.com/
 
   # Replace files in target repo by ones from ${GITHUB_USER}/${LSR_TEMPLATE}
   cp -f ../${LSR_TEMPLATE}/.gitignore ./
+  cp -rf ../${LSR_TEMPLATE}/molecule ./
   if [ -n "$(git status --porcelain)" ]; then
     git add .
     git commit -m ":robot: synchronize files from ${GITHUB_USER}/${LSR_TEMPLATE}"

@@ -11,7 +11,6 @@ COLOR_RESET='\e[0m'
 COLOR_RED='\e[31m'
 COLOR_GREEN='\e[32m'
 COLOR_BLUE='\e[34m'
-COLOR_YELLOW='\e[1;33m'
 
 GIT_USER_DEFAULT='systemroller'
 GIT_MAILSERVER_DEFAULT='localhost.localdomain'
@@ -46,28 +45,25 @@ FILES=(
 )
 
 INDENT=""
+INHELP=""
 
 trap "rm -f ${STDERR}; cd ${HERE}" EXIT
 
-function error() {
-  failure "$1"
-  exit ${2:-1}
-}
-
-function failure() {
-  echo -e "${COLOR_RED}$*${COLOR_RESET}" >&2
-}
-
-function alert() {
-  echo -e "${COLOR_YELLOW}$*${COLOR_RESET}" >&2
+function applaud() {
+  echo -e "${COLOR_GREEN}$*${COLOR_RESET}"
 }
 
 function inform() {
   echo -e "${COLOR_BLUE}$*${COLOR_RESET}"
 }
 
-function success() {
-  echo -e "${COLOR_GREEN}$*${COLOR_RESET}"
+function complain() {
+  echo -e "${COLOR_RED}$*${COLOR_RESET}" >&2
+}
+
+function error() {
+  complain "$1"
+  exit ${2:-1}
 }
 
 function runcmd() {
@@ -79,16 +75,16 @@ function runcmd() {
   fi
   $1 2> ${STDERR} || E=$?
   if [[ $E -eq 0 ]]; then
-    success "Command '$1' has completed successfully."
+    applaud "Command '$1' has completed successfully."
   else
-    failure "Command '$1' has failed with exit code $E and error message:"
+    complain "Command '$1' has failed with exit code $E and error message:"
     cat ${STDERR} >&2
   fi
   return $E
 }
 
 function ensure_directory() {
-  if [[ "${DRY_RUN}" ]]; then
+  if [[ "${INHELP}" ]]; then
     echo "${INDENT}create $1 if it does not exist"
   else
     runcmd "(test -d $1 || mkdir -vp $1)"
@@ -96,7 +92,7 @@ function ensure_directory() {
 }
 
 function copy_file() {
-  if [[ "${DRY_RUN}" ]]; then
+  if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1 to $2"
   else
     runcmd "cp -vf $1 $2"
@@ -104,7 +100,7 @@ function copy_file() {
 }
 
 function copy_missing() {
-  if [[ "${DRY_RUN}" ]]; then
+  if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1 to $2 if $2 is missing"
   else
     runcmd "(test -e $2 || cp -vf $1 $2)"
@@ -112,7 +108,7 @@ function copy_missing() {
 }
 
 function copy_recursive() {
-  if [[ "${DRY_RUN}" ]]; then
+  if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1 to $2 recursively"
   else
     runcmd "cp -vrf $1 $2"
@@ -195,7 +191,7 @@ The synchronization is done in the following way:
        3.4. create a --branch and checkout to it
        3.5. then
 
-$(INDENT="              " DRY_RUN=yes copy_template_files ../template .)
+$(INDENT="              " INHELP=yes copy_template_files ../template .)
 
        3.6. add files and push the --branch to upstream
        3.7. create a pull request
@@ -310,4 +306,4 @@ done
 
 runcmd "popd"
 
-success "All repositories was synchronized with the template successfully."
+applaud "All repositories was synchronized with the template successfully."

@@ -50,23 +50,49 @@ INHELP=""
 
 trap "rm -f ${STDERR}; cd ${HERE}" EXIT
 
-function applaud() {
-  echo -e "${COLOR_GREEN}$*${COLOR_RESET}"
-}
-
+##
+# inform ARGS
+#
+# Print ARGS to standard output (in blue).
 function inform() {
   echo -e "${COLOR_BLUE}$*${COLOR_RESET}"
 }
 
-function complain() {
+##
+# report_success ARGS
+#
+# Print ARGS to standard output (in green).
+function report_success() {
+  echo -e "${COLOR_GREEN}$*${COLOR_RESET}"
+}
+
+##
+# report_failure ARGS
+#
+# Print ARGS to standard error output (in red).
+function report_failure() {
   echo -e "${COLOR_RED}$*${COLOR_RESET}" >&2
 }
 
+##
+# error $1 [$2]
+#
+#   $1 - error message
+#   $2 - exit code (optional, default: 1)
+#
+# Print $1 (in red) to standard error output and exit with $2.
 function error() {
-  complain "$1"
+  report_failure "$1"
   exit ${2:-1}
 }
 
+##
+# runcmd $1
+#
+#   $1 - command with arguments
+#
+# Run $1. If DRY_RUN has non-empty value, only print "[dry run] $1" to standard
+# output (in blue) and return exit code 0.
 function runcmd() {
   local E=0
 
@@ -76,14 +102,21 @@ function runcmd() {
   fi
   $1 2> ${STDERR} || E=$?
   if [[ $E -eq 0 ]]; then
-    applaud "Command '$1' has completed successfully."
+    report_success "Command '$1' has completed successfully."
   else
-    complain "Command '$1' has failed with exit code $E and error message:"
+    report_failure "Command '$1' has failed with exit code $E and error message:"
     cat ${STDERR} >&2
   fi
   return $E
 }
 
+##
+# ensure_directory $1
+#
+#   $1 - path to directory
+#
+# Create $1 if it does not exist. If INHELP is non-empty, only print what will
+# be done to standard output, indented with ${INDENT}.
 function ensure_directory() {
   if [[ "${INHELP}" ]]; then
     echo "${INDENT}create $1 if it does not exist"
@@ -92,6 +125,14 @@ function ensure_directory() {
   fi
 }
 
+##
+# copy_file $1 $2
+#
+#   $1 - source
+#   $2 - destination
+#
+# Copy $1 to $2. If INHELP is non-empty, only print what will be done to
+# standard output, indented with ${INDENT}.
 function copy_file() {
   if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1 to $2"
@@ -100,6 +141,14 @@ function copy_file() {
   fi
 }
 
+##
+# copy_missing $1 $2
+#
+#   $1 - source
+#   $2 - destination
+#
+# Copy $1 to $2 if $2 does not exist yet. If INHELP is non-empty, only print
+# what will be done to standard output, indented with ${INDENT}.
 function copy_missing() {
   if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1 to $2 if $2 is missing"
@@ -108,6 +157,14 @@ function copy_missing() {
   fi
 }
 
+##
+# copy_recursive $1 $2
+#
+#   $1 - source
+#   $2 - destination
+#
+# Recursively copy $1 to $2. If INHELP is non-empty, only print what will be
+# done to standard output, indented with ${INDENT}.
 function copy_recursive() {
   if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1 to $2 recursively"
@@ -116,6 +173,24 @@ function copy_recursive() {
   fi
 }
 
+##
+# copy_template_files $1 $2
+#
+#   $1 - source directory
+#   $2 - destination directory
+#
+# Iterate over actions in FILES list and perform every action. Supported
+# actions are:
+#
+#   --ensure-directory=DIR
+#     * create $2/DIR if it does not exist
+#   --copy=FILE
+#     * copy $1/FILE to $2/FILE
+#   --copy-if-missing=FILE
+#     * copy $1/FILE to $2/FILE if $2/FILE does not exist yet
+#   --copy-recursively=FILE_OR_DIR
+#     * recursively copy $1/FILE_OR_DIR to $2/FILE_OR_DIR
+#
 function copy_template_files() {
   for F in "${FILES[@]}"; do
     case "$F" in
@@ -138,6 +213,10 @@ function copy_template_files() {
   done
 }
 
+##
+# usage
+#
+# Print script usage to standard output.
 function usage() {
   cat <<EOF
 Synchronize linux-system-roles repositories with the recent version of
@@ -200,6 +279,10 @@ $(INDENT="              " INHELP=yes copy_template_files ../template .)
 EOF
 }
 
+##
+# process_options ARGS
+#
+# Process ARGS. ARGS reflects script options.
 function process_options() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -247,12 +330,23 @@ function process_options() {
   done || :
 }
 
+##
+# gen_user_email $1
+#
+#   $1 - user name
+#
+# In $1, replace spaces with dots, lowercase letters, and append
+# @${GIT_MAILSERVER_DEFAULT} behind it.
 function gen_user_email() {
   local X="${1// /.}"
 
   echo -n "${X,,}@${GIT_MAILSERVER_DEFAULT}"
 }
 
+##
+# expand_contacts
+#
+# If CONTACTS has a form "C1 C2 C3 ... Cn", return "\nCC: @C1, @C2, ..., @Cn.".
 function expand_contacts() {
   if [[ "${CONTACTS}" ]]; then
     echo -n '\nCC:' "@${CONTACTS//,/, @}."
@@ -307,4 +401,4 @@ done
 
 runcmd "popd"
 
-applaud "All repositories was synchronized with the template successfully."
+report_success "All repositories was synchronized with the template successfully."

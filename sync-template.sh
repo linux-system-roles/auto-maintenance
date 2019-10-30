@@ -31,6 +31,7 @@ FILES=(
   '--copy-if-missing=.travis/config.sh'
   '--copy-if-missing=.travis/custom.sh'
   '--copy=.travis/preinstall'
+  '--copy=.travis/runblack.sh'
   '--copy=.travis/runcoveralls.sh'
   '--copy=.travis/runpytest.sh'
   '--copy=.travis/runsyspycmd.sh'

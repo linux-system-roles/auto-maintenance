@@ -240,9 +240,12 @@ where [options] are
   --dry-run, -d
       only write what will be done, do not touch anything;
 
-  --from-branch, -f
+  --from-branch
       a name of branch from which to take template files
       (default: "${FROM_BRANCH_DEFAULT}");
+
+  --from-repo
+      specify the template repo (default: "${LSR_TEMPLATE_REPO}");
 
   --help, -h
       print this help and exit;
@@ -303,7 +306,11 @@ function process_options() {
           GIT_USER="$1"
         fi
         ;;
-      --from-branch | -f)
+      --from-repo)
+        shift
+        FROM_REPO="$1"
+        ;;
+      --from-branch)
         shift
         FROM_BRANCH="$1"
         ;;
@@ -367,6 +374,7 @@ process_options "$@"
 DRY_RUN="${DRY_RUN:-}"
 GIT_USER="${GIT_USER:-${GIT_USER_DEFAULT}}"
 GIT_MAIL="${GIT_MAIL:-$(gen_user_email "${GIT_USER}")}"
+FROM_REPO="${FROM_REPO:-${LSR_TEMPLATE_REPO}}"
 FROM_BRANCH="${FROM_BRANCH:-${FROM_BRANCH_DEFAULT}}"
 SYNC_BRANCH="${SYNC_BRANCH:-${SYNC_BRANCH_DEFAULT}}"
 CONTACTS="${CONTACTS:-${CONTACTS_DEFAULT}}"
@@ -389,7 +397,7 @@ ensure_directory ${WORKDIR}
 
 runcmd "pushd ${WORKDIR}"
 
-runcmd "git clone -b '${FROM_BRANCH}' '${LSR_TEMPLATE_REPO}' '${LSR_TEMPLATE}'"
+runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
 
 for REPO in ${REPOLIST}; do
   inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."

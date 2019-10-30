@@ -101,7 +101,7 @@ function runcmd() {
     inform "[dry run] $1"
     return $E
   fi
-  $1 2> ${STDERR} || E=$?
+  eval "$1" 2> ${STDERR} || E=$?
   if [[ $E -eq 0 ]]; then
     report_success "Command '$1' has completed successfully."
   else
@@ -303,7 +303,7 @@ function process_options() {
           GIT_USER="$1"
         fi
         ;;
-      --from-branch | -b)
+      --from-branch | -f)
         shift
         FROM_BRANCH="$1"
         ;;

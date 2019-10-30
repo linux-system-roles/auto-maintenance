@@ -15,6 +15,7 @@ COLOR_BLUE='\e[34m'
 
 GIT_USER_DEFAULT='systemroller'
 GIT_MAILSERVER_DEFAULT='localhost.localdomain'
+FROM_BRANCH_DEFAULT='master'
 SYNC_BRANCH_DEFAULT='lsr-template-sync'
 CONTACTS_DEFAULT='i386x,pcahyna'
 REPOLIST_DEFAULT='firewall,kdump,network,postfix,selinux,storage,timesync,tuned'
@@ -226,8 +227,8 @@ Usage: $ME [options]
 where [options] are
 
   --branch, -b
-      set the name of a branch with content to be synchronized from which the
-      pull request is made of (default: "${SYNC_BRANCH_DEFAULT}");
+      a name of branch from which to make the pull request
+      (default: "${SYNC_BRANCH_DEFAULT}");
 
   --clean
       remove ${WORKDIR} and exit;
@@ -238,6 +239,10 @@ where [options] are
 
   --dry-run, -d
       only write what will be done, do not touch anything;
+
+  --from-branch, -f
+      a name of branch from which to take template files
+      (default: "${FROM_BRANCH_DEFAULT}");
 
   --help, -h
       print this help and exit;
@@ -297,6 +302,10 @@ function process_options() {
         else
           GIT_USER="$1"
         fi
+        ;;
+      --from-branch | -b)
+        shift
+        FROM_BRANCH="$1"
         ;;
       --branch | -b)
         shift
@@ -358,6 +367,7 @@ process_options "$@"
 DRY_RUN="${DRY_RUN:-}"
 GIT_USER="${GIT_USER:-${GIT_USER_DEFAULT}}"
 GIT_MAIL="${GIT_MAIL:-$(gen_user_email "${GIT_USER}")}"
+FROM_BRANCH="${FROM_BRANCH:-${FROM_BRANCH_DEFAULT}}"
 SYNC_BRANCH="${SYNC_BRANCH:-${SYNC_BRANCH_DEFAULT}}"
 CONTACTS="${CONTACTS:-${CONTACTS_DEFAULT}}"
 export GITHUB_TOKEN="${GITHUB_TOKEN:-}"
@@ -379,7 +389,7 @@ ensure_directory ${WORKDIR}
 
 runcmd "pushd ${WORKDIR}"
 
-runcmd "git clone '${LSR_TEMPLATE_REPO}' '${LSR_TEMPLATE}'"
+runcmd "git clone -b '${FROM_BRANCH}' '${LSR_TEMPLATE_REPO}' '${LSR_TEMPLATE}'"
 
 for REPO in ${REPOLIST}; do
   inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."

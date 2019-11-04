@@ -6,7 +6,7 @@ set -euo pipefail
 ME=$(basename $0)
 HERE=${PWD}
 WORKDIR="${HOME}/.cache/${ME%.*}"
-STDERR=/tmp/${ME%.*}.stderr
+STDERR=$(mktemp /tmp/${ME%.*}-XXXXXX.stderr)
 
 COLOR_RESET='\e[0m'
 COLOR_RED='\e[31m'

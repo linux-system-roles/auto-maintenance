@@ -27,6 +27,7 @@ LSR_TEMPLATE_REPO="${GITHUB}/${LSR_GROUP}/${LSR_TEMPLATE}.git"
 
 FILES=(
   '--copy-if-missing=.gitignore'
+  '--copy-if-missing=.lgtm.yml'
   '--ensure-directory=.travis'
   '--copy-if-missing=.travis/config.sh'
   '--copy-if-missing=.travis/custom.sh'
@@ -39,7 +40,7 @@ FILES=(
   '--copy=.travis/utils.sh'
   '--copy=.travis.yml'
   '--copy-if-missing=custom_requirements.txt'
-  '--copy=LICENSE'
+  '--copy-if-missing=LICENSE'
   '--copy-recursively=molecule'
   '--copy-if-missing=molecule_extra_requirements.txt'
   '--copy=pylintrc'
@@ -386,7 +387,7 @@ PAYLOAD=$(cat <<EOF
 {"title":"Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}",
   "base":"master",
   "head":"${SYNC_BRANCH}",
-  "body":"One or more files which should be in sync across ${LSR_GROUP} repos were changed either here or in [${LSR_GROUP}/${LSR_TEMPLATE}](https://github.com/${LSR_GROUP}/${LSR_TEMPLATE}).\nThis PR propagates files from [${LSR_GROUP}/${LSR_TEMPLATE}](https://github.com/${LSR_GROUP}/${LSR_TEMPLATE}). If something was changed here, please first modify ${LSR_GROUP} repository.\n$(expand_contacts)"}
+  "body":"This PR propagates files from [${LSR_GROUP}/${LSR_TEMPLATE}](https://github.com/${LSR_GROUP}/${LSR_TEMPLATE}) which should be in sync across [${LSR_GROUP}](https://github.com/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_GROUP}/${LSR_TEMPLATE}](https://github.com/${LSR_GROUP}/${LSR_TEMPLATE}) repo.\n$(expand_contacts)"}
 EOF
 )
 

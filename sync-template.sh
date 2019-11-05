@@ -51,7 +51,7 @@ FILES=(
 INDENT=""
 INHELP=""
 
-trap "rm -f ${STDERR}; cd ${HERE}" EXIT
+trap "rm -f ${STDERR}; cd ${HERE}" ABRT EXIT HUP INT QUIT
 
 ##
 # inform ARGS

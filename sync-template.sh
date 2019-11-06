@@ -34,6 +34,7 @@ FILES=(
   '--copy=.travis/preinstall'
   '--copy=.travis/runblack.sh'
   '--copy=.travis/runcoveralls.sh'
+  '--copy=.travis/runflake8.sh'
   '--copy=.travis/runpytest.sh'
   '--copy=.travis/runsyspycmd.sh'
   '--copy=.travis/runtox'

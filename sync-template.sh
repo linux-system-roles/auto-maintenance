@@ -44,6 +44,7 @@ FILES=(
   '--copy-if-missing=LICENSE'
   '--copy-recursively=molecule'
   '--copy-if-missing=molecule_extra_requirements.txt'
+  '--copy-if-missing=pylint_extra_requirements.txt'
   '--copy=pylintrc'
   '--copy=run_pylint.py'
   '--copy=tox.ini'

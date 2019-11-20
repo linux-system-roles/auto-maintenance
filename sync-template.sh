@@ -194,7 +194,7 @@ function copy_recursive() {
 #   --copy-if-missing=FILE
 #     * copy $1/FILE to $2/FILE if $2/FILE does not exist yet
 #   --copy-recursively=FILE_OR_DIR
-#     * recursively copy $1/FILE_OR_DIR to $2/FILE_OR_DIR
+#     * recursively copy $1/FILE_OR_DIR to $2
 #
 function copy_template_files() {
   for F in "${FILES[@]}"; do
@@ -209,7 +209,7 @@ function copy_template_files() {
         copy_missing "$1/${F:18}" "$2/${F:18}"
         ;;
       --copy-recursively=*)
-        copy_recursive "$1/${F:19}" "$2/${F:19}"
+        copy_recursive "$1/${F:19}" "$2"
         ;;
       *)
         error "${ME}: In ${FUNCNAME[0]}: Unknown option '$F'."

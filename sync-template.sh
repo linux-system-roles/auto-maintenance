@@ -14,7 +14,7 @@ COLOR_GREEN='\e[32m'
 COLOR_BLUE='\e[34m'
 
 GIT_USER_DEFAULT='systemroller'
-GIT_MAILSERVER_DEFAULT='localhost.localdomain'
+GIT_EMAIL_DEFAULT='noreply@github.com'
 FROM_BRANCH_DEFAULT='master'
 SYNC_BRANCH_DEFAULT='lsr-template-sync'
 CONTACTS_DEFAULT='i386x,pcahyna'
@@ -30,11 +30,13 @@ FILES=(
   '--copy-if-missing=.lgtm.yml'
   '--ensure-directory=.travis'
   '--copy-if-missing=.travis/config.sh'
+  '--copy=.travis/custom_pylint.py'
   '--copy-if-missing=.travis/custom.sh'
   '--copy=.travis/preinstall'
   '--copy=.travis/runblack.sh'
   '--copy=.travis/runcoveralls.sh'
   '--copy=.travis/runflake8.sh'
+  '--copy=.travis/runpylint.sh'
   '--copy=.travis/runpytest.sh'
   '--copy=.travis/runsyspycmd.sh'
   '--copy=.travis/runtox'
@@ -46,7 +48,6 @@ FILES=(
   '--copy-if-missing=molecule_extra_requirements.txt'
   '--copy-if-missing=pylint_extra_requirements.txt'
   '--copy=pylintrc'
-  '--copy=run_pylint.py'
   '--copy=tox.ini'
 )
 
@@ -266,10 +267,8 @@ where [options] are
 
           --user "John Doe <jdoe@github.com>"
 
-      if email part is missing, it is crafted from user name (spaces are
-      replaced with dots, letters are lowercased, and mail part becomes
-      "${GIT_MAILSERVER_DEFAULT}"); if name is missing, "${GIT_USER_DEFAULT}"
-      is used.
+      if email part is missing, "${GIT_EMAIL_DEFAULT}" is used; if name is missing,
+      "${GIT_USER_DEFAULT}" is used.
 
 The synchronization is done in the following way:
 
@@ -288,6 +287,13 @@ $(INDENT="              " INHELP=yes copy_template_files ../template .)
        3.6. add files and push the --branch to upstream
        3.7. create a pull request
 
+EXAMPLES
+
+  Open a pull request against <${GITHUB}/${LSR_GROUP}/myrole> with recent files
+  from <${LSR_TEMPLATE_REPO}> as a user John Doe:
+
+    ./$ME -u "John Doe <jd123@company.com>" -r myrole -t fa1afe1caffebeef1ee7facadedecade7001f001
+
 EOF
 }
 
@@ -305,7 +311,7 @@ function process_options() {
         shift
         if [[ "$1" =~ ^(.*)[\ ]+\<(.*)\>$ ]]; then
           GIT_USER="${BASH_REMATCH[1]}"
-          GIT_MAIL="${BASH_REMATCH[2]}"
+          GIT_EMAIL="${BASH_REMATCH[2]}"
         else
           GIT_USER="$1"
         fi
@@ -351,19 +357,6 @@ function process_options() {
 }
 
 ##
-# gen_user_email $1
-#
-#   $1 - user name
-#
-# In $1, replace spaces with dots, lowercase letters, and append
-# @${GIT_MAILSERVER_DEFAULT} behind it.
-function gen_user_email() {
-  local X="${1// /.}"
-
-  echo -n "${X,,}@${GIT_MAILSERVER_DEFAULT}"
-}
-
-##
 # expand_contacts
 #
 # If CONTACTS has a form "C1 C2 C3 ... Cn", return "\nCC: @C1, @C2, ..., @Cn.".
@@ -377,7 +370,7 @@ process_options "$@"
 
 DRY_RUN="${DRY_RUN:-}"
 GIT_USER="${GIT_USER:-${GIT_USER_DEFAULT}}"
-GIT_MAIL="${GIT_MAIL:-$(gen_user_email "${GIT_USER}")}"
+GIT_EMAIL="${GIT_EMAIL:-${GIT_EMAIL_DEFAULT}}"
 FROM_REPO="${FROM_REPO:-${LSR_TEMPLATE_REPO}}"
 FROM_BRANCH="${FROM_BRANCH:-${FROM_BRANCH_DEFAULT}}"
 SYNC_BRANCH="${SYNC_BRANCH:-${SYNC_BRANCH_DEFAULT}}"
@@ -408,12 +401,12 @@ for REPO in ${REPOLIST}; do
   runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
   runcmd "pushd ${REPO}"
   runcmd "git config --local user.name '${GIT_USER}'"
-  runcmd "git config --local user.email '${GIT_MAIL}'"
+  runcmd "git config --local user.email '${GIT_EMAIL}'"
   runcmd "git checkout -b '${SYNC_BRANCH}'"
   copy_template_files ../${LSR_TEMPLATE} .
   if [[ "${DRY_RUN}" || "$(git status --porcelain)" ]]; then
     runcmd "git add ."
-    runcmd "git commit -m ':robot: synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}'"
+    runcmd "git commit -m 'Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}'"
     if runcmd "git push 'https://${GITHUB_TOKEN}:@github.com/${LSR_GROUP}/${REPO}' -u '${SYNC_BRANCH}'"; then
       runcmd "curl -u '${GIT_USER}:${GITHUB_TOKEN}' -X POST -d '${PAYLOAD}' 'https://api.github.com/repos/${LSR_GROUP}/${REPO}/pulls'"
     fi

@@ -18,7 +18,6 @@ GIT_EMAIL_DEFAULT='noreply@github.com'
 FROM_BRANCH_DEFAULT='master'
 SYNC_BRANCH_DEFAULT='lsr-template-sync'
 CONTACTS_DEFAULT='i386x,pcahyna'
-REPOLIST_DEFAULT='firewall,kdump,network,postfix,selinux,storage,timesync,tuned'
 
 GITHUB="https://github.com"
 LSR_GROUP="linux-system-roles"
@@ -257,7 +256,7 @@ where [options] are
 
   --repolist, -r
       comma separeted list of repositories for which the synchronization is
-      applicable (default: "${REPOLIST_DEFAULT}");
+      applicable;
 
   --token, -t
       GitHub token;
@@ -376,7 +375,6 @@ FROM_BRANCH="${FROM_BRANCH:-${FROM_BRANCH_DEFAULT}}"
 SYNC_BRANCH="${SYNC_BRANCH:-${SYNC_BRANCH_DEFAULT}}"
 CONTACTS="${CONTACTS:-${CONTACTS_DEFAULT}}"
 export GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-REPOLIST="${REPOLIST:-${REPOLIST_DEFAULT}}"
 REPOLIST="${REPOLIST//,/ }"
 PAYLOAD=$(cat <<EOF
 {"title":"Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}",
@@ -388,6 +386,10 @@ EOF
 
 if [[ -z "${GITHUB_TOKEN}" ]]; then
   error "${ME}: GitHub token (GITHUB_TOKEN) not set. Terminating."
+fi
+
+if [[ -z "${REPOLIST}" ]]; then
+  error "${ME}: No repos (REPOLIST) were specified. Terminating."
 fi
 
 ensure_directory ${WORKDIR}

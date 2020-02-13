@@ -396,7 +396,15 @@ ensure_directory ${WORKDIR}
 
 runcmd "pushd ${WORKDIR}"
 
-runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
+if [[ -d "${LSR_TEMPLATE}" ]]; then
+  runcmd "pushd ${LSR_TEMPLATE}"
+  runcmd "git fetch"
+  runcmd "git checkout '${FROM_BRANCH}'"
+  runcmd "git pull"
+  runcmd "popd"
+else
+  runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
+fi
 
 for REPO in ${REPOLIST}; do
   inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."

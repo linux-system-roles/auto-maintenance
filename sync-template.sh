@@ -6,6 +6,7 @@ set -euo pipefail
 ME=$(basename $0)
 HERE=${PWD}
 WORKDIR="${HOME}/.cache/${ME%.*}"
+STDOUT=$(mktemp /tmp/${ME%.*}-XXXXXX.stdout)
 STDERR=$(mktemp /tmp/${ME%.*}-XXXXXX.stderr)
 
 COLOR_RESET='\e[0m'
@@ -14,7 +15,8 @@ COLOR_GREEN='\e[32m'
 COLOR_BLUE='\e[34m'
 
 GIT_USER_DEFAULT='systemroller'
-GIT_EMAIL_DEFAULT='noreply@github.com'
+GIT_EMAIL_DEFAULT='39708361+systemroller@users.noreply.github.com'
+declare -A USER2EMAIL_MAP=( [${GIT_USER_DEFAULT}]="${GIT_EMAIL_DEFAULT}" )
 FROM_BRANCH_DEFAULT='master'
 SYNC_BRANCH_DEFAULT='lsr-template-sync'
 CONTACTS_DEFAULT='i386x,pcahyna'
@@ -22,7 +24,8 @@ CONTACTS_DEFAULT='i386x,pcahyna'
 GITHUB="https://github.com"
 LSR_GROUP="linux-system-roles"
 LSR_TEMPLATE="template"
-LSR_TEMPLATE_REPO="${GITHUB}/${LSR_GROUP}/${LSR_TEMPLATE}.git"
+LSR_TEMPLATE_NS="${LSR_GROUP}/${LSR_TEMPLATE}"
+LSR_TEMPLATE_REPO="${GITHUB}/${LSR_TEMPLATE_NS}.git"
 
 FILES=(
   '--copy-if-missing=.gitignore'
@@ -53,7 +56,7 @@ FILES=(
 INDENT=""
 INHELP=""
 
-trap "rm -f ${STDERR}; cd ${HERE}" ABRT EXIT HUP INT QUIT
+trap "rm -f ${STDOUT} ${STDERR}; cd ${HERE}" ABRT EXIT HUP INT QUIT
 
 ##
 # inform ARGS
@@ -92,20 +95,31 @@ function error() {
 }
 
 ##
-# runcmd $1
+# runcmd $1 [$2 [$3]]
 #
 #   $1 - command with arguments
+#   $2 - variable name to store $1's standard output
+#   $3 - default value of $2 if $1 cannot be run (i.e. if dry run is active)
 #
 # Run $1. If DRY_RUN has non-empty value, only print "[dry run] $1" to standard
-# output (in blue) and return exit code 0.
+# output (in blue) and return exit code 0. If $2 is given, save standard output
+# to it.
 function runcmd() {
   local E=0
 
   if [[ "${DRY_RUN}" ]]; then
     inform "[dry run] $1"
+    if [[ "${2:-}" ]]; then
+      eval "$2='${3:-}'"
+    fi
     return $E
   fi
-  eval "$1" 2> ${STDERR} || E=$?
+  eval "$1" 1> ${STDOUT} 2> ${STDERR} || E=$?
+  if [[ "${2:-}" ]]; then
+    eval "$2=\"$(cat ${STDOUT})\""
+  else
+    cat ${STDOUT}
+  fi
   if [[ $E -eq 0 ]]; then
     report_success "Command '$1' has completed successfully."
   else
@@ -266,13 +280,12 @@ where [options] are
 
           --user "John Doe <jdoe@github.com>"
 
-      if email part is missing, "${GIT_EMAIL_DEFAULT}" is used; if name is missing,
-      "${GIT_USER_DEFAULT}" is used.
+      (default: "${GIT_USER_DEFAULT} <${GIT_EMAIL_DEFAULT}>").
 
 The synchronization is done in the following way:
 
   1. cd to ${WORKDIR}
-  2. clone the template from ${LSR_TEMPLATE_REPO}
+  2. clone or pull the latest template from ${LSR_TEMPLATE_REPO}
   3. for every \$REPO from --repolist:
 
        3.1 clone the \$REPO from ${GITHUB}/${LSR_GROUP}/\${REPO}.git
@@ -355,75 +368,129 @@ function process_options() {
   done || :
 }
 
+process_options "$@"
+
+DRY_RUN="${DRY_RUN:-}"
+GIT_USER="${GIT_USER:-${GIT_USER_DEFAULT}}"
+GIT_EMAIL="${GIT_EMAIL:-${USER2EMAIL_MAP[${GIT_USER}]:-}}"
+FROM_REPO="${FROM_REPO:-${LSR_TEMPLATE_REPO}}"
+FROM_BRANCH="${FROM_BRANCH:-${FROM_BRANCH_DEFAULT}}"
+SYNC_BRANCH="${SYNC_BRANCH:-${SYNC_BRANCH_DEFAULT}}"
+CONTACTS="${CONTACTS:-${CONTACTS_DEFAULT}}"
+export GITHUB_TOKEN="${GITHUB_TOKEN:-}"
+REPOLIST="${REPOLIST:-}"
+REPOLIST="${REPOLIST//,/ }"
+
+##
+# check_required_options
+#
+# Check if required options are provided.
+function check_required_options() {
+  if [[ -z "${GITHUB_TOKEN}" ]]; then
+    error "${ME}: GitHub token (GITHUB_TOKEN) not set. Terminating."
+  fi
+  if [[ -z "${REPOLIST}" ]]; then
+    error "${ME}: No repos (REPOLIST) were specified. Terminating."
+  fi
+  if [[ -z "${GIT_USER}" ]]; then
+    error "${ME}: Git user name is missing. Terminating."
+  fi
+  if [[ -z "${GIT_EMAIL}" ]]; then
+    error "${ME}: Git user's email is missing. Terminating."
+  fi
+}
+
+##
+# put_revision $1
+#
+#   $1 - revision id
+#
+# Put a link to the revision into the payload.
+function put_revision() {
+  echo -n '\nRevision: [`'"$1"'`]'"(${GITHUB}/${LSR_TEMPLATE_NS}/tree/$1)"
+}
+
 ##
 # expand_contacts
 #
 # If CONTACTS has a form "C1 C2 C3 ... Cn", return "\nCC: @C1, @C2, ..., @Cn.".
 function expand_contacts() {
   if [[ "${CONTACTS}" ]]; then
-    echo -n '\nCC:' "@${CONTACTS//,/, @}."
+    echo -n '\nCC:' "@${CONTACTS//,/, @}"
   fi
 }
 
-process_options "$@"
-
-DRY_RUN="${DRY_RUN:-}"
-GIT_USER="${GIT_USER:-${GIT_USER_DEFAULT}}"
-GIT_EMAIL="${GIT_EMAIL:-${GIT_EMAIL_DEFAULT}}"
-FROM_REPO="${FROM_REPO:-${LSR_TEMPLATE_REPO}}"
-FROM_BRANCH="${FROM_BRANCH:-${FROM_BRANCH_DEFAULT}}"
-SYNC_BRANCH="${SYNC_BRANCH:-${SYNC_BRANCH_DEFAULT}}"
-CONTACTS="${CONTACTS:-${CONTACTS_DEFAULT}}"
-export GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-REPOLIST="${REPOLIST//,/ }"
-PAYLOAD=$(cat <<EOF
-{"title":"Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}",
-  "base":"master",
-  "head":"${SYNC_BRANCH}",
-  "body":"This PR propagates files from [${LSR_GROUP}/${LSR_TEMPLATE}](https://github.com/${LSR_GROUP}/${LSR_TEMPLATE}) which should be in sync across [${LSR_GROUP}](https://github.com/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_GROUP}/${LSR_TEMPLATE}](https://github.com/${LSR_GROUP}/${LSR_TEMPLATE}) repo.\n$(expand_contacts)"}
-EOF
-)
-
-if [[ -z "${GITHUB_TOKEN}" ]]; then
-  error "${ME}: GitHub token (GITHUB_TOKEN) not set. Terminating."
-fi
-
-if [[ -z "${REPOLIST}" ]]; then
-  error "${ME}: No repos (REPOLIST) were specified. Terminating."
-fi
-
-ensure_directory ${WORKDIR}
-
-runcmd "pushd ${WORKDIR}"
-
-if [[ -d "${LSR_TEMPLATE}" ]]; then
-  runcmd "pushd ${LSR_TEMPLATE}"
-  runcmd "git fetch"
-  runcmd "git checkout '${FROM_BRANCH}'"
-  runcmd "git pull"
-  runcmd "popd"
-else
-  runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
-fi
-
-for REPO in ${REPOLIST}; do
-  inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."
-  runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
-  runcmd "pushd ${REPO}"
-  runcmd "git config --local user.name '${GIT_USER}'"
-  runcmd "git config --local user.email '${GIT_EMAIL}'"
-  runcmd "git checkout -b '${SYNC_BRANCH}'"
-  copy_template_files ../${LSR_TEMPLATE} .
-  if [[ "${DRY_RUN}" || "$(git status --porcelain)" ]]; then
-    runcmd "git add ."
-    runcmd "git commit -m 'Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}'"
-    if runcmd "git push 'https://${GITHUB_TOKEN}:@github.com/${LSR_GROUP}/${REPO}' -u '${SYNC_BRANCH}'"; then
-      runcmd "curl -u '${GIT_USER}:${GITHUB_TOKEN}' -X POST -d '${PAYLOAD}' 'https://api.github.com/repos/${LSR_GROUP}/${REPO}/pulls'"
-    fi
+##
+# get_template_repo
+#
+# Get the repo with common template.
+function get_template_repo() {
+  if [[ -d "${LSR_TEMPLATE}" ]]; then
+    runcmd "pushd ${LSR_TEMPLATE}"
+    runcmd "git fetch"
+    runcmd "git checkout '${FROM_BRANCH}'"
+    runcmd "git pull"
+    runcmd "popd"
+  else
+    runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
   fi
+}
+
+##
+# get_revision_id $1
+#
+#   $1 - variable to store the result
+#
+# Store revision identifier as SHA-1 of common template's repository HEAD to $1.
+function get_revision_id() {
+  runcmd "pushd ${LSR_TEMPLATE}"
+  runcmd "git rev-parse HEAD" "$1" "0000000000000000000000000000000000000000"
   runcmd "popd"
-done
+}
 
-runcmd "popd"
+##
+# do_sync
+#
+# Synchronize common template files across system roles repositories.
+function do_sync() {
+  check_required_options
 
-report_success "All repositories was synchronized with the template successfully."
+  ensure_directory ${WORKDIR}
+
+  runcmd "pushd ${WORKDIR}"
+
+  get_template_repo
+  get_revision_id GIT_HEAD
+
+  PAYLOAD=$(cat <<-EOF
+	{"title":"Synchronize files from ${LSR_TEMPLATE_NS}",
+	"base":"master",
+	"head":"${SYNC_BRANCH}",
+	"body":"This PR propagates files from [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) which should be in sync across [${LSR_GROUP}](${GITHUB}/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) repo.\n$(put_revision ${GIT_HEAD})\n$(expand_contacts)"}
+	EOF
+  )
+
+  for REPO in ${REPOLIST}; do
+    inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."
+    runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
+    runcmd "pushd ${REPO}"
+    runcmd "git config --local user.name '${GIT_USER}'"
+    runcmd "git config --local user.email '${GIT_EMAIL}'"
+    runcmd "git checkout -b '${SYNC_BRANCH}'"
+    copy_template_files ../${LSR_TEMPLATE} .
+    if [[ "${DRY_RUN}" || "$(git status --porcelain)" ]]; then
+      runcmd "git add ."
+      runcmd "git commit -m 'Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}'"
+      if runcmd "git push 'https://${GITHUB_TOKEN}:@github.com/${LSR_GROUP}/${REPO}' -u '${SYNC_BRANCH}'"; then
+        runcmd "curl -u '${GIT_USER}:${GITHUB_TOKEN}' -X POST -d '${PAYLOAD}' 'https://api.github.com/repos/${LSR_GROUP}/${REPO}/pulls'"
+      fi
+    fi
+    runcmd "popd"
+  done
+
+  runcmd "popd"
+
+  report_success "All repositories was synchronized with the template successfully."
+}
+
+do_sync

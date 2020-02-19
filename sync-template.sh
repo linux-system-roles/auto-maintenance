@@ -502,6 +502,7 @@ function do_sync() {
 
   for REPO in ${REPOLIST}; do
     inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."
+    runcmd "[[ -d \"${REPO}\" ]] && rm -rfd ${REPO} || :"
     runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
     runcmd "pushd ${REPO}"
     runcmd "git config --local user.name '${GIT_USER}'"

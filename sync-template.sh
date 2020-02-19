@@ -52,6 +52,7 @@ FILES=(
   '--copy=pylintrc'
   '--copy=tox.ini'
 )
+declare -A IGNORE_IF_MISSING_MAP
 
 INDENT=""
 INHELP=""
@@ -145,50 +146,71 @@ function ensure_directory() {
 }
 
 ##
-# copy_file $1 $2
+# copy_file $1 $2 $3
 #
-#   $1 - source
-#   $2 - destination
+#   $1 - path to source
+#   $2 - path to destination
+#   $3 - file name
 #
-# Copy $1 to $2. If INHELP is non-empty, only print what will be done to
-# standard output, indented with ${INDENT}.
+# Copy $1/$3 to $2/$3. If INHELP is non-empty, only print what will be done to
+# standard output, indented with ${INDENT}. Do not fail if $3 is on
+# ignore-missing-files list.
 function copy_file() {
   if [[ "${INHELP}" ]]; then
-    echo "${INDENT}copy $1 to $2"
+    echo "${INDENT}copy $1/$3 to $2/$3"
   else
-    runcmd "cp -vf $1 $2"
+    COMMAND="cp -vf $1/$3 $2/$3"
+    if [[ ! -e "$1/$3" && "${IGNORE_IF_MISSING_MAP[$3]:-}" ]]; then
+      inform "[\`$COMMAND\` ignored with note: '$1/$3' does not exist]"
+    else
+      runcmd "${COMMAND}"
+    fi
   fi
 }
 
 ##
-# copy_missing $1 $2
+# copy_missing $1 $2 $3
 #
-#   $1 - source
-#   $2 - destination
+#   $1 - path to source
+#   $2 - path to destination
+#   $3 - file name
 #
-# Copy $1 to $2 if $2 does not exist yet. If INHELP is non-empty, only print
-# what will be done to standard output, indented with ${INDENT}.
+# Copy $1/$3 to $2/$3 if $2/$3 does not exist yet. If INHELP is non-empty, only
+# print what will be done to standard output, indented with ${INDENT}. Do not
+# fail if $3 is on ignore-missing-files list.
 function copy_missing() {
   if [[ "${INHELP}" ]]; then
-    echo "${INDENT}copy $1 to $2 if $2 is missing"
+    echo "${INDENT}copy $1/$3 to $2/$3 if $2/$3 is missing"
   else
-    runcmd "(test -e $2 || cp -vf $1 $2)"
+    COMMAND="cp -vf $1/$3 $2/$3"
+    if [[ ! -e "$1/$3" && "${IGNORE_IF_MISSING_MAP[$3]:-}" ]]; then
+      inform "[\`$COMMAND\` ignored with note: '$1/$3' does not exist]"
+    else
+      runcmd "(test -e $2/$3 || ${COMMAND})"
+    fi
   fi
 }
 
 ##
-# copy_recursive $1 $2
+# copy_recursive $1 $2 $3
 #
-#   $1 - source
-#   $2 - destination
+#   $1 - path to source
+#   $2 - path to destination
+#   $3 - directory name
 #
-# Recursively copy $1 to $2. If INHELP is non-empty, only print what will be
-# done to standard output, indented with ${INDENT}.
+# Recursively copy $1/$3 to $2. If INHELP is non-empty, only print what will
+# be done to standard output, indented with ${INDENT}. Do not fail if $3 is on
+# ignore-missing-files list.
 function copy_recursive() {
   if [[ "${INHELP}" ]]; then
-    echo "${INDENT}copy $1 to $2 recursively"
+    echo "${INDENT}copy $1/$3 to $2 recursively"
   else
-    runcmd "cp -vrf $1 $2"
+    COMMAND="cp -vrf $1/$3 $2"
+    if [[ ! -d "$1/$3" && "${IGNORE_IF_MISSING_MAP[$3]:-}" ]]; then
+      inform "[\`$COMMAND\` ignored with note: '$1/$3' does not exist]"
+    else
+      runcmd "${COMMAND}"
+    fi
   fi
 }
 
@@ -207,23 +229,23 @@ function copy_recursive() {
 #     * copy $1/FILE to $2/FILE
 #   --copy-if-missing=FILE
 #     * copy $1/FILE to $2/FILE if $2/FILE does not exist yet
-#   --copy-recursively=FILE_OR_DIR
-#     * recursively copy $1/FILE_OR_DIR to $2
+#   --copy-recursively=DIR
+#     * recursively copy $1/DIR to $2
 #
 function copy_template_files() {
   for F in "${FILES[@]}"; do
     case "$F" in
       --ensure-directory=*)
-        ensure_directory "$2/${F:19}"
+        ensure_directory "$2/${F#*=}"
         ;;
       --copy=*)
-        copy_file "$1/${F:7}" "$2/${F:7}"
+        copy_file "$1" "$2" "${F#*=}"
         ;;
       --copy-if-missing=*)
-        copy_missing "$1/${F:18}" "$2/${F:18}"
+        copy_missing "$1" "$2" "${F#*=}"
         ;;
       --copy-recursively=*)
-        copy_recursive "$1/${F:19}" "$2"
+        copy_recursive "$1" "$2" "${F#*=}"
         ;;
       *)
         error "${ME}: In ${FUNCNAME[0]}: Unknown option '$F'."
@@ -267,6 +289,10 @@ where [options] are
 
   --help, -h
       print this help and exit;
+
+  --ignore, -i
+      add file or directory to ignore list; if such a file or directory will be
+      missing then a file system operation will be skipped;
 
   --repolist, -r
       comma separeted list of repositories for which the synchronization is
@@ -339,6 +365,10 @@ function process_options() {
       --branch | -b)
         shift
         SYNC_BRANCH="$1"
+        ;;
+      --ignore | -i)
+        shift
+        IGNORE_IF_MISSING_MAP["$1"]="yes"
         ;;
       --contacts | -c)
         shift

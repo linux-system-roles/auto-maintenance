@@ -19,7 +19,7 @@ GIT_EMAIL_DEFAULT='39708361+systemroller@users.noreply.github.com'
 declare -A USER2EMAIL_MAP=( [${GIT_USER_DEFAULT}]="${GIT_EMAIL_DEFAULT}" )
 FROM_BRANCH_DEFAULT='master'
 SYNC_BRANCH_DEFAULT='lsr-template-sync'
-CONTACTS_DEFAULT='i386x,pcahyna'
+CONTACTS_DEFAULT='i386x,pcahyna,richm'
 
 GITHUB="https://github.com"
 LSR_GROUP="linux-system-roles"
@@ -58,6 +58,19 @@ INDENT=""
 INHELP=""
 
 trap "rm -f ${STDOUT} ${STDERR}; cd ${HERE}" ABRT EXIT HUP INT QUIT
+
+if type -p hub > /dev/null 2>&1 ; then
+  if [[ -z "${USE_HUB:-}" ]]; then
+    USE_HUB=true
+  fi
+elif [[ "${USE_HUB:-false}" = true ]]; then
+  echo ERROR: there is no \"hub\" command line tool
+  echo see https://github.com/github/hub
+  echo e.g. on Fedora - dnf -y install hub
+  exit 1
+else
+  USE_HUB=false
+fi
 
 ##
 # inform ARGS
@@ -410,17 +423,32 @@ CONTACTS="${CONTACTS:-${CONTACTS_DEFAULT}}"
 export GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 REPOLIST="${REPOLIST:-}"
 REPOLIST="${REPOLIST//,/ }"
+if [[ $USE_HUB = true ]]; then
+  case $FROM_REPO in
+      http*://github.com/*) FROM_REPO_HUB=${FROM_REPO#http*://github.com/} ;;
+      *github.com:*) FROM_REPO_HUB=${FROM_REPO#*github.com:} ;;
+      *) info "${ME}: FROM_REPO $FROM_REPO not a recognized github repo - cannot use hub";
+         USE_HUB=false ;;
+  esac
+  if [[ "${FROM_REPO_HUB:-}" ]]; then
+    FROM_REPO=${FROM_REPO_HUB%.git}
+  fi
+fi
 
 ##
 # check_required_options
 #
 # Check if required options are provided.
 function check_required_options() {
-  if [[ -z "${GITHUB_TOKEN}" ]]; then
-    error "${ME}: GitHub token (GITHUB_TOKEN) not set. Terminating."
-  fi
   if [[ -z "${REPOLIST}" ]]; then
     error "${ME}: No repos (REPOLIST) were specified. Terminating."
+  fi
+  if [[ $USE_HUB = true ]]; then
+    # if using hub, git options not required
+    return 0
+  fi
+  if [[ -z "${GITHUB_TOKEN}" ]]; then
+    error "${ME}: GitHub token (GITHUB_TOKEN) not set. Terminating."
   fi
   if [[ -z "${GIT_USER}" ]]; then
     error "${ME}: Git user name is missing. Terminating."
@@ -451,18 +479,52 @@ function expand_contacts() {
 }
 
 ##
-# get_template_repo
+# get_repo
 #
-# Get the repo with common template.
-function get_template_repo() {
-  if [[ -d "${LSR_TEMPLATE}" ]]; then
-    runcmd "pushd ${LSR_TEMPLATE}"
+#    $1 - URL of repo to clone e.g. https://github.com/org/reponame.git
+#         if using hub, then it can be just org/reponame
+#    $2 - branch to checkout
+#    $3 - new branch to create from $2 using checkout -b $3 (optional)
+#    $4 - git user name (not used with hub)
+#    $5 - git email (not used with hub)
+#
+# clone the given repo, checked out to the given
+# branch, set it up for git commit/push
+function get_repo() {
+  local repo=$1
+  local branch=$2
+  local newbranch=${3:-}
+  local gituser=${4:-}
+  local gitemail=${5:-}
+  local repodir=$( basename $repo )
+  repodir=${repodir%.git}
+    
+  if [[ -d "$repodir" ]]; then
+    runcmd "pushd '$repodir'"
     runcmd "git fetch"
-    runcmd "git checkout '${FROM_BRANCH}'"
+    runcmd "git checkout '$branch'"
     runcmd "git pull"
     runcmd "popd"
+  elif [[ $USE_HUB = true ]]; then
+    runcmd "hub clone -b '$branch' '$repo' '$repodir'"
   else
-    runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
+    runcmd "git clone -b '$branch' '$repo' '$repodir'"
+    if [[ -n "$gituser" && -n "$gitemail" ]]; then
+      runcmd "pushd $repodir"
+      runcmd "git config --local user.name '$gituser'"
+      runcmd "git config --local user.email '$gitemail'"
+      runcmd "popd"
+    fi
+  fi
+  if [[ $USE_HUB = true ]]; then
+    runcmd "pushd '$repodir'"
+    runcmd "hub fork"
+    runcmd "popd"
+  fi
+  if [[ -n "$newbranch" ]]; then
+    runcmd "pushd '$repodir'"
+    runcmd "git checkout -b '$newbranch'"
+    runcmd "popd"
   fi
 }
 
@@ -479,6 +541,75 @@ function get_revision_id() {
 }
 
 ##
+# submit_pr $1 $2 $3 $4
+#
+#   $1 - title of PR
+#   $2 - base branch to submit PR against, usually master
+#   $3 - head or commit of local change, usually HEAD
+#   $4 - body of PR message
+#
+# Assumes you are inside the directory of a local clone of
+# an LSR repo.  Assumes the LSR repo is the git remote "origin"
+# and you are pus
+function submit_pr() {
+  local title="$1"
+  local base="$2"
+  local head="$3"
+  local body="$4"
+  local PAYLOAD
+  if [[ $USE_HUB = true ]]; then
+    local fixbody=$( printf "$body" )
+    PAYLOAD=$(cat <<-EOFa
+		$title
+		
+		$fixbody
+		EOFa
+    )
+    runcmd "hub pull-request -m '$PAYLOAD' -b $base -h $head"
+  else
+    PAYLOAD=$(cat <<-EOFb
+		{"title":"$title",
+		"base":"$base",
+		"head":"$head",
+		"body":"$body"}
+		EOFb
+    )
+    runcmd "curl -u '${GIT_USER}:${GITHUB_TOKEN}' -X POST -d '${PAYLOAD}' 'https://api.github.com/repos/${LSR_GROUP}/${REPO}/pulls'"
+  fi
+}
+
+##
+# github_push $1 $2 $3 $4
+#
+#   $1 - title of PR
+#   $2 - base branch to submit PR against, usually master
+#   $3 - head or commit of local change, usually HEAD
+#   $4 - body of PR message
+#
+# Assumes you are inside the directory of a local clone of
+# an LSR repo.  Pushes
+function github_push() {
+  local reponame=$1
+  if [[ $USE_HUB = true ]]; then
+    # use the first non-origin upstream to push to
+    local remote
+    local item
+    for item in $( git remote ) ; do
+      if [ $item != origin ] ; then
+        remote="$item"
+        break
+      fi
+    done
+    if [[ -z "${remote:-}" ]] ; then
+      error Cannot push to origin - set up remote for $( pwd ) - $( git remote -v )
+    fi
+    runcmd "git push '$remote' '${SYNC_BRANCH}'"
+  else
+    runcmd "git push 'https://${GITHUB_TOKEN}:@github.com/${LSR_GROUP}/$reponame' -u '${SYNC_BRANCH}'"
+  fi
+}
+
+##
 # do_sync
 #
 # Synchronize common template files across system roles repositories.
@@ -489,31 +620,25 @@ function do_sync() {
 
   runcmd "pushd ${WORKDIR}"
 
-  get_template_repo
+  get_repo $FROM_REPO $FROM_BRANCH
   get_revision_id GIT_HEAD
 
-  PAYLOAD=$(cat <<-EOF
-	{"title":"Synchronize files from ${LSR_TEMPLATE_NS}",
-	"base":"master",
-	"head":"${SYNC_BRANCH}",
-	"body":"This PR propagates files from [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) which should be in sync across [${LSR_GROUP}](${GITHUB}/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) repo.\n$(put_revision ${GIT_HEAD})\n$(expand_contacts)"}
-	EOF
-  )
-
   for REPO in ${REPOLIST}; do
-    inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."
+    inform "Synchronizing ${REPO} with ../${LSR_TEMPLATE}."
     runcmd "[[ -d \"${REPO}\" ]] && rm -rfd ${REPO} || :"
-    runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
+    if [[ $USE_HUB = true ]]; then
+      url=${LSR_GROUP}/${REPO}
+    else
+      url=${GITHUB}/${LSR_GROUP}/${REPO}.git
+    fi
+    get_repo $url master ${SYNC_BRANCH} ${GIT_USER} ${GIT_EMAIL}
     runcmd "pushd ${REPO}"
-    runcmd "git config --local user.name '${GIT_USER}'"
-    runcmd "git config --local user.email '${GIT_EMAIL}'"
-    runcmd "git checkout -b '${SYNC_BRANCH}'"
     copy_template_files ../${LSR_TEMPLATE} .
     if [[ "${DRY_RUN}" || "$(git status --porcelain)" ]]; then
-      runcmd "git add ."
-      runcmd "git commit -m 'Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}'"
-      if runcmd "git push 'https://${GITHUB_TOKEN}:@github.com/${LSR_GROUP}/${REPO}' -u '${SYNC_BRANCH}'"; then
-        runcmd "curl -u '${GIT_USER}:${GITHUB_TOKEN}' -X POST -d '${PAYLOAD}' 'https://api.github.com/repos/${LSR_GROUP}/${REPO}/pulls'"
+      runcmd "git commit -a -m 'Synchronize files from ${FROM_REPO}'"
+      if github_push ${REPO}; then
+        submit_pr "Synchronize files from ${LSR_TEMPLATE_NS}" master "${SYNC_BRANCH}" \
+                  "This PR propagates files from [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) which should be in sync across [${LSR_GROUP}](${GITHUB}/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) repo.\n$(put_revision ${GIT_HEAD})\n$(expand_contacts)"
       fi
     fi
     runcmd "popd"

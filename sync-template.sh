@@ -26,8 +26,13 @@ LSR_GROUP="linux-system-roles"
 LSR_TEMPLATE="template"
 LSR_TEMPLATE_NS="${LSR_GROUP}/${LSR_TEMPLATE}"
 LSR_TEMPLATE_REPO="${GITHUB}/${LSR_TEMPLATE_NS}.git"
+LSR_FORK_PREFIX=${LSR_FORK_PREFIX:-"${LSR_GROUP}-"}
+# this is the name of the git remote to use for the user's
+# fork of the lsr repo
+LSR_FORK_REMOTE=${LSR_FORK_REMOTE:-"lsr-user-remote"}
 
 FILES=(
+  '--copy=.ansible-lint'
   '--copy-if-missing=.gitignore'
   '--copy-if-missing=.lgtm.yml'
   '--ensure-directory=.travis'
@@ -45,18 +50,19 @@ FILES=(
   '--copy=.travis/utils.sh'
   '--copy=.travis.yml'
   '--copy-if-missing=custom_requirements.txt'
-  '--copy-if-missing=LICENSE'
   '--copy-recursively=molecule'
   '--copy-if-missing=molecule_extra_requirements.txt'
   '--copy-if-missing=pylint_extra_requirements.txt'
   '--copy-if-missing=pytest_extra_requirements.txt'
-  '--copy-if-missing=pytest26_extra_requirements.txt'
-  '--copy-if-missing=ansible26_requirements.txt'
+  '--copy-if-missing=ansible_pytest_extra_requirements.txt'
   '--copy=pylintrc'
   '--copy=tox.ini'
   '--copy-if-missing=.yamllint.yml'
   '--copy=.yamllint_defaults.yml'
   '--copy=tests/setup_module_utils.sh'
+  '--remove-file=molecule/default/yamllint.yml'
+  '--remove-file=pytest26_extra_requirements.txt'
+  '--remove-file=ansible26_requirements.txt'
 )
 declare -A IGNORE_IF_MISSING_MAP
 
@@ -137,17 +143,27 @@ function runcmd() {
 }
 
 ##
-# ensure_directory $1
+# ensure_directory $1 [$2]
 #
 #   $1 - path to directory
+#   $2 - optional - directory under $1 to create
 #
-# Create $1 if it does not exist. If INHELP is non-empty, only print what will
+# If both $1 and $2 are given, then $1 is the repo directory which should
+# should already exist, and $2 is the sub-directory under it to create if
+# it does not exist. If INHELP is non-empty, only print what will
 # be done to standard output, indented with ${INDENT}.
 function ensure_directory() {
+  local newdir=$1
+  if [[ -n "${2:-}" ]]; then
+    newdir="$newdir/$2"
+  fi
   if [[ "${INHELP}" ]]; then
-    echo "${INDENT}create $1 if it does not exist"
+    echo "${INDENT}create $newdir if it does not exist"
   else
-    runcmd "(test -d $1 || mkdir -vp $1)"
+    runcmd "(test -d $newdir || mkdir -vp $newdir)"
+    if [[ -n "${2:-}" ]]; then
+      runcmd "git add '$2'"
+    fi
   fi
 }
 
@@ -170,6 +186,7 @@ function copy_file() {
       inform "[\`$COMMAND\` ignored with note: '$1/$3' does not exist]"
     else
       runcmd "${COMMAND}"
+      runcmd "git add '$3'"
     fi
   fi
 }
@@ -192,7 +209,13 @@ function copy_missing() {
     if [[ ! -e "$1/$3" && "${IGNORE_IF_MISSING_MAP[$3]:-}" ]]; then
       inform "[\`$COMMAND\` ignored with note: '$1/$3' does not exist]"
     else
-      runcmd "(test -e $2/$3 || ${COMMAND})"
+      if [[ "${FORCE_COPY:-false}" == true && -e $2/$3 ]]; then
+        FORCE_COPY_FILES+=("$3")
+        runcmd "${COMMAND}"
+      else
+        runcmd "(test -e $2/$3 || ${COMMAND})"
+      fi
+      runcmd "git add '$3'"
     fi
   fi
 }
@@ -211,12 +234,31 @@ function copy_recursive() {
   if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1/$3 to $2 recursively"
   else
-    COMMAND="cp -vrf $1/$3 $2"
-    if [[ ! -d "$1/$3" && "${IGNORE_IF_MISSING_MAP[$3]:-}" ]]; then
-      inform "[\`$COMMAND\` ignored with note: '$1/$3' does not exist]"
-    else
-      runcmd "${COMMAND}"
-    fi
+    ensure_directory $2 $3
+    local src
+    local dest
+    for src in $(find $1/$3); do
+      dest=${src#$1/}
+      if [[ -d $src ]]; then
+        ensure_directory $2 $dest
+      else
+        copy_file $1 $2 $dest
+      fi
+    done
+  fi
+}
+
+##
+# remove_file $1
+#
+#   $1 - file to remove
+#
+# Removes the given file from the repo and from git (git rm)
+function remove_file() {
+  if [[ "${INHELP}" ]]; then
+    echo "${INDENT}remove_file $1"
+  else
+    runcmd "git rm -f --ignore-unmatch $1"
   fi
 }
 
@@ -242,7 +284,7 @@ function copy_template_files() {
   for F in "${FILES[@]}"; do
     case "$F" in
       --ensure-directory=*)
-        ensure_directory "$2/${F#*=}"
+        ensure_directory "$2" "${F#*=}"
         ;;
       --copy=*)
         copy_file "$1" "$2" "${F#*=}"
@@ -252,6 +294,9 @@ function copy_template_files() {
         ;;
       --copy-recursively=*)
         copy_recursive "$1" "$2" "${F#*=}"
+        ;;
+      --remove-file=*)
+        remove_file "${F#*=}"
         ;;
       *)
         error "${ME}: In ${FUNCNAME[0]}: Unknown option '$F'."
@@ -321,6 +366,12 @@ where [options] are
       $HOME/linux-system-roles/template to
       $HOME/linux-system-roles/REPO in order to test "tox" and
       other commands
+
+  --preserve, -p
+      preserve the repos in \$WORKDIR - otherwise, assumes the
+      repos in \$WORKDIR are temporary and will remove them -
+      if you use \$WORKDIR as your $HOME/workingdir,
+      USE --preserve to avoid wiping out your work
 
 The synchronization is done in the following way:
 
@@ -399,12 +450,18 @@ function process_options() {
       --local | -l)
         LOCAL=true
         ;;
+      --preserve | -p)
+        PRESERVE=true
+        ;;
+      --force-copy)
+        FORCE_COPY=true
+        ;;
       --help | -h)
         usage
         exit 0
         ;;
       --clean)
-        if [[ -z "${LOCAL}" ]]; then
+        if [[ -z "${PRESERVE:-}" ]]; then
           rm -rfd ${WORKDIR}
           exit 0
         fi
@@ -419,6 +476,27 @@ function process_options() {
 
 process_options "$@"
 
+# commands needed in order to use hub (USE_HUB=true)
+hub_required_cmds="hub jq"
+hub_missing_cmds=""
+
+for cmd in $hub_required_cmds; do
+  if ! type -p $cmd > /dev/null 2>&1; then
+    hub_missing_cmds="$hub_missing_cmds $cmd"
+  elif [[ $cmd == hub && -z "${USE_HUB:-}" ]]; then
+    USE_HUB=true
+  fi
+done
+
+if [[ "${USE_HUB:-false}" == true && -n "$hub_missing_cmds" ]]; then
+  error "Missing commands required to use hub: $hub_missing_cmds - e.g. on Fedora - dnf -y install $hub_missing_cmds"
+elif [[ "${USE_HUB:-notset}" == false || "${USE_HUB:-notset}" == true ]]; then
+  USE_HUB=${USE_HUB:-false}
+else
+  error "Invalid value $USE_HUB - must be 'true' or 'false'"
+fi
+# at this point, USE_HUB is set to true or false and is safe to use without quotes/braces
+
 DRY_RUN="${DRY_RUN:-}"
 GIT_USER="${GIT_USER:-${GIT_USER_DEFAULT}}"
 GIT_EMAIL="${GIT_EMAIL:-${USER2EMAIL_MAP[${GIT_USER}]:-}}"
@@ -429,6 +507,27 @@ CONTACTS="${CONTACTS:-${CONTACTS_DEFAULT}}"
 export GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 REPOLIST="${REPOLIST:-}"
 REPOLIST="${REPOLIST//,/ }"
+if [[ $USE_HUB == true ]]; then
+  case $FROM_REPO in
+      http://github.com/*) error "http URLs are not supported: $FROM_REPO" ;;
+      https://github.com/*) FROM_REPO_HUB=${FROM_REPO#https://github.com/} ;;
+      *github.com:*) FROM_REPO_HUB=${FROM_REPO#*github.com:} ;;
+      *) info "${ME}: FROM_REPO $FROM_REPO not a recognized github repo - cannot use hub";
+         USE_HUB=false ;;
+  esac
+  if [[ "${FROM_REPO_HUB:-}" ]]; then
+    FROM_REPO=${FROM_REPO_HUB%.git}
+  fi
+fi
+declare -a FORCE_COPY_FILES=()
+
+function get_hub_user() {
+  awk '/user:/ {print $NF}' $HOME/.config/hub
+}
+
+if [[ $USE_HUB == true ]]; then
+  GIT_USER=$( get_hub_user )
+fi
 
 ##
 # check_required_options
@@ -438,7 +537,11 @@ function check_required_options() {
   if [[ -z "${REPOLIST}" ]]; then
     error "${ME}: No repos (REPOLIST) were specified. Terminating."
   fi
-  if [[ -n "${LOCAL}" ]]; then
+  if [[ -n "${LOCAL:-}" ]]; then
+    return
+  fi
+  if [[ $USE_HUB == true ]]; then
+    # if using hub, git options not required
     return
   fi
   if [[ -z "${GITHUB_TOKEN}" ]]; then
@@ -473,20 +576,124 @@ function expand_contacts() {
 }
 
 ##
-# get_template_repo
+# fork_repo
 #
-# Get the repo with common template.
-function get_template_repo() {
-  if [[ -d "${LSR_TEMPLATE}" ]]; then
-    runcmd "pushd ${LSR_TEMPLATE}"
+#    $1 - name of repo
+#
+# Forks the current repo under the current user.  Names the forked repo to
+# have a "linux-system-roles-" prefix if the fork was created by this command.
+# If the user has already created a fork under a different name, just use that
+# name for the repo.  Assumes the command is being run from a local clone of a
+# github.com/linux-system-roles/REPO Creates a git remote named
+# $LSR_FORK_REMOTE for the forked repo.  If there is already a git remote
+# pointing to the forked repo, it will be untouched. For example, if in
+# $HOME/linux-system-roles/timesync, calling `fork_repo` will create
+# https://github.com/$GIT_USER/linux-system-roles-timesync, and the git remote
+# $LSR_FORK_REMOTE will point to
+# git@github.com:$GIT_USER/linux-system-roles-timesync
+# If this seems a bit excessive, note that
+# - it is much more difficult to use the api to determine if the user has
+#   already forked a repo under a different repo name
+# - the fork api gives no indication that a new fork was created - it will
+#   always return success even if there is already a fork
+# - the fork api does not have a way to specify the name of the forked repo
+#   this is currently under development - at which point, all of the timestamp
+#   and rename stuff can be replaced with
+#   hub api -X POST /repos/$LSR_GROUP/$reponame/forks -F name=$newname
+# - the name of the newly forked repo might not be $reponame - consider the case
+#   where the user already has e.g. user/projectA which is completely unrelated
+#   to linux-system-roles/projectA, and attempts to fork linux-system-roles/projectA
+#   the github API will auto-generate a unique name e.g. user/projectA-1 - this is
+#   why we have to get the forkname returned by the api
+function fork_repo() {
+  local reponame="$1"
+  local newname="${LSR_FORK_PREFIX}$reponame"
+  HUB_VERBOSE=true runcmd "hub api -X POST /repos/$LSR_GROUP/$reponame/forks" > /dev/null 2>&1
+  local forkname=$(grep -m 1 '^{' $STDERR | jq -r '.name')
+  local fullname=$(grep -m 1 '^{' $STDERR | jq -r '.full_name')
+  # NOTE: There is apparently a bug in the jq fromdateiso8601/fromdate filter - it will report
+  # the date 1 hour in the future - I have found experimentally that the `date` command
+  # is able to accurately parse the timestamp string
+  local create_ts=$(grep -m 1 '^{' $STDERR | jq -r '.created_at')
+  local create_ts_sec=$(date +%s --date="$create_ts")
+  local diff_sec=$(expr $(date +%s) - $create_ts_sec) || :
+  # abs
+  case "$diff_sec" in
+  -*) diff_sec=$(expr 0 - $diff_sec) || : ;;
+  esac
+  # assume if repo was created less than 30 seconds ago, we created it above with
+  # the fork - if so, rename it
+  if [ $diff_sec -lt 30 ] ; then
+    # rename the newly created repo with the LSR prefix
+    runcmd "hub api -X PATCH /repos/$GIT_USER/$forkname -F 'name=$newname'" > /dev/null
+    fullname=$GIT_USER/$newname
+  fi
+  # make sure there is a git remote for the new repo
+  if git remote | grep -q -F -x "$LSR_FORK_REMOTE" ; then
+    runcmd "git remote rm '$LSR_FORK_REMOTE'"
+  fi
+  runcmd "git remote add '$LSR_FORK_REMOTE' git@github.com:$fullname"
+  runcmd "git fetch '$LSR_FORK_REMOTE'"
+}
+
+##
+# get_repo
+#
+#    $1 - URL of repo to clone e.g. https://github.com/org/reponame.git
+#         if using hub, then it can be just org/reponame
+#    $2 - branch to checkout
+#    $3 - new branch to create from $2 using checkout -b $3 (optional)
+#    $4 - git user name (not used with hub)
+#    $5 - git email (not used with hub)
+#
+# clone the given repo, checked out to the given
+# branch, set it up for git commit/push
+function get_repo() {
+  local repo=$1
+  local branch=$2
+  local newbranch=${3:-}
+  local gituser=${4:-}
+  local gitemail=${5:-}
+  local repodir=$( basename $repo .git )
+
+  if [[ -d "$repodir" ]]; then
+    runcmd "pushd '$repodir'"
     runcmd "git fetch"
-    runcmd "git checkout '${FROM_BRANCH}'"
-    if [[ -z "${LOCAL}" ]]; then
+    if [[ -z "$newbranch" ]]; then
+      runcmd "git checkout '$branch'"
+    fi
+    if [[ -z "${LOCAL:-}" ]] && git rev-parse @{u} > /dev/null 2>&1 ; then
       runcmd "git pull"
     fi
     runcmd "popd"
+  elif [[ $USE_HUB == true ]]; then
+    runcmd "hub clone -b '$branch' '$repo' '$repodir'"
   else
-    runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
+    runcmd "git clone -b '$branch' '$repo' '$repodir'"
+    if [[ -n "$gituser" && -n "$gitemail" ]]; then
+      runcmd "pushd $repodir"
+      runcmd "git config --local user.name '$gituser'"
+      runcmd "git config --local user.email '$gitemail'"
+      runcmd "popd"
+    fi
+  fi
+  if [[ $USE_HUB == true && -z "${LOCAL:-}" ]]; then
+    # make sure we have a fork of the repo, and that we have
+    # a git remote to push to, that we have fetched from the remote
+    runcmd "pushd '$repodir'"
+    fork_repo "$repodir"
+    runcmd "popd"
+  fi
+  if [[ -n "$newbranch" ]]; then
+    runcmd "pushd '$repodir'"
+    if runcmd "git checkout '$newbranch'"; then
+      if [[ -z "${LOCAL:-}" ]] && git rev-parse @{u} > /dev/null 2>&1 ; then
+        runcmd "git pull"
+      fi
+    else
+      runcmd "git checkout -b '$newbranch'"
+    fi
+    runcmd "popd"
   fi
 }
 
@@ -503,6 +710,105 @@ function get_revision_id() {
 }
 
 ##
+# pr_exists $1
+#
+#   $1 - branch that was used for the PR
+#
+# Assumes $GIT_USER is set correctly.  Assumes this function is being
+# run from the repo directory.
+#
+# Returns 0 if there is already a PR for this user + branch, 1 otherwise.
+function pr_exists() {
+  if [[ $USE_HUB == true ]]; then
+    #runcmd "hub pr list -h $GIT_USER:$1 -f %I" pr_exists_prnum
+    # seems to be a bug in hub pr list, which also affects the github api
+    # not sure how I got into this situation, but I have a case where
+    # hub pr list -h richm:my-branch does not return my PR, even though
+    # if I do hub pr list -f '%H%n' it shows head richm:my-branch
+    # so for now, just use the output piped through a filter :-(
+    runcmd "hub pr list -f '%H%n' | grep -q -F -x '$GIT_USER:$1'" IGNOREME > /dev/null 2>&1
+  else
+    return 1
+  fi
+}
+
+##
+# submit_pr $1 $2 $3 $4
+#
+#   $1 - title of PR
+#   $2 - base branch to submit PR against, usually master
+#   $3 - head or commit of local change, usually HEAD
+#   $4 - body of PR message
+#
+# Assumes you are inside the directory of a local clone of
+# an LSR repo.  Assumes the LSR repo is the git remote "origin".
+function submit_pr() {
+  local title="$1"
+  local base="$2"
+  local head="$3"
+  local body="$4"
+  local PAYLOAD
+  if [[ $USE_HUB == true ]]; then
+    # if there is already a PR for this branch, then the previous git push
+    # will have updated that PR
+    if pr_exists $head ; then
+      inform There is already a PR for $head - existing PR will be updated
+      return
+    fi
+    local fixbody=$( printf "$body" )
+    PAYLOAD=$(cat <<-EOFa
+		$title
+		
+		$fixbody
+		EOFa
+    )
+    runcmd "hub pull-request -m '$PAYLOAD' -b $base -h $head"
+  else
+    PAYLOAD=$(cat <<-EOFb
+		{"title":"$title",
+		"base":"$base",
+		"head":"$head",
+		"body":"$body"}
+		EOFb
+    )
+    runcmd "curl -u '${GIT_USER}:${GITHUB_TOKEN}' -X POST -d '${PAYLOAD}' 'https://api.github.com/repos/${LSR_GROUP}/${REPO}/pulls'"
+  fi
+}
+
+##
+# github_push $1 $2
+#
+#   $1 - push to this remote branch
+#   $2 - reponame - not needed for hub
+#
+# Assumes you are inside the directory of a local clone of
+# an LSR repo.
+function github_push() {
+  local branch="$1"
+  local reponame=$2
+  if [[ $USE_HUB == true ]]; then
+    # use the first non-origin upstream to push to
+    local remote
+    local item
+    for item in $( git remote ) ; do
+      if [[ $item == $LSR_FORK_REMOTE ]] ; then
+        remote="$item"
+        break
+      elif [[ $item == $GIT_USER ]] ; then
+        remote="$item"
+        break
+      fi
+    done
+    if [[ -z "${remote:-}" ]] ; then
+      error "Cannot push to origin - no git remote for $GIT_USER - set up remote for $( pwd ) - $( git remote -v )"
+    fi
+    runcmd "git push '$remote' '${branch}'"
+  else
+    runcmd "git push 'https://${GITHUB_TOKEN}:@github.com/${LSR_GROUP}/$reponame' -u '${branch}'"
+  fi
+}
+
+##
 # do_sync
 #
 # Synchronize common template files across system roles repositories.
@@ -513,41 +819,39 @@ function do_sync() {
 
   runcmd "pushd ${WORKDIR}"
 
-  get_template_repo
+  get_repo $FROM_REPO $FROM_BRANCH
   get_revision_id GIT_HEAD
-
-  PAYLOAD=$(cat <<-EOF
-	{"title":"Synchronize files from ${LSR_TEMPLATE_NS}",
-	"base":"master",
-	"head":"${SYNC_BRANCH}",
-	"body":"This PR propagates files from [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) which should be in sync across [${LSR_GROUP}](${GITHUB}/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) repo.\n$(put_revision ${GIT_HEAD})\n$(expand_contacts)"}
-	EOF
-  )
 
   for REPO in ${REPOLIST}; do
     inform "Synchronizing ${REPO} with ../${LSR_TEMPLATE}."
-    if [[ -z "${LOCAL}" ]]; then
-      runcmd "[[ -d \"${REPO}\" ]] && rm -rfd ${REPO} || :"
-      runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
-    elif [[ ! -d "${REPO}" ]]; then
-      runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
+    if [[ $USE_HUB == true ]]; then
+      url=${LSR_GROUP}/${REPO}
+    else
+      url=${GITHUB}/${LSR_GROUP}/${REPO}.git
     fi
+    if [[ -z "${PRESERVE:-}" ]]; then
+      runcmd "[[ -d \"${REPO}\" ]] && rm -rfd ${REPO} || :"
+    fi
+    get_repo $url master "${SYNC_BRANCH}" ${GIT_USER} ${GIT_EMAIL}
     runcmd "pushd ${REPO}"
-    runcmd "git checkout -b '${SYNC_BRANCH}'"
     copy_template_files ../${LSR_TEMPLATE} .
-    if [[ -n "${LOCAL}" ]]; then
-      runcmd "popd"
+    if [[ -n "${LOCAL:-}" ]]; then
       continue
     fi
-    runcmd "git config --local user.name '${GIT_USER}'"
-    runcmd "git config --local user.email '${GIT_EMAIL}'"
-    runcmd "git checkout -b '${SYNC_BRANCH}'"
-    if [[ "${DRY_RUN}" || "$(git status --porcelain)" ]]; then
-      runcmd "git add ."
-      runcmd "git commit -m 'Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}'"
-      if runcmd "git push 'https://${GITHUB_TOKEN}:@github.com/${LSR_GROUP}/${REPO}' -u '${SYNC_BRANCH}'"; then
-        runcmd "curl -u '${GIT_USER}:${GITHUB_TOKEN}' -X POST -d '${PAYLOAD}' 'https://api.github.com/repos/${LSR_GROUP}/${REPO}/pulls'"
+    if [[ "${DRY_RUN}" || "$(git status -uno --porcelain)" ]]; then
+      if [[ "${FORCE_COPY:-false}" == true && -n "${FORCE_COPY_FILES}" ]]; then
+        report_failure "In $(pwd)"
+        report_failure "Not committing - force-copy used and some files were force copied"
+        error "you will need to manually merge, add, and commit the following files: ${FORCE_COPY_FILES[*]}"
       fi
+      runcmd "git commit -a -m 'Synchronize files from ${FROM_REPO}'"
+      if github_push "${SYNC_BRANCH}" ${REPO}; then
+        submit_pr "Synchronize files from ${LSR_TEMPLATE_NS}" master "${SYNC_BRANCH}" \
+                  "This PR propagates files from [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) which should be in sync across [${LSR_GROUP}](${GITHUB}/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) repo.\n$(put_revision ${GIT_HEAD})\n$(expand_contacts)"
+      fi
+    elif [[ "$(git status --porcelain)" ]]; then
+      inform There are some untracked files in ${FROM_REPO}
+      git status --porcelain
     fi
     runcmd "popd"
   done

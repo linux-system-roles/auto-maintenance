@@ -19,7 +19,7 @@ GIT_EMAIL_DEFAULT='39708361+systemroller@users.noreply.github.com'
 declare -A USER2EMAIL_MAP=( [${GIT_USER_DEFAULT}]="${GIT_EMAIL_DEFAULT}" )
 FROM_BRANCH_DEFAULT='master'
 SYNC_BRANCH_DEFAULT='lsr-template-sync'
-CONTACTS_DEFAULT='i386x,pcahyna'
+CONTACTS_DEFAULT='i386x,pcahyna,richm'
 
 GITHUB="https://github.com"
 LSR_GROUP="linux-system-roles"
@@ -525,3 +525,8 @@ function do_sync() {
 }
 
 do_sync
+
+# Local Variables:
+# mode: Shell-script
+# sh-basic-offset: 2
+# End:

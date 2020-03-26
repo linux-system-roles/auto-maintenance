@@ -51,6 +51,7 @@ FILES=(
   '--copy-if-missing=pylint_extra_requirements.txt'
   '--copy=pylintrc'
   '--copy=tox.ini'
+  '--copy=tests/setup_module_utils.sh'
 )
 declare -A IGNORE_IF_MISSING_MAP
 

@@ -5,7 +5,7 @@ set -euo pipefail
 
 ME=$(basename $0)
 HERE=${PWD}
-WORKDIR="${HOME}/.cache/${ME%.*}"
+WORKDIR="${WORKDIR:-${HOME}/.cache/${ME%.*}}"
 STDOUT=$(mktemp /tmp/${ME%.*}-XXXXXX.stdout)
 STDERR=$(mktemp /tmp/${ME%.*}-XXXXXX.stderr)
 
@@ -49,8 +49,13 @@ FILES=(
   '--copy-recursively=molecule'
   '--copy-if-missing=molecule_extra_requirements.txt'
   '--copy-if-missing=pylint_extra_requirements.txt'
+  '--copy-if-missing=pytest_extra_requirements.txt'
+  '--copy-if-missing=pytest26_extra_requirements.txt'
+  '--copy-if-missing=ansible26_requirements.txt'
   '--copy=pylintrc'
   '--copy=tox.ini'
+  '--copy-if-missing=.yamllint.yml'
+  '--copy=.yamllint_defaults.yml'
   '--copy=tests/setup_module_utils.sh'
 )
 declare -A IGNORE_IF_MISSING_MAP
@@ -296,7 +301,7 @@ where [options] are
       missing then a file system operation will be skipped;
 
   --repolist, -r
-      comma separeted list of repositories for which the synchronization is
+      comma separated list of repositories for which the synchronization is
       applicable;
 
   --token, -t
@@ -308,6 +313,14 @@ where [options] are
           --user "John Doe <jdoe@github.com>"
 
       (default: "${GIT_USER_DEFAULT} <${GIT_EMAIL_DEFAULT}>").
+
+  --local, -l
+      work locally only - assumes \$WORKDIR is your local working
+      copy of linux-system-roles e.g. $HOME/linux-system-roles -
+      assumes you just want to copy files locally from
+      $HOME/linux-system-roles/template to
+      $HOME/linux-system-roles/REPO in order to test "tox" and
+      other commands
 
 The synchronization is done in the following way:
 
@@ -383,13 +396,18 @@ function process_options() {
         shift
         REPOLIST="$1"
         ;;
+      --local | -l)
+        LOCAL=true
+        ;;
       --help | -h)
         usage
         exit 0
         ;;
       --clean)
-        rm -rfd ${WORKDIR}
-        exit 0
+        if [[ -z "${LOCAL}" ]]; then
+          rm -rfd ${WORKDIR}
+          exit 0
+        fi
         ;;
       *)
         error "${ME}: Unknown option '$1'. Type '$0 --help' for help."
@@ -417,11 +435,14 @@ REPOLIST="${REPOLIST//,/ }"
 #
 # Check if required options are provided.
 function check_required_options() {
-  if [[ -z "${GITHUB_TOKEN}" ]]; then
-    error "${ME}: GitHub token (GITHUB_TOKEN) not set. Terminating."
-  fi
   if [[ -z "${REPOLIST}" ]]; then
     error "${ME}: No repos (REPOLIST) were specified. Terminating."
+  fi
+  if [[ -n "${LOCAL}" ]]; then
+    return
+  fi
+  if [[ -z "${GITHUB_TOKEN}" ]]; then
+    error "${ME}: GitHub token (GITHUB_TOKEN) not set. Terminating."
   fi
   if [[ -z "${GIT_USER}" ]]; then
     error "${ME}: Git user name is missing. Terminating."
@@ -460,7 +481,9 @@ function get_template_repo() {
     runcmd "pushd ${LSR_TEMPLATE}"
     runcmd "git fetch"
     runcmd "git checkout '${FROM_BRANCH}'"
-    runcmd "git pull"
+    if [[ -z "${LOCAL}" ]]; then
+      runcmd "git pull"
+    fi
     runcmd "popd"
   else
     runcmd "git clone -b '${FROM_BRANCH}' '${FROM_REPO}' '${LSR_TEMPLATE}'"
@@ -502,14 +525,23 @@ function do_sync() {
   )
 
   for REPO in ${REPOLIST}; do
-    inform "Synchronizing ${REPO} wiht ../${LSR_TEMPLATE}."
-    runcmd "[[ -d \"${REPO}\" ]] && rm -rfd ${REPO} || :"
-    runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
+    inform "Synchronizing ${REPO} with ../${LSR_TEMPLATE}."
+    if [[ -z "${LOCAL}" ]]; then
+      runcmd "[[ -d \"${REPO}\" ]] && rm -rfd ${REPO} || :"
+      runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
+    elif [[ ! -d "${REPO}" ]]; then
+      runcmd "git clone '${GITHUB}/${LSR_GROUP}/${REPO}.git' '${REPO}'"
+    fi
     runcmd "pushd ${REPO}"
+    runcmd "git checkout -b '${SYNC_BRANCH}'"
+    copy_template_files ../${LSR_TEMPLATE} .
+    if [[ -n "${LOCAL}" ]]; then
+      runcmd "popd"
+      continue
+    fi
     runcmd "git config --local user.name '${GIT_USER}'"
     runcmd "git config --local user.email '${GIT_EMAIL}'"
     runcmd "git checkout -b '${SYNC_BRANCH}'"
-    copy_template_files ../${LSR_TEMPLATE} .
     if [[ "${DRY_RUN}" || "$(git status --porcelain)" ]]; then
       runcmd "git add ."
       runcmd "git commit -m 'Synchronize files from ${LSR_GROUP}/${LSR_TEMPLATE}'"
@@ -522,7 +554,7 @@ function do_sync() {
 
   runcmd "popd"
 
-  report_success "All repositories was synchronized with the template successfully."
+  report_success "All repositories were synchronized with the template successfully."
 }
 
 do_sync

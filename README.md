@@ -54,25 +54,20 @@ standard PR workflow of pushing a change to your personal github fork and
 submitting a PR from there.  This allows you to force push subsequent changes
 to update existing PRs, or otherwise alter PRs with your account.
 
-NOTE: This mode requires the use of the `hub` and `jq` command line tools.  If
-you have `hub` and `jq` in your path, the script will assume you want to use
-this mode unless you set the environment variable `USE_HUB=false` for force
-the script to not use `hub`.
+NOTE: This mode requires the use of the `hub` and `jq` command line tools.
 
 Use the script like this:
 ```
-WORKDIR=~/linux-system-roles ./sync-template.sh --preserve [--local] \
+./sync-template.sh --use-hub --workdir $HOME/linux-system-roles \
     --repolist repo1[,repo2,repo3,...] [--branch lsr-template-sync] \
-    [--from-branch master] [--force-copy]
+    [--from-branch master] [--force-copy] [--local]
 ```
-Where `WORKDIR` is the parent directory for your local clone of
+Where `--workdir` is the parent directory for your local clone of
 `https://github.com/linux-system-roles/template`, and of the other repos in
 `https://github.com/linux-system-roles`.
-The `--preserve` flag means "do not rm -rf my local working copy of the
-upstream repo because I may have changes there I want to keep".
 Use `--local` if you just want to work locally - no git push or pull (but it
-will still git clone an upstream repo and fork it if you specify a `--repolist
-REPO` that you do not have a local copy of.)
+will still git clone an upstream repo and fork it if you specify a
+`--repolist REPO` that you do not have a local copy of.)
 Use `--force-copy` if you want to copy files which the repo has customized
 (e.g. `.travis/config.sh`), and you need to update it anyway, merging in the
 changes from `template` manually.  If there are such changes, the script will
@@ -82,7 +77,7 @@ Typical workflow:
 
 ```
 cd ~/linux-system-roles/auto-maintenance
-WORKDIR=~/linux-system-roles ./sync-template.sh --repolist somerepo --preserve --local ...other args...
+./sync-template.sh --use-hub --workdir $HOME/linux-system-roles --repolist somerepo --local ...other args...
 cd ../somerepo
 # if using --force-copy, manually merge files
 tox # qemu tests, molecule tests, etc. - note errors
@@ -94,7 +89,7 @@ cd ../auto-maintenance
 Then, once everything looks fine locally:
 ```
 cd ~/linux-system-roles/auto-maintenance
-WORKDIR=~/linux-system-roles ./sync-template.sh --repolist somerepo --preserve ...other args...
+./sync-template.sh --use-hub --workdir $HOME/linux-system-roles --repolist somerepo ...other args...
 ```
 to submit the PR.  If there are errors, then
 ```
@@ -103,6 +98,6 @@ cd ~/linux-system-roles/template
 cd ../somerepo
 # fix repo specific files/customizations
 cd ../auto-maintenance
-WORKDIR=~/linux-system-roles ./sync-template.sh --repolist somerepo --preserve ...other args...
+./sync-template.sh --use-hub --workdir $HOME/linux-system-roles --repolist somerepo ...other args...
 ```
 to submit another commit for this PR.

@@ -371,7 +371,24 @@ where [options] are
       preserve the repos in \$WORKDIR - otherwise, assumes the
       repos in \$WORKDIR are temporary and will remove them -
       if you use \$WORKDIR as your $HOME/workingdir,
-      USE --preserve to avoid wiping out your work
+      USE --preserve to avoid wiping out your work.  Using
+      --workdir will automatically set PRESERVE=true.
+
+  --use-hub
+      Use the "hub" command line tool to interact with github.
+      This also means you will be using your personal github
+      account instead of the $GIT_USER_DEFAULT service account.
+      This also means you will have a fork of the repos in your
+      personal github, prefixed with the string "$LSR_FORK_PREFIX",
+      and the pull requests will be created from your personal forks;
+
+  --workdir
+      Name of your local working directory where the template and
+      repo directories will be cloned, instead of a temporary
+      directory.  Use this when you have a local clone of the repos
+      e.g. $HOME/linux-system-roles and you want to interactively
+      work on those changes locally.  This will set PRESERVE=true
+      so you will not lose any local work.
 
 The synchronization is done in the following way:
 
@@ -381,7 +398,7 @@ The synchronization is done in the following way:
 
        3.1 clone the \$REPO from ${GITHUB}/${LSR_GROUP}/\${REPO}.git
        3.2 cd to \$REPO
-       3.3. configure git user.name and user.email for --user locally
+       3.3. if not --use-hub, configure git user.name and user.email for --user locally
        3.4. create a --branch and checkout to it
        3.5. then
 
@@ -396,6 +413,12 @@ EXAMPLES
   from <${LSR_TEMPLATE_REPO}> as a user John Doe:
 
     ./$ME -u "John Doe <jd123@company.com>" -r myrole -t fa1afe1caffebeef1ee7facadedecade7001f001
+
+  Using "hub", create a fork of the repo in your personal github, push the changes to that,
+  open a pull request against <${GITHUB}/${LSR_GROUP}/myrole> with recent files
+  from <${LSR_TEMPLATE_REPO}> as your github user ID:
+
+    ./$ME --use-hub --workdir $HOME/linux-system-roles -r myrole
 
 EOF
 }
@@ -456,6 +479,14 @@ function process_options() {
       --force-copy)
         FORCE_COPY=true
         ;;
+      --use-hub)
+        USE_HUB=true
+        ;;
+      --workdir)
+        shift
+        WORKDIR="$1"
+        PRESERVE=true
+        ;;
       --help | -h)
         usage
         exit 0
@@ -476,24 +507,22 @@ function process_options() {
 
 process_options "$@"
 
-# commands needed in order to use hub (USE_HUB=true)
-hub_required_cmds="hub jq"
-hub_missing_cmds=""
+if [[ "${USE_HUB:-false}" == "true" ]]; then
+  # commands needed in order to use hub (USE_HUB=true)
+  hub_required_cmds="hub jq"
+  hub_missing_cmds=""
 
-for cmd in $hub_required_cmds; do
-  if ! type -p $cmd > /dev/null 2>&1; then
-    hub_missing_cmds="$hub_missing_cmds $cmd"
-  elif [[ $cmd == hub && -z "${USE_HUB:-}" ]]; then
-    USE_HUB=true
+  for cmd in $hub_required_cmds; do
+    if ! type -p $cmd > /dev/null 2>&1; then
+      hub_missing_cmds="$hub_missing_cmds $cmd"
+    fi
+  done
+
+  if [[ -n "$hub_missing_cmds" ]]; then
+    error "Missing commands required to use hub: $hub_missing_cmds - e.g. on Fedora - sudo dnf -y install $hub_missing_cmds"
   fi
-done
-
-if [[ "${USE_HUB:-false}" == true && -n "$hub_missing_cmds" ]]; then
-  error "Missing commands required to use hub: $hub_missing_cmds - e.g. on Fedora - dnf -y install $hub_missing_cmds"
-elif [[ "${USE_HUB:-notset}" == false || "${USE_HUB:-notset}" == true ]]; then
-  USE_HUB=${USE_HUB:-false}
 else
-  error "Invalid value $USE_HUB - must be 'true' or 'false'"
+  USE_HUB=false
 fi
 # at this point, USE_HUB is set to true or false and is safe to use without quotes/braces
 
@@ -609,8 +638,12 @@ function fork_repo() {
   local reponame="$1"
   local newname="${LSR_FORK_PREFIX}$reponame"
   HUB_VERBOSE=true runcmd "hub api -X POST /repos/$LSR_GROUP/$reponame/forks" > /dev/null 2>&1
-  local forkname=$(grep -m 1 '^{' $STDERR | jq -r '.name')
-  local fullname=$(grep -m 1 '^{' $STDERR | jq -r '.full_name')
+  local forkname=$(grep -m 1 '^{' $STDERR | jq -r .name)
+  local fullname=$(grep -m 1 '^{' $STDERR | jq -r .full_name)
+  if [[ "$forkname" == "null" || "$fullname" == "null" ]]; then
+    # using the systemroller user - do not fork
+    return 0
+  fi
   # NOTE: There is apparently a bug in the jq fromdateiso8601/fromdate filter - it will report
   # the date 1 hour in the future - I have found experimentally that the `date` command
   # is able to accurately parse the timestamp string
@@ -677,7 +710,7 @@ function get_repo() {
       runcmd "popd"
     fi
   fi
-  if [[ $USE_HUB == true && -z "${LOCAL:-}" ]]; then
+  if [[ $USE_HUB == true && -z "${LOCAL:-}" && -n "${newbranch:-}" ]]; then
     # make sure we have a fork of the repo, and that we have
     # a git remote to push to, that we have fetched from the remote
     runcmd "pushd '$repodir'"

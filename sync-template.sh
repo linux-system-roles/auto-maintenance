@@ -3,11 +3,11 @@
 
 set -euo pipefail
 
-ME=$(basename $0)
+ME=$(basename "$0")
 HERE=${PWD}
 WORKDIR="${WORKDIR:-${HOME}/.cache/${ME%.*}}"
-STDOUT=$(mktemp /tmp/${ME%.*}-XXXXXX.stdout)
-STDERR=$(mktemp /tmp/${ME%.*}-XXXXXX.stderr)
+STDOUT=$(mktemp "/tmp/${ME%.*}-XXXXXX.stdout")
+STDERR=$(mktemp "/tmp/${ME%.*}-XXXXXX.stderr")
 
 COLOR_RESET='\e[0m'
 COLOR_RED='\e[31m'
@@ -69,6 +69,8 @@ declare -A IGNORE_IF_MISSING_MAP
 INDENT=""
 INHELP=""
 
+# https://github.com/koalaman/shellcheck/wiki/SC2064
+# shellcheck disable=SC2064
 trap "rm -f ${STDOUT} ${STDERR}; cd ${HERE}" ABRT EXIT HUP INT QUIT
 
 ##
@@ -104,7 +106,7 @@ function report_failure() {
 # Print $1 (in red) to standard error output and exit with $2.
 function error() {
   report_failure "$1"
-  exit ${2:-1}
+  exit "${2:-1}"
 }
 
 ##
@@ -127,17 +129,17 @@ function runcmd() {
     fi
     return $E
   fi
-  eval "$1" 1> ${STDOUT} 2> ${STDERR} || E=$?
+  eval "$1" 1> "${STDOUT}" 2> "${STDERR}" || E=$?
   if [[ "${2:-}" ]]; then
-    eval "$2=\"$(cat ${STDOUT})\""
+    eval "$2=\"$(cat "${STDOUT}")\""
   else
-    cat ${STDOUT}
+    cat "${STDOUT}"
   fi
   if [[ $E -eq 0 ]]; then
     report_success "Command '$1' has completed successfully."
   else
     report_failure "Command '$1' has failed with exit code $E and error message:"
-    cat ${STDERR} >&2
+    cat "${STDERR}" >&2
   fi
   return $E
 }
@@ -234,15 +236,17 @@ function copy_recursive() {
   if [[ "${INHELP}" ]]; then
     echo "${INDENT}copy $1/$3 to $2 recursively"
   else
-    ensure_directory $2 $3
+    ensure_directory "$2" "$3"
     local src
     local dest
-    for src in $(find $1/$3); do
+    # https://github.com/koalaman/shellcheck/wiki/SC2044
+    # shellcheck disable=SC2044
+    for src in $(find "$1/$3"); do
       dest=${src#$1/}
       if [[ -d $src ]]; then
-        ensure_directory $2 $dest
+        ensure_directory "$2" "$dest"
       else
-        copy_file $1 $2 $dest
+        copy_file "$1" "$2" "$dest"
       fi
     done
   fi
@@ -493,7 +497,7 @@ function process_options() {
         ;;
       --clean)
         if [[ -z "${PRESERVE:-}" ]]; then
-          rm -rfd ${WORKDIR}
+          rm -rfd "${WORKDIR}"
           exit 0
         fi
         ;;
@@ -513,7 +517,7 @@ if [[ "${USE_HUB:-false}" == "true" ]]; then
   hub_missing_cmds=""
 
   for cmd in $hub_required_cmds; do
-    if ! type -p $cmd > /dev/null 2>&1; then
+    if ! type -p "$cmd" > /dev/null 2>&1; then
       hub_missing_cmds="$hub_missing_cmds $cmd"
     fi
   done
@@ -551,11 +555,11 @@ fi
 declare -a FORCE_COPY_FILES=()
 
 function get_hub_user() {
-  awk '/user:/ {print $NF}' $HOME/.config/hub
+  awk '/user:/ {print $NF}' "$HOME/.config/hub"
 }
 
 if [[ $USE_HUB == true ]]; then
-  GIT_USER=$( get_hub_user )
+  GIT_USER=$(get_hub_user)
 fi
 
 ##
@@ -591,7 +595,10 @@ function check_required_options() {
 #
 # Put a link to the revision into the payload.
 function put_revision() {
-  echo -n '\nRevision: [`'"$1"'`]'"(${GITHUB}/${LSR_TEMPLATE_NS}/tree/$1)"
+  # looks like a false positive
+  # https://github.com/koalaman/shellcheck/wiki/SC2016
+  # shellcheck disable=SC2016
+  printf '\nRevision: [`%s`](%s)' "$1" "${GITHUB}/${LSR_TEMPLATE_NS}/tree/$1"
 }
 
 ##
@@ -600,7 +607,7 @@ function put_revision() {
 # If CONTACTS has a form "C1 C2 C3 ... Cn", return "\nCC: @C1, @C2, ..., @Cn.".
 function expand_contacts() {
   if [[ "${CONTACTS}" ]]; then
-    echo -n '\nCC:' "@${CONTACTS//,/, @}"
+    printf '\nCC: @%s' "${CONTACTS//,/, @}"
   fi
 }
 
@@ -638,8 +645,10 @@ function fork_repo() {
   local reponame="$1"
   local newname="${LSR_FORK_PREFIX}$reponame"
   HUB_VERBOSE=true runcmd "hub api -X POST /repos/$LSR_GROUP/$reponame/forks" > /dev/null 2>&1
-  local forkname=$(grep -m 1 '^{' $STDERR | jq -r .name)
-  local fullname=$(grep -m 1 '^{' $STDERR | jq -r .full_name)
+  local forkname
+  forkname=$(grep -m 1 '^{' "$STDERR" | jq -r .name)
+  local fullname
+  fullname=$(grep -m 1 '^{' "$STDERR" | jq -r .full_name)
   if [[ "$forkname" == "null" || "$fullname" == "null" ]]; then
     # using the systemroller user - do not fork
     return 0
@@ -647,19 +656,22 @@ function fork_repo() {
   # NOTE: There is apparently a bug in the jq fromdateiso8601/fromdate filter - it will report
   # the date 1 hour in the future - I have found experimentally that the `date` command
   # is able to accurately parse the timestamp string
-  local create_ts=$(grep -m 1 '^{' $STDERR | jq -r '.created_at')
-  local create_ts_sec=$(date +%s --date="$create_ts")
-  local diff_sec=$(expr $(date +%s) - $create_ts_sec) || :
+  local create_ts
+  create_ts=$(grep -m 1 '^{' "$STDERR" | jq -r '.created_at')
+  local create_ts_sec
+  create_ts_sec=$(date +%s --date="$create_ts")
+  local diff_sec
+  diff_sec=$(($(date +%s) - "$create_ts_sec")) || :
   # abs
   case "$diff_sec" in
-  -*) diff_sec=$(expr 0 - $diff_sec) || : ;;
+  -*) diff_sec=$((0 - "$diff_sec")) || : ;;
   esac
   # assume if repo was created less than 30 seconds ago, we created it above with
   # the fork - if so, rename it
-  if [ $diff_sec -lt 30 ] ; then
+  if [ "$diff_sec" -lt 30 ] ; then
     # rename the newly created repo with the LSR prefix
     runcmd "hub api -X PATCH /repos/$GIT_USER/$forkname -F 'name=$newname'" > /dev/null
-    fullname=$GIT_USER/$newname
+    fullname="$GIT_USER/$newname"
   fi
   # make sure there is a git remote for the new repo
   if git remote | grep -q -F -x "$LSR_FORK_REMOTE" ; then
@@ -687,7 +699,8 @@ function get_repo() {
   local newbranch=${3:-}
   local gituser=${4:-}
   local gitemail=${5:-}
-  local repodir=$( basename $repo .git )
+  local repodir
+  repodir=$(basename "$repo" .git)
 
   if [[ -d "$repodir" ]]; then
     runcmd "pushd '$repodir'"
@@ -695,7 +708,7 @@ function get_repo() {
     if [[ -z "$newbranch" ]]; then
       runcmd "git checkout '$branch'"
     fi
-    if [[ -z "${LOCAL:-}" ]] && git rev-parse @{u} > /dev/null 2>&1 ; then
+    if [[ -z "${LOCAL:-}" ]] && git rev-parse '@{u}' > /dev/null 2>&1 ; then
       runcmd "git pull"
     fi
     runcmd "popd"
@@ -720,7 +733,7 @@ function get_repo() {
   if [[ -n "$newbranch" ]]; then
     runcmd "pushd '$repodir'"
     if runcmd "git checkout '$newbranch'"; then
-      if [[ -z "${LOCAL:-}" ]] && git rev-parse @{u} > /dev/null 2>&1 ; then
+      if [[ -z "${LOCAL:-}" ]] && git rev-parse '@{u}' > /dev/null 2>&1 ; then
         runcmd "git pull"
       fi
     else
@@ -784,11 +797,12 @@ function submit_pr() {
   if [[ $USE_HUB == true ]]; then
     # if there is already a PR for this branch, then the previous git push
     # will have updated that PR
-    if pr_exists $head ; then
-      inform There is already a PR for $head - existing PR will be updated
+    if pr_exists "$head" ; then
+      inform There is already a PR for "$head" - existing PR will be updated
       return
     fi
-    local fixbody=$( printf "$body" )
+    local fixbody
+    fixbody=$( printf '%s' "$body" )
     PAYLOAD=$(cat <<-EOFa
 		$title
 		
@@ -824,10 +838,10 @@ function github_push() {
     local remote
     local item
     for item in $( git remote ) ; do
-      if [[ $item == $LSR_FORK_REMOTE ]] ; then
+      if [[ "$item" == "$LSR_FORK_REMOTE" ]] ; then
         remote="$item"
         break
-      elif [[ $item == $GIT_USER ]] ; then
+      elif [[ "$item" == "$GIT_USER" ]] ; then
         remote="$item"
         break
       fi
@@ -848,42 +862,44 @@ function github_push() {
 function do_sync() {
   check_required_options
 
-  ensure_directory ${WORKDIR}
+  ensure_directory "${WORKDIR}"
 
   runcmd "pushd ${WORKDIR}"
 
-  get_repo $FROM_REPO $FROM_BRANCH
+  get_repo "$FROM_REPO" "$FROM_BRANCH"
   get_revision_id GIT_HEAD
 
   for REPO in ${REPOLIST}; do
     inform "Synchronizing ${REPO} with ../${LSR_TEMPLATE}."
     if [[ $USE_HUB == true ]]; then
-      url=${LSR_GROUP}/${REPO}
+      url="${LSR_GROUP}/${REPO}"
     else
-      url=${GITHUB}/${LSR_GROUP}/${REPO}.git
+      url="${GITHUB}/${LSR_GROUP}/${REPO}.git"
     fi
     if [[ -z "${PRESERVE:-}" ]]; then
       runcmd "[[ -d \"${REPO}\" ]] && rm -rfd ${REPO} || :"
     fi
-    get_repo $url master "${SYNC_BRANCH}" ${GIT_USER} ${GIT_EMAIL}
+    get_repo "$url" master "${SYNC_BRANCH}" "${GIT_USER}" "${GIT_EMAIL}"
     runcmd "pushd ${REPO}"
-    copy_template_files ../${LSR_TEMPLATE} .
+    copy_template_files "../${LSR_TEMPLATE}" .
     if [[ -n "${LOCAL:-}" ]]; then
       continue
     fi
     if [[ "${DRY_RUN}" || "$(git status -uno --porcelain)" ]]; then
-      if [[ "${FORCE_COPY:-false}" == true && -n "${FORCE_COPY_FILES}" ]]; then
+      if [[ "${FORCE_COPY:-false}" == true && "${#FORCE_COPY_FILES[*]}" -gt 0 ]]; then
         report_failure "In $(pwd)"
         report_failure "Not committing - force-copy used and some files were force copied"
         error "you will need to manually merge, add, and commit the following files: ${FORCE_COPY_FILES[*]}"
       fi
       runcmd "git commit -a -m 'Synchronize files from ${FROM_REPO}'"
-      if github_push "${SYNC_BRANCH}" ${REPO}; then
+      if github_push "${SYNC_BRANCH}" "${REPO}"; then
+        # https://github.com/koalaman/shellcheck/wiki/SC2086
+        # shellcheck disable=SC2086
         submit_pr "Synchronize files from ${LSR_TEMPLATE_NS}" master "${SYNC_BRANCH}" \
                   "This PR propagates files from [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) which should be in sync across [${LSR_GROUP}](${GITHUB}/${LSR_GROUP}) repos. In case of changing affected files via pushing to this PR, please do not forget also to push the changes to [${LSR_TEMPLATE_NS}](${GITHUB}/${LSR_TEMPLATE_NS}) repo.\n$(put_revision ${GIT_HEAD})\n$(expand_contacts)"
       fi
     elif [[ "$(git status --porcelain)" ]]; then
-      inform There are some untracked files in ${FROM_REPO}
+      inform There are some untracked files in "${FROM_REPO}"
       git status --porcelain
     fi
     runcmd "popd"

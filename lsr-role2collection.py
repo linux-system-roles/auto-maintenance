@@ -20,7 +20,6 @@ ROLE_DIRS = (
     'meta',
     'tasks',
     'templates',
-    'tests',
     'vars',
 )
 
@@ -46,7 +45,17 @@ PLUGINS = (
     'vars_plugins'
 )
 
-ALL_DIRS = ROLE_DIRS + PLUGINS
+TESTS = (
+    'tests',
+    'molecule',
+)
+
+DOCS = (
+    'docs',
+    'design_docs',
+)
+
+ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS
 
 IMPORT_RE = re.compile(
     br'(\bimport) (ansible\.module_utils\.)(\S+)(.*)$',
@@ -66,25 +75,46 @@ def dir_to_plugin(v):
     return v
 
 
+# python lsr-role2collection.py /src_path/linux-system-roles/logging /dest_path/ansible_collections/redhat/system_roles
+# positional arguments:
+#  ROLE_PATH        Path to a role to migrate
+#  COLLECTION_PATH  Path to collection where role should be migrated
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    'path',
-    type=Path,
-    metavar='ROLE_PATH',
-    help='Path to a role to migrate',
+    '--namespace',
+    type=str,
+    default=os.environ.get("COLLECTION_NAMESPACE", "redhat"),
+    help='Collection namespace; default to redhat',
 )
 parser.add_argument(
-    'output',
+    '--name',
+    type=str,
+    default=os.environ.get("COLLECTION_NAME", "system_roles"),
+    help='Collection name; default to system_roles',
+)
+parser.add_argument(
+    '--dest-path',
     type=Path,
-    metavar='COLLECTION_PATH',
-    help='Path to collection where role should be migrated',
+    help='Path to parent of collection where role should be migrated',
+)
+parser.add_argument(
+    '--src-path',
+    type=Path,
+    help='Path to linux-system-role',
+)
+parser.add_argument(
+    '--role',
+    type=str,
+    help='Role to convert to collection',
 )
 args = parser.parse_args()
 
-path = args.path.resolve()
-output = args.output.resolve()
-output.mkdir(parents=True, exist_ok=True)
+#path = Path.joinpath(args.src_path.resolve(), args.role)
 
+role = args.role
+path = args.src_path.resolve() / role
+output = Path.joinpath(args.dest_path.resolve(), "ansible_collections/" + args.namespace + "/" + args.name)
+output.mkdir(parents=True, exist_ok=True)
 
 _extras = set(os.listdir(path)).difference(ALL_DIRS)
 try:
@@ -93,6 +123,7 @@ except KeyError:
     pass
 extras = [path / e for e in _extras]
 
+# roles
 for role_dir in ROLE_DIRS:
     src = path / role_dir
     if not src.is_dir():
@@ -106,6 +137,33 @@ for role_dir in ROLE_DIRS:
         dirs_exist_ok=True
     )
 
+# tests, molecules
+for tests in TESTS:
+    src = path / tests
+    if src.is_dir():
+        dest = output / tests / role
+        print(f'Copying role {src} to {dest}')
+        shutil.copytree(
+            src,
+            dest,
+            symlinks=True,
+            dirs_exist_ok=True
+        )
+
+# docs, design_docs
+for docs in DOCS:
+    src = path / docs
+    if src.is_dir():
+        dest = output / Path('docs') / role
+        print(f'Copying role {src} to {dest}')
+        shutil.copytree(
+            src,
+            dest,
+            symlinks=True,
+            dirs_exist_ok=True
+        )
+
+# plugins
 for plugin_dir in PLUGINS:
     src = path / plugin_dir
     plugin = dir_to_plugin(plugin_dir)
@@ -198,9 +256,13 @@ for rewrite_dir in (module_utils_dir, modules_dir):
                     full_path.write_bytes(new_text)
                     additional_rewrites[:] = []
 
-
 for extra in extras:
-    dest = output / extra.name
+    if extra.name.endswith('.md'):
+        dest = output / extra.name.replace(".md",  "-" + role + ".md")
+    elif extra.name.endswith('.yml'):
+        dest = output / extra.name.replace(".yml",  "-" + role + ".yml")
+    else:
+        dest = output / (extra.name + "-" + role)
     print(f'Copying extra {extra} to {dest}')
     if extra.is_dir():
         shutil.copytree(

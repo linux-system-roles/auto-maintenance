@@ -4,6 +4,8 @@
 # GNU General Public License v3.0+
 #     (see https://www.gnu.org/licenses/gpl-3.0.txt)
 
+# python lsr-role2collection.py /src_path/linux-system-roles/logging /dest_path/ansible_collections/redhat/system_roles
+
 import argparse
 import os
 import re
@@ -81,7 +83,7 @@ args = parser.parse_args()
 
 path = args.path.resolve()
 output = args.output.resolve()
-output.mkdir(exist_ok=True)
+output.mkdir(parents=True, exist_ok=True)
 
 
 _extras = set(os.listdir(path)).difference(ALL_DIRS)
@@ -96,10 +98,11 @@ for role_dir in ROLE_DIRS:
     if not src.is_dir():
         continue
     dest = output / 'roles' / path.name / role_dir
-    print(f'Copying {src} to {dest}')
+    print(f'Copying role {src} to {dest}')
     shutil.copytree(
         src,
         dest,
+        symlinks=True,
         dirs_exist_ok=True
     )
 
@@ -109,7 +112,7 @@ for plugin_dir in PLUGINS:
     if not src.is_dir():
         continue
     dest = output / 'plugins' / plugin
-    print(f'Copying {src} to {dest}')
+    print(f'Copying plugin {src} to {dest}')
     shutil.copytree(
         src,
         dest,
@@ -198,7 +201,7 @@ for rewrite_dir in (module_utils_dir, modules_dir):
 
 for extra in extras:
     dest = output / extra.name
-    print(f'Copying {extra} to {dest}')
+    print(f'Copying extra {extra} to {dest}')
     if extra.is_dir():
         shutil.copytree(
             extra,

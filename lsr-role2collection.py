@@ -119,6 +119,12 @@ parser.add_argument(
     type=str,
     help='Role to convert to collection',
 )
+parser.add_argument(
+    '--replace-dot',
+    type=str,
+    default='_',
+    help='If sub-role name contains dots, replace with the value',
+)
 args = parser.parse_args()
 
 namespace = args.namespace
@@ -179,31 +185,32 @@ if not os.path.exists(role):
     os.symlink('../../../roles/' + role, role)
 os.chdir(cwd)
 
-def file_replace(directory, find, replace, file_pattern):
+def file_replace(directory, find, replace, file_patterns):
     for path, dirs, files in os.walk(os.path.abspath(directory)):
-        for filename in fnmatch.filter(files, file_pattern):
-            filepath = os.path.join(path, filename)
-            with open(filepath) as f:
-                s = f.read()
-            s = re.sub(find, replace, s)
-            with open(filepath, "w") as f:
-                f.write(s)
+        for file_pattern in file_patterns:
+            for filename in fnmatch.filter(files, file_pattern):
+                filepath = os.path.join(path, filename)
+                with open(filepath) as f:
+                    s = f.read()
+                s = re.sub(find, replace, s)
+                with open(filepath, "w") as f:
+                    f.write(s)
 
 
 # replace linux-system-roles.rolename with rolename in tests
 tests_dir = output / 'tests' / role
 find = "linux-system-roles\." + role
 replace = role
-file_pattern = '*.yml'
-file_replace(tests_dir, find, replace, file_pattern)
+file_patterns = ['*.yml', '*.md']
+file_replace(tests_dir, find, replace, file_patterns)
 
 
 # replace "{{ role_path }}/roles/rolename" with namespace.collection.rolename in role_dir
 role_dir = output / 'roles' / role
 find = "{{ role_path }}/roles/(.*)"
 replace = namespace + "." + collection + ".\\1"
-file_pattern = '*.yml'
-file_replace(role_dir, find, replace, file_pattern)
+file_patterns = ['*.yml', '*.md']
+file_replace(role_dir, find, replace, file_patterns)
 
 
 # docs, design_docs
@@ -388,13 +395,31 @@ for rewrite_dir in (module_utils_dir, modules_dir):
 
 for extra in extras:
     if extra.is_dir():
-        dest = output / extra.name
-        print(f'Copying extra {extra} to {dest}')
-        copytree(
-            extra,
-            dest,
-            dirs_exist_ok=True
-        )
+        if extra.name == 'roles':
+            for sr in extra.iterdir():
+                src = extra / sr
+                # If a role name contains '.', replace it with args.replace_dot
+                dr = sr.name.replace('.', args.replace_dot)
+                dest = output / extra.name / dr
+                print(f'Copying extra {src} to {dest}')
+                copytree(
+                    src,
+                    dest,
+                    dirs_exist_ok=True
+                )
+                if sr.name != dr:
+                    # replace "sr.name" with "dr" in role_dir
+                    role_dir = output / 'roles'
+                    file_patterns = ['*.yml', '*.md']
+                    file_replace(role_dir, re.escape(sr.name), dr, file_patterns)
+        else:
+            dest = output / extra.name
+            print(f'Copying extra {extra} to {dest}')
+            copytree(
+                extra,
+                dest,
+                dirs_exist_ok=True
+            )
     else:
         # A file with an extension, e.g., README.md is copied to README-rolename.md
         # A file with no extension, e.g., LICENSE is copied to LICENSE-rolename

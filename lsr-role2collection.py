@@ -61,6 +61,7 @@ TESTS = (
 DOCS = (
     'docs',
     'design_docs',
+    'examples',
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS
@@ -87,7 +88,7 @@ def dir_to_plugin(v):
     return v
 
 
-# python lsr-role2collection.py /src_path/linux-system-roles/logging /dest_path/ansible_collections/redhat/system_roles
+# python lsr-role2collection.py /src_path/linux-system-roles/logging /dest_path/ansible_collections/fedora/system_roles
 # positional arguments:
 #  ROLE_PATH        Path to a role to migrate
 #  COLLECTION_PATH  Path to collection where role should be migrated
@@ -95,8 +96,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     '--namespace',
     type=str,
-    default=os.environ.get("COLLECTION_NAMESPACE", "redhat"),
-    help='Collection namespace; default to redhat',
+    default=os.environ.get("COLLECTION_NAMESPACE", "fedora"),
+    help='Collection namespace; default to fedora',
 )
 parser.add_argument(
     '--collection',
@@ -123,7 +124,7 @@ parser.add_argument(
     '--replace-dot',
     type=str,
     default='_',
-    help='If sub-role name contains dots, replace with the value',
+    help='If sub-role name contains dots, replace them with the given value; default to "_"',
 )
 args = parser.parse_args()
 
@@ -287,11 +288,11 @@ def get_candidates(parts3, parts5):
 # from_replace
 # case 1: from ansible.module_utils.certificate.providers import PROVIDERS
 # if plugins/module_utils/certificate/providers/{PROVIDERS,providers}.py does not exist:
-#   return 'from ansible_collections.redhat.system_roles.plugins.module_utils.certificate.providers.__init__ import PROVIDERS'
+#   return 'from ansible_collections.fedora.system_roles.plugins.module_utils.certificate.providers.__init__ import PROVIDERS'
 #
 # case 2: from ansible.module_utils.certificate.providers.certmonger import (\n
 # if plugins/module_utils/certificate/providers/certmonger.py exists:
-#   return 'from ansible_collections.redhat.system_roles.plugins.module_utils.certificate.providers.certmonger import (\n'
+#   return 'from ansible_collections.fedora.system_roles.plugins.module_utils.certificate.providers.certmonger import (\n'
 
 # group1 - from; group2 - ansible.module_utils;
 # group3 - name if any; group4 - ( if any; group5 - identifier

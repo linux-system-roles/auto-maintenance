@@ -62,9 +62,21 @@ DOCS = (
     'docs',
     'design_docs',
     'examples',
+    'README.md',
 )
 
-ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS
+DO_NOT_COPY = (
+    'pylint_extra_requirements.txt',
+    'pylintrc',
+    'pytest_extra_requirements.txt',
+    'ansible_pytest_extra_requirements.txt',
+    '.gitignore',
+    '.lgtm.yml',
+    'semaphore',
+    'artifacts',
+)
+
+ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
 
 IMPORT_RE = re.compile(
     br'(\bimport) (ansible\.module_utils\.)(\S+)(.*)$',
@@ -213,19 +225,65 @@ replace = namespace + "." + collection + ".\\1"
 file_patterns = ['*.yml', '*.md']
 file_replace(role_dir, find, replace, file_patterns)
 
+def add_rolename(filename, rolename):
+    """
+    A file with an extension, e.g., README.md is converted to README-rolename.md
+    A file with no extension, e.g., LICENSE is to LICENSE-rolename
+    """
+    if filename.find('.', 1) > 0:
+        with_rolename = re.sub('(\.[A-Za-z0-1]*$)', '-' + rolename + r'\1', filename)
+    else:
+        with_rolename = filename + "-" + rolename
+    return with_rolename
+
+def process_readme(src_path, filename, output, rolename):
+    docs_path = output / Path('docs')
+    docs_path.mkdir(parents=True, exist_ok=True)
+    src = src_path / filename
+    # copy
+    with_rolename = add_rolename(filename, rolename) 
+    dest = docs_path / with_rolename
+    print(f'Copying doc {filename} to {dest}')
+    copy2(
+        src,
+        dest,
+        follow_symlinks=False
+    )
+    prim_doc = output / 'README.md'
+    if filename == 'README.md':
+        title = role
+    elif filename.startswith('README'):
+        m = re.match('(README-)(.*)(\.md)', filename)
+        title = role + '-' + m.group(2)
+    else:
+        title = role + '-' + filename.replace('.md', '')
+    if not prim_doc.exists():
+        s = '# {0} {1} collections\n\n## Contents\n<!--ts-->\n  * [{2}](docs/{3})\n<!--te-->'.format(namespace, collection, title, with_rolename)
+        with open(prim_doc, "w") as f:
+            f.write(s)
+    else:
+        with open(prim_doc) as f:
+            s = f.read()
+        replace = '  * [{0}](docs/{1})\n<!--te-->'.format(title, with_rolename)
+        s = re.sub('<!--te-->', replace, s)
+        with open(prim_doc, "w") as f:
+            f.write(s)
 
 # docs, design_docs
-for docs in DOCS:
-    src = src_path / docs
+docs_path = output / Path('docs')
+dest_dir = docs_path / role
+for doc in DOCS:
+    src = src_path / doc
     if src.is_dir():
-        dest = output / Path('docs') / role
-        print(f'Copying role {src} to {dest}')
+        print(f'Copying role {src} to {dest_dir}')
         copytree(
             src,
-            dest,
+            dest_dir,
             symlinks=True,
             dirs_exist_ok=True
         )
+    elif doc == 'README.md':
+        process_readme(src_path, doc, output, role)
 
 # plugins
 for plugin_dir in PLUGINS:
@@ -395,7 +453,9 @@ for rewrite_dir in (module_utils_dir, modules_dir):
                     additional_rewrites[:] = []
 
 for extra in extras:
-    if extra.is_dir():
+    if extra.name.endswith('.md'):
+        process_readme(extra.parent, extra.name, output, role)
+    elif extra.is_dir():
         if extra.name == 'roles':
             for sr in extra.iterdir():
                 src = extra / sr
@@ -422,12 +482,11 @@ for extra in extras:
                 dirs_exist_ok=True
             )
     else:
-        # A file with an extension, e.g., README.md is copied to README-rolename.md
-        # A file with no extension, e.g., LICENSE is copied to LICENSE-rolename
-        if extra.name.find('.', 1) > 0:
-            dest = output / re.sub('(\.[A-Za-z0-1]*$)', '-' + role + r'\1', extra.name)
+        if extra.name.endswith('.yml') and 'playbook' in extra.name:
+            dest = output / 'playbooks' / role
+            dest.mkdir(parents=True, exist_ok=True)
         else:
-            dest = output / (extra.name + "-" + role)
+            dest = output / add_rolename(extra.name, role)
         print(f'Copying extra {extra} to {dest}')
         copy2(
             extra,

@@ -16,7 +16,7 @@ import argparse
 import os
 import re
 import fnmatch
-from shutil import copytree, copy2, ignore_patterns
+from shutil import copytree, copy2, ignore_patterns, rmtree
 
 from pathlib import Path
 
@@ -74,6 +74,10 @@ DO_NOT_COPY = (
     '.lgtm.yml',
     'semaphore',
     'artifacts',
+    'standard-inventory-qcow2',
+)
+
+EXTRA_NO_ROLENAME = (
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
@@ -178,31 +182,40 @@ for tests in TESTS:
         copytree(
             src,
             dest,
-            ignore=ignore_patterns('linux-system-roles.*'),
+            ignore=ignore_patterns('artifacts'),
             symlinks=True,
             dirs_exist_ok=True
         )
 
-# tests symlinks:
-# roles/performancecopilot.pcp -> ../../../roles/performancecopilot.pcp/
-# roles/role -> ../../../role
-cwd = os.getcwd()
-os.chdir(str(output / 'tests' / role / 'roles'))
-for path, dirs, files in os.walk(os.path.abspath('.')):
-    for file in files + dirs:
-        if os.path.islink(file):
-            os.unlink(file)
-            if os.path.isdir('../../../roles' + file):
-                os.symlink('../../../roles/' + file, file)
-if not os.path.exists(role):
-    os.symlink('../../../roles/' + role, role)
-os.chdir(cwd)
 
-def file_replace(directory, find, replace, file_patterns):
-    for path, dirs, files in os.walk(os.path.abspath(directory)):
+def remove_or_reset_symlinks(path, role, lsr_reset=False):
+    nodes = sorted(list(path.rglob('*')), reverse=True)
+    for node in nodes:
+        if node.is_symlink():
+            node.unlink()
+            if lsr_reset and r'linux-system-roles.' + role == node.name:
+                node.symlink_to('../../../roles/' + role)
+        elif node.is_dir() and r'linux-system-roles.' + role == node.name and not any(node.iterdir()):
+            node.rmdir()
+
+
+def grep(path, find, file_patterns):
+    for root, dirs, files in os.walk(os.path.abspath(path)):
         for file_pattern in file_patterns:
             for filename in fnmatch.filter(files, file_pattern):
-                filepath = os.path.join(path, filename)
+                filepath = os.path.join(root, filename)
+                with open(filepath) as f:
+                    s = f.read()
+                if find in s:
+                    return True
+    return False
+
+
+def file_replace(path, find, replace, file_patterns):
+    for root, dirs, files in os.walk(os.path.abspath(path)):
+        for file_pattern in file_patterns:
+            for filename in fnmatch.filter(files, file_pattern):
+                filepath = os.path.join(root, filename)
                 with open(filepath) as f:
                     s = f.read()
                 s = re.sub(find, replace, s)
@@ -210,13 +223,36 @@ def file_replace(directory, find, replace, file_patterns):
                     f.write(s)
 
 
-# replace linux-system-roles.rolename with rolename in tests
-tests_dir = output / 'tests' / role
-find = "linux-system-roles\." + role
-replace = role
-file_patterns = ['*.yml', '*.md']
-file_replace(tests_dir, find, replace, file_patterns)
+# replace linux-system-roles.rolename with namespace.collection.rolename in the given dir
+def replace_rolename_with_collection(path, role, collection):
+    find = r"( *name: | *- name: | *- | *roletoinclude: | *role: | *- role: )(linux-system-roles\.{0}\b|{0}\b)".format(role, role)
+    replace = r"\1" + namespace + "." + collection + "." + role
+    file_patterns = ['*.yml', '*.md']
+    file_replace(path, find, replace, file_patterns)
 
+
+def symlink_n_rolename(path, role, collection):
+    if path.exists():
+        replace_rolename_with_collection(path, role, collection)
+        # linux-system-roles.role is left, which is not replaceable with FQCN
+        file_patterns = ['*.yml']
+        find = 'linux-system-roles.{0}'.format(role)
+        # There is a code which requires a symlink to the role.
+        # E.g., file: roles/linux-system-roles.kernel_settings/vars/main.yml
+        # in kernel_settings/tests/tests_simple_settings.yml:        
+        if grep(path, find, file_patterns):
+            lsr_reset = True
+        else:
+            lsr_reset = False
+        remove_or_reset_symlinks(path, role, lsr_reset)
+        roles_dir = path / 'roles'
+        if roles_dir.exists() and not any(roles_dir.iterdir()):
+            roles_dir.rmdir()
+
+
+# remove symlinks in the tests/role, then updating the rolename to the collection format
+test_role_path = output / 'tests' / role
+symlink_n_rolename(test_role_path, role, collection)
 
 # replace "{{ role_path }}/roles/rolename" with namespace.collection.rolename in role_dir
 role_dir = output / 'roles' / role
@@ -224,6 +260,7 @@ find = "{{ role_path }}/roles/(.*)"
 replace = namespace + "." + collection + ".\\1"
 file_patterns = ['*.yml', '*.md']
 file_replace(role_dir, find, replace, file_patterns)
+
 
 def add_rolename(filename, rolename):
     """
@@ -235,6 +272,7 @@ def add_rolename(filename, rolename):
     else:
         with_rolename = filename + "-" + rolename
     return with_rolename
+
 
 def process_readme(src_path, filename, output, rolename):
     docs_path = output / Path('docs')
@@ -269,21 +307,27 @@ def process_readme(src_path, filename, output, rolename):
         with open(prim_doc, "w") as f:
             f.write(s)
 
+
 # docs, design_docs
 docs_path = output / Path('docs')
-dest_dir = docs_path / role
+dest = docs_path / role
 for doc in DOCS:
     src = src_path / doc
     if src.is_dir():
-        print(f'Copying role {src} to {dest_dir}')
+        print(f'Copying role {src} to {dest}')
         copytree(
             src,
-            dest_dir,
-            symlinks=True,
+            dest,
+            symlinks=False,
+            ignore=ignore_patterns('roles'),
             dirs_exist_ok=True
         )
     elif doc == 'README.md':
         process_readme(src_path, doc, output, role)
+
+# remove symlinks in the docs/role, then updating the rolename to the collection format
+docs_role_path = output / 'docs' / role
+symlink_n_rolename(docs_role_path, role, collection)
 
 # plugins
 for plugin_dir in PLUGINS:
@@ -482,9 +526,12 @@ for extra in extras:
                 dirs_exist_ok=True
             )
     else:
+        # some-playbook.yml is copied to playbooks/role dir.
         if extra.name.endswith('.yml') and 'playbook' in extra.name:
             dest = output / 'playbooks' / role
             dest.mkdir(parents=True, exist_ok=True)
+        elif extra.name in EXTRA_NO_ROLENAME:
+            dest = output / extra.name
         else:
             dest = output / add_rolename(extra.name, role)
         print(f'Copying extra {extra} to {dest}')

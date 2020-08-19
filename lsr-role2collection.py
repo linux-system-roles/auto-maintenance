@@ -9,7 +9,9 @@
 #                        [--collection COLLECTION]
 #                        --src-path SRC_PATH
 #                        --dest-path DEST_PATH
-#                        --role ROLE
+#                        --role ROLE | --molecule
+#                        (if --molecule is set, SRC_PATH/template is expected)
+#                        [--replace-dot STR]
 #                        [-h]
 
 import argparse
@@ -54,8 +56,6 @@ PLUGINS = (
 
 TESTS = (
     'tests',
-    'molecule',
-    '.travis',
 )
 
 DOCS = (
@@ -63,6 +63,18 @@ DOCS = (
     'design_docs',
     'examples',
     'README.md',
+)
+
+MOLECULE = (
+    '.ansible-lint',
+    'custom_requirements.txt',
+    'molecule',
+    'molecule_extra_requirements.txt',
+    'tox.ini',
+    '.travis',
+    '.travis.yml',
+    '.yamllint_defaults.yml',
+    '.yamllint.yml',
 )
 
 DO_NOT_COPY = (
@@ -75,12 +87,15 @@ DO_NOT_COPY = (
     'semaphore',
     'artifacts',
     'standard-inventory-qcow2',
+    'scripts',
+    '.venv',
+    '.tox',
 )
 
 EXTRA_NO_ROLENAME = (
 )
 
-ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
+ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + MOLECULE + DO_NOT_COPY
 
 IMPORT_RE = re.compile(
     br'(\bimport) (ansible\.module_utils\.)(\S+)(.*)$',
@@ -124,11 +139,13 @@ parser.add_argument(
 parser.add_argument(
     '--dest-path',
     type=Path,
+    required=True,
     help='Path to parent of collection where role should be migrated',
 )
 parser.add_argument(
     '--src-path',
     type=Path,
+    required=True,
     help='Path to linux-system-role',
 )
 parser.add_argument(
@@ -142,16 +159,67 @@ parser.add_argument(
     default='_',
     help='If sub-role name contains dots, replace them with the given value; default to "_"',
 )
+parser.add_argument(
+    '--molecule',
+    action='store_true',
+    help='if set, molecule is copied from SRC_PATH/template, which must exist. --role ROLE is ignored.'
+)
 args = parser.parse_args()
 
 namespace = args.namespace
 collection = args.collection
 role = args.role
-src_path = args.src_path.resolve() / role
 dest_path = args.dest_path.resolve()
 output = Path.joinpath(dest_path, "ansible_collections/" + namespace + "/" + collection)
 output.mkdir(parents=True, exist_ok=True)
 
+# Copy molecule related files and directories from linux-system-roles/template.
+if args.molecule:
+    src_path = args.src_path.resolve() / 'template'
+    if not src_path.exists():
+        print(f'Error: {src_path} does not exists.')
+        os._exit(errno.NOENT)
+    for mol in MOLECULE:
+        src = src_path / mol
+        dest = output / mol
+        print(f'Copying {src} to {dest}')
+        if src.is_dir():
+            copytree(
+                src,
+                dest,
+                symlinks=True,
+                dirs_exist_ok=True
+            )
+        elif src.exists():
+            dest = output / mol
+            copy2(
+                src,
+                dest,
+                follow_symlinks=False
+            )
+            if mol == '.yamllint.yml':
+                with open(dest) as f:
+                    s = f.read()
+                if not '\nrules:' in s:
+                    s = s + '\nrules:'
+                # disabling truthy
+                m = re.match(r'([\w\d\s\.\'\|"/#:-]*\n)( *truthy: disable)', s, flags=re.M)
+                if not (m and m.group(2)):
+                    s = s + '\n  truthy: disable\n'
+                # disabling line-length
+                m = re.match(r'([\w\d\s\.\'\|"/#:-]*\n)( *line-length: disable)', s, flags=re.M)
+                if not (m and m.group(2)):
+                    s = s + '  line-length: disable\n'
+                with open(dest, "w") as f:
+                    f.write(s)
+    os._exit(os.EX_OK)
+
+
+# Copy linux system roles
+src_path = args.src_path.resolve() / role
+if not src_path.exists():
+    print(f'Error: {src_path} does not exists.')
+    sys.exit(errno.NOENT)
 _extras = set(os.listdir(src_path)).difference(ALL_DIRS)
 try:
     _extras.remove('.git')
@@ -159,7 +227,7 @@ except KeyError:
     pass
 extras = [src_path / e for e in _extras]
 
-# roles
+# Copy roles
 for role_dir in ROLE_DIRS:
     src = src_path / role_dir
     if not src.is_dir():
@@ -173,7 +241,7 @@ for role_dir in ROLE_DIRS:
         dirs_exist_ok=True
     )
 
-# tests, molecules
+# Copy tests
 for tests in TESTS:
     src = src_path / tests
     if src.is_dir():
@@ -187,8 +255,15 @@ for tests in TESTS:
             dirs_exist_ok=True
         )
 
-
+# Adjust role names to the collections style.
 def remove_or_reset_symlinks(path, role, lsr_reset=False):
+    '''
+    Clean up roles/linux-system-roles.rolename.
+    - Remove symlinks.
+    - If lsr_reset is true and the symlink is linux-system-roles.rolename,
+      recreate the symplink which targets to ../../../roles/rolename.
+    - If linux-system-roles.rolename is an empty dir, rmdir it.
+    '''
     nodes = sorted(list(path.rglob('*')), reverse=True)
     for node in nodes:
         if node.is_symlink():
@@ -199,7 +274,11 @@ def remove_or_reset_symlinks(path, role, lsr_reset=False):
             node.rmdir()
 
 
-def grep(path, find, file_patterns):
+def recursive_grep(path, find, file_patterns):
+    '''
+    Check if a pattern `find` is found in the files that match
+    `file_patterns` under `path`.
+    '''
     for root, dirs, files in os.walk(os.path.abspath(path)):
         for file_pattern in file_patterns:
             for filename in fnmatch.filter(files, file_pattern):
@@ -212,6 +291,10 @@ def grep(path, find, file_patterns):
 
 
 def file_replace(path, find, replace, file_patterns):
+    '''
+    Replace a pattern `find` with `replace` in the files that match
+    `file_patterns` under `path`.
+    '''
     for root, dirs, files in os.walk(os.path.abspath(path)):
         for file_pattern in file_patterns:
             for filename in fnmatch.filter(files, file_pattern):
@@ -223,8 +306,11 @@ def file_replace(path, find, replace, file_patterns):
                     f.write(s)
 
 
-# replace linux-system-roles.rolename with namespace.collection.rolename in the given dir
 def replace_rolename_with_collection(path, role, collection):
+    '''
+    Replace `linux-system-roles.rolename` with `namespace.collection.rolename`
+    in the given dir `path` recursively.
+    '''
     find = r"( *name: | *- name: | *- | *roletoinclude: | *role: | *- role: )(linux-system-roles\.{0}\b|{0}\b)".format(role, role)
     replace = r"\1" + namespace + "." + collection + "." + role
     file_patterns = ['*.yml', '*.md']
@@ -232,6 +318,9 @@ def replace_rolename_with_collection(path, role, collection):
 
 
 def symlink_n_rolename(path, role, collection):
+    '''
+    Handle rolename issues in the test playbooks.
+    '''
     if path.exists():
         replace_rolename_with_collection(path, role, collection)
         # linux-system-roles.role is left, which is not replaceable with FQCN
@@ -239,8 +328,8 @@ def symlink_n_rolename(path, role, collection):
         find = 'linux-system-roles.{0}'.format(role)
         # There is a code which requires a symlink to the role.
         # E.g., file: roles/linux-system-roles.kernel_settings/vars/main.yml
-        # in kernel_settings/tests/tests_simple_settings.yml:        
-        if grep(path, find, file_patterns):
+        # in kernel_settings/tests/tests_simple_settings.yml:
+        if recursive_grep(path, find, file_patterns):
             lsr_reset = True
         else:
             lsr_reset = False
@@ -261,7 +350,21 @@ replace = namespace + "." + collection + ".\\1"
 file_patterns = ['*.yml', '*.md']
 file_replace(role_dir, find, replace, file_patterns)
 
+# Create tests_defaults.yml in tests for the molecule test.
+tests_default = output / 'tests' / 'tests_default.yml'
+if tests_default.exists():
+    with open(tests_default) as f:
+        s = f.read()
+    s = '{0}    - {1}.{2}.{3}\n'.format(s, namespace, collection, role)
+    with open(tests_default, "w") as f:
+        f.write(s)
+else:
+    s = '---\n- name: Ensure that the role runs with default parameters\n  hosts: all\n  roles:\n    - {0}.{1}.{2}\n'.format(namespace, collection, role)
+    with open(tests_default, "w") as f:
+        f.write(s)
 
+
+# Copy docs, design_docs, examples and README.md files
 def add_rolename(filename, rolename):
     """
     A file with an extension, e.g., README.md is converted to README-rolename.md
@@ -279,7 +382,7 @@ def process_readme(src_path, filename, output, rolename):
     docs_path.mkdir(parents=True, exist_ok=True)
     src = src_path / filename
     # copy
-    with_rolename = add_rolename(filename, rolename) 
+    with_rolename = add_rolename(filename, rolename)
     dest = docs_path / with_rolename
     print(f'Copying doc {filename} to {dest}')
     copy2(
@@ -308,7 +411,6 @@ def process_readme(src_path, filename, output, rolename):
             f.write(s)
 
 
-# docs, design_docs
 docs_path = output / Path('docs')
 dest = docs_path / role
 for doc in DOCS:

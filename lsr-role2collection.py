@@ -80,8 +80,10 @@ MOLECULE = (
 DO_NOT_COPY = (
     'pylint_extra_requirements.txt',
     'pylintrc',
+    'run_pylint.py',
     'pytest_extra_requirements.txt',
     'ansible_pytest_extra_requirements.txt',
+    'tuned_requirements.txt',
     '.gitignore',
     '.lgtm.yml',
     'semaphore',
@@ -154,15 +156,15 @@ parser.add_argument(
     help='Role to convert to collection',
 )
 parser.add_argument(
+    '--molecule',
+    action='store_true',
+    help='If set, molecule is copied from SRC_PATH/template, which must exist. In that case "--role ROLE" is ignored.'
+)
+parser.add_argument(
     '--replace-dot',
     type=str,
     default='_',
     help='If sub-role name contains dots, replace them with the given value; default to "_"',
-)
-parser.add_argument(
-    '--molecule',
-    action='store_true',
-    help='if set, molecule is copied from SRC_PATH/template, which must exist. --role ROLE is ignored.'
 )
 args = parser.parse_args()
 
@@ -257,13 +259,13 @@ for tests in TESTS:
 
 # Adjust role names to the collections style.
 def remove_or_reset_symlinks(path, role, lsr_reset=False):
-    '''
+    """
     Clean up roles/linux-system-roles.rolename.
     - Remove symlinks.
     - If lsr_reset is true and the symlink is linux-system-roles.rolename,
       recreate the symplink which targets to ../../../roles/rolename.
     - If linux-system-roles.rolename is an empty dir, rmdir it.
-    '''
+    """
     nodes = sorted(list(path.rglob('*')), reverse=True)
     for node in nodes:
         if node.is_symlink():
@@ -275,10 +277,10 @@ def remove_or_reset_symlinks(path, role, lsr_reset=False):
 
 
 def recursive_grep(path, find, file_patterns):
-    '''
+    """
     Check if a pattern `find` is found in the files that match
     `file_patterns` under `path`.
-    '''
+    """
     for root, dirs, files in os.walk(os.path.abspath(path)):
         for file_pattern in file_patterns:
             for filename in fnmatch.filter(files, file_pattern):
@@ -291,10 +293,10 @@ def recursive_grep(path, find, file_patterns):
 
 
 def file_replace(path, find, replace, file_patterns):
-    '''
+    """
     Replace a pattern `find` with `replace` in the files that match
     `file_patterns` under `path`.
-    '''
+    """
     for root, dirs, files in os.walk(os.path.abspath(path)):
         for file_pattern in file_patterns:
             for filename in fnmatch.filter(files, file_pattern):
@@ -307,10 +309,10 @@ def file_replace(path, find, replace, file_patterns):
 
 
 def replace_rolename_with_collection(path, role, collection):
-    '''
+    """
     Replace `linux-system-roles.rolename` with `namespace.collection.rolename`
     in the given dir `path` recursively.
-    '''
+    """
     find = r"( *name: | *- name: | *- | *roletoinclude: | *role: | *- role: )(linux-system-roles\.{0}\b|{0}\b)".format(role, role)
     replace = r"\1" + namespace + "." + collection + "." + role
     file_patterns = ['*.yml', '*.md']
@@ -318,9 +320,9 @@ def replace_rolename_with_collection(path, role, collection):
 
 
 def symlink_n_rolename(path, role, collection):
-    '''
+    """
     Handle rolename issues in the test playbooks.
-    '''
+    """
     if path.exists():
         replace_rolename_with_collection(path, role, collection)
         # linux-system-roles.role is left, which is not replaceable with FQCN
@@ -378,36 +380,41 @@ def add_rolename(filename, rolename):
 
 
 def process_readme(src_path, filename, output, rolename):
-    docs_path = output / Path('docs')
+    """
+    Copy src_path/filename to output/docs/rolename.
+    filename could be README.md, README-something.md, or something.md.
+    Create a primary README.md in output, which points to output/docs/rolename/filename
+    with the title rolename or rolename-something.
+    """
+    docs_path = output / Path('docs') / rolename
     docs_path.mkdir(parents=True, exist_ok=True)
     src = src_path / filename
     # copy
-    with_rolename = add_rolename(filename, rolename)
-    dest = docs_path / with_rolename
+    dest = docs_path / filename
     print(f'Copying doc {filename} to {dest}')
     copy2(
         src,
         dest,
         follow_symlinks=False
     )
-    prim_doc = output / 'README.md'
     if filename == 'README.md':
         title = role
-    elif filename.startswith('README'):
+    elif filename.startswith('README-'):
         m = re.match('(README-)(.*)(\.md)', filename)
         title = role + '-' + m.group(2)
     else:
         title = role + '-' + filename.replace('.md', '')
-    if not prim_doc.exists():
-        s = '# {0} {1} collections\n\n## Contents\n<!--ts-->\n  * [{2}](docs/{3})\n<!--te-->'.format(namespace, collection, title, with_rolename)
-        with open(prim_doc, "w") as f:
+    main_doc = output / 'README.md'
+    if not main_doc.exists():
+        s = '# {0} {1} collections\n\n## Contents\n<!--ts-->\n  * [{2}](docs/{3})\n<!--te-->'.format(namespace, collection, title, rolename + '/' + filename)
+        with open(main_doc, "w") as f:
             f.write(s)
     else:
-        with open(prim_doc) as f:
+        with open(main_doc) as f:
             s = f.read()
-        replace = '  * [{0}](docs/{1})\n<!--te-->'.format(title, with_rolename)
+        replace = '  * [{0}](docs/{1})\n<!--te-->'.format(title, rolename + '/' + filename)
         s = re.sub('<!--te-->', replace, s)
-        with open(prim_doc, "w") as f:
+        with open(main_doc, "w") as f:
             f.write(s)
 
 
@@ -600,6 +607,7 @@ for rewrite_dir in (module_utils_dir, modules_dir):
 
 for extra in extras:
     if extra.name.endswith('.md'):
+        # E.g., contributing.md, README-devel.md and README-testing.md
         process_readme(extra.parent, extra.name, output, role)
     elif extra.is_dir():
         if extra.name == 'roles':

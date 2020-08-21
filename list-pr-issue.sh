@@ -30,6 +30,8 @@ fi
 # current usage - https://developer.github.com/v3/rate_limit/
 
 # in jq format - see https://stedolan.github.io/jq/manual/
+# https://github.com/koalaman/shellcheck/wiki/SC2016
+# shellcheck disable=SC2016
 PR_FORMAT=${PR_FORMAT:-'"\(.created_at|fromdateiso8601)" + " " + .user.login + " " + .created_at + " " + .html_url + " \(.title|gsub($eliputf; $elip))"'}
 # see https://developer.github.com/v3/pulls/
 PR_STATE=${PR_STATE:-open}
@@ -59,30 +61,32 @@ header() {
 list_prs() {
     local org=$1
     local repo=$2
-    hub api /repos/$org/$repo/pulls?state=$PR_STATE\&sort=$PR_SORT_FIELD\&direction=$PR_SORT_DIR\&per_page=$PR_PAGE_SIZE | \
+    hub api "/repos/$org/$repo/pulls?state=$PR_STATE&sort=$PR_SORT_FIELD&direction=$PR_SORT_DIR&per_page=$PR_PAGE_SIZE" | \
         jq --arg repo "$repo" --arg eliputf '…' --arg elip '...' -r '.[] | $repo + " " + '"$PR_FORMAT"
 }
 
 list_issues() {
     local org=$1
     local repo=$2
-    hub api /repos/$org/$repo/issues?state=$ISSUE_STATE\&sort=$ISSUE_SORT_FIELD\&direction=$ISSUE_SORT_DIR\&per_page=$ISSUE_PAGE_SIZE | \
+    hub api "/repos/$org/$repo/issues?state=$ISSUE_STATE&sort=$ISSUE_SORT_FIELD&direction=$ISSUE_SORT_DIR&per_page=$ISSUE_PAGE_SIZE" | \
         jq --arg repo "$repo" --arg eliputf '…' --arg elip '...' -r '.[] | select(has("pull_request")|not) | $repo + " " + '"$ISSUE_FORMAT"
 }
 
 LSR_ORG=${LSR_ORG:-linux-system-roles}
 
 # get list of repos
-REPOS=${REPOS:-$( hub api orgs/$LSR_ORG/repos | jq -r '.[].name' )}
+REPOS=${REPOS:-$( hub api "orgs/$LSR_ORG/repos" | jq -r '.[].name' )}
 LISTTYPE=${LISTTYPE:-both}
 
-if [ "$LISTTYPE" = prs -o "$LISTTYPE" = both ] ; then
+if [ "$LISTTYPE" = prs ] || [ "$LISTTYPE" = both ] ; then
     echo PRS
     header
+    # https://github.com/koalaman/shellcheck/wiki/SC2034
+    # shellcheck disable=SC2034
     for repo in $REPOS ; do
-        list_prs $LSR_ORG $repo
+        list_prs "$LSR_ORG" "$repo"
     done | sort -n -k2 | \
-        while read repo created_at_s user created_at url title ; do
+        while read -r repo created_at_s user created_at url title ; do
             prline "$repo" "$title" "$created_at" "$user" "$url"
         done
 fi
@@ -91,13 +95,15 @@ if [ "$LISTTYPE" = both ] ; then
     echo ""
 fi
 
-if [ "$LISTTYPE" = issues -o "$LISTTYPE" = both ] ; then
+if [ "$LISTTYPE" = issues ] || [ "$LISTTYPE" = both ] ; then
     echo ISSUES
     header
+    # https://github.com/koalaman/shellcheck/wiki/SC2034
+    # shellcheck disable=SC2034
     for repo in $REPOS ; do
-        list_issues $LSR_ORG $repo
+        list_issues "$LSR_ORG" "$repo"
     done | sort -n -k2 | \
-        while read repo created_at_s user created_at url title ; do
+        while read -r repo created_at_s user created_at url title ; do
             prline "$repo" "$title" "$created_at" "$user" "$url"
         done
 fi

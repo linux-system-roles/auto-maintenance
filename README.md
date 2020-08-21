@@ -3,6 +3,23 @@
 Set of scripts and configuration options to manage tedious tasks across
 linux-system-roles repos.
 
+# shellcheck
+
+When making edits, use `shellcheck *.sh` to check your scripts for common
+shell script problems.  On Fedora, `dnf -y install ShellCheck`. There is
+currently no way to disable a check by using a mnemonic string or keyword
+value - you must use a code like `SC2034`. See
+https://github.com/koalaman/shellcheck/issues/1948 - In the meantime, if you
+need to disable a check, add a link to the ShellCheck wiki like this:
+```
+# https://github.com/koalaman/shellcheck/wiki/SC2064
+# shellcheck disable=SC2064
+trap "rm -f ${STDOUT} ${STDERR}; cd ${HERE}" ABRT EXIT HUP INT QUIT
+```
+So that someone can easily figure out what this code means.  NOTE that the
+link must come first, followed by the comment with the shellcheck disable
+directive.
+
 # sync-template.sh
 
 There are two main workflows - one that is completely automated, and one that

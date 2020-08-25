@@ -299,20 +299,16 @@ def copy_tests(src_path, role):
 
 
 # Adjust role names to the collections style.
-def remove_or_reset_symlinks(path, role, lsr_reset=False):
+def remove_or_reset_symlinks(path, role):
     """
     Clean up roles/linux-system-roles.rolename.
     - Remove symlinks.
-    - If lsr_reset is true and the symlink is linux-system-roles.rolename,
-      recreate the symlink which targets to ../../../roles/rolename.
     - If linux-system-roles.rolename is an empty dir, rmdir it.
     """
     nodes = sorted(list(path.rglob('*')), reverse=True)
     for node in nodes:
         if node.is_symlink():
             node.unlink()
-            if lsr_reset and r'linux-system-roles.' + role == node.name:
-                node.symlink_to('../../../roles/' + role)
         elif node.is_dir() and r'linux-system-roles.' + role == node.name and not any(node.iterdir()):
             node.rmdir()
 
@@ -350,17 +346,7 @@ def symlink_n_rolename(path, role, collection):
     """
     if path.exists():
         replace_rolename_with_collection(path, role, collection)
-        # linux-system-roles.role is left, which is not replaceable with FQCN
-        file_patterns = ['*.yml']
-        find = 'linux-system-roles.{0}'.format(role)
-        # There is a code which requires a symlink to the role.
-        # E.g., file: roles/linux-system-roles.kernel_settings/vars/main.yml
-        # in kernel_settings/tests/tests_simple_settings.yml:
-        if recursive_grep(path, find, file_patterns):
-            lsr_reset = True
-        else:
-            lsr_reset = False
-        remove_or_reset_symlinks(path, role, lsr_reset)
+        remove_or_reset_symlinks(path, role)
         roles_dir = path / 'roles'
         if roles_dir.exists() and not any(roles_dir.iterdir()):
             roles_dir.rmdir()

@@ -265,19 +265,12 @@ def file_replace(path, find, replace, file_patterns):
                     f.write(s)
 
 
-def replace_rolepath_with_collection(namespace, collection, role):
-    """
-    Replace "{{ role_path }}/roles/rolename" with namespace.collection.rolename
-    in role_dir.
-    """
-    role_dir = output / 'roles' / role
-    find = "{{ role_path }}/roles/(.*)"
-    replace = namespace + "." + collection + ".\\1"
-    file_patterns = ['*.yml', '*.md']
-    file_replace(role_dir, find, replace, file_patterns)
-
-# Replace "{{ role_path }}/roles/ROLE" with NAMESPACE.COLLECTION.ROLE
-replace_rolepath_with_collection(namespace, collection, role)
+# Replace "{{ role_path }}/roles/rolename" with rolename in role_dir.
+role_dir = output / 'roles' / role
+find = "{{ role_path }}/roles/(.*)"
+replace = ".\\1"
+file_patterns = ['*.yml', '*.md']
+file_replace(role_dir, find, replace, file_patterns)
 
 # ==============================================================================
 

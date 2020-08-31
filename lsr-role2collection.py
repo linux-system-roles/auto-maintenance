@@ -761,4 +761,12 @@ s = '[defaults]\ncollections_paths = ' + str(dest_path) + ':~/.ansible/collectio
 with open(ansiblecfg, "w") as f:
     f.write(s)
 
-print(f'Run ansible-playbook with environment variable ANSIBLE_CONFIG={ansiblecfg}')
+default_collections_paths = '~/.ansible/collections:/usr/share/ansible/collections'
+default_collections_paths_list = default_collections_paths.split(':')
+default_collections_paths_list = list(map(os.path.expanduser, default_collections_paths_list))
+current_dest = os.path.expanduser(str(dest_path))
+# dest_path is not in the default collections path.
+# suggest to run ansible-playbook with ANSIBLE_COLLECTIONS_PATHS env var.
+if not current_dest in default_collections_paths_list:
+    ansible_collections_paths = current_dest + ':' + default_collections_paths
+    print(f'Run ansible-playbook with environment variable ANSIBLE_COLLECTIONS_PATHS={ansible_collections_paths}')

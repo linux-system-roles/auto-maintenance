@@ -334,7 +334,7 @@ def replace_rolename_with_collection(path, role, collection):
     Replace the roles or include_role values, ROLE or `linux-system-roles.ROLE`, are replaced
     with `NAMESPACE.COLLECTION.ROLE` in the given dir `path` recursively.
     """
-    find = r"( *name: | *- name: | *- | *roletoinclude: | *role: | *- role: )(linux-system-roles\.{0}\b|{0}\b)".format(role, role)
+    find = r"( *name: | *- name: | *- | *roletoinclude: | *role: | *- role: )(linux-system-roles\.{0}\b)".format(role, role)
     replace = r"\1" + namespace + "." + collection + "." + role
     file_patterns = ['*.yml', '*.md']
     file_replace(path, find, replace, file_patterns)

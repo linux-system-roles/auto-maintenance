@@ -239,7 +239,7 @@ for role_dir in ROLE_DIRS:
     src = src_path / role_dir
     if not src.is_dir():
         continue
-    dest = output / 'roles' / src_path.name / role_dir
+    dest = output / 'roles' / role / role_dir
     print(f'Copying role {src} to {dest}')
     copytree(
         src,
@@ -367,9 +367,10 @@ add_to_tests_defaults(role)
 
 # ==============================================================================
 
-# Docs copy docs, design_docs, examples and README.md files to
+# Copy docs, design_docs, and examples to 
 # DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/docs/ROLE.
-# Generate a top level README.md which contains links to docs/ROLE/README.md.
+# Copy README.md to DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/roles/ROLE.
+# Generate a top level README.md which contains links to roles/ROLE/README.md.
 def process_readme(src_path, filename, rolename):
     """
     Copy src_path/filename to output/docs/rolename.
@@ -377,17 +378,8 @@ def process_readme(src_path, filename, rolename):
     Create a primary README.md in output, which points to output/docs/rolename/filename
     with the title rolename or rolename-something.
     """
-    docs_path = output / Path('docs') / rolename
-    docs_path.mkdir(parents=True, exist_ok=True)
     src = src_path / filename
-    # copy
-    dest = docs_path / filename
-    print(f'Copying doc {filename} to {dest}')
-    copy2(
-        src,
-        dest,
-        follow_symlinks=False
-    )
+    dest = output / 'roles' / role / filename
     if filename == 'README.md':
         title = rolename
     elif filename.startswith('README-'):
@@ -395,15 +387,22 @@ def process_readme(src_path, filename, rolename):
         title = rolename + '-' + m.group(2)
     else:
         title = rolename + '-' + filename.replace('.md', '')
+    # copy
+    print(f'Copying doc {filename} to {dest}')
+    copy2(
+        src,
+        dest,
+        follow_symlinks=False
+    )
     main_doc = output / 'README.md'
     if not main_doc.exists():
-        s = '# {0} {1} collections\n\n## Contents\n<!--ts-->\n  * [{2}](docs/{3})\n<!--te-->'.format(namespace, collection, title, rolename + '/' + filename)
+        s = '# {0} {1} collections\n\n## Contents\n<!--ts-->\n  * [{2}](roles/{3})\n<!--te-->'.format(namespace, collection, title, rolename + '/' + filename)
         with open(main_doc, "w") as f:
             f.write(s)
     else:
         with open(main_doc) as f:
             s = f.read()
-        replace = '  * [{0}](docs/{1})\n<!--te-->'.format(title, rolename + '/' + filename)
+        replace = '  * [{0}](roles/{1})\n<!--te-->'.format(title, rolename + '/' + filename)
         s = re.sub('<!--te-->', replace, s)
         with open(main_doc, "w") as f:
             f.write(s)
@@ -414,7 +413,7 @@ dest = docs_path / role
 for doc in DOCS:
     src = src_path / doc
     if src.is_dir():
-        print(f'Copying role {src} to {dest}')
+        print(f'Copying docs {src} to {dest}')
         copytree(
             src,
             dest,
@@ -422,7 +421,7 @@ for doc in DOCS:
             ignore=ignore_patterns('roles'),
             dirs_exist_ok=True
         )
-    elif doc == 'README.md':
+    elif src.is_file():
         process_readme(src_path, doc, role)
 
 # Remove symlinks in the docs/role (e.g., in the examples).

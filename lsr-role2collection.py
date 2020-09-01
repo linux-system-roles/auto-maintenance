@@ -63,6 +63,7 @@ DOCS = (
     'design_docs',
     'examples',
     'README.md',
+    'DCO',
 )
 
 MOLECULE = (
@@ -95,7 +96,13 @@ DO_NOT_COPY = (
     'tuned_requirements.txt',
 )
 
+# Do not add -ROLENAME to the copied extra file.
 EXTRA_NO_ROLENAME = (
+)
+
+# Do not add a link in this tuple to the main README.md.
+NO_README_LINK = (
+    'rsyslog',
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + MOLECULE + DO_NOT_COPY
@@ -379,14 +386,7 @@ def process_readme(src_path, filename, rolename):
     with the title rolename or rolename-something.
     """
     src = src_path / filename
-    dest = output / 'roles' / role / filename
-    if filename == 'README.md':
-        title = rolename
-    elif filename.startswith('README-'):
-        m = re.match('(README-)(.*)(\.md)', filename)
-        title = rolename + '-' + m.group(2)
-    else:
-        title = rolename + '-' + filename.replace('.md', '')
+    dest = output / 'roles' / rolename / filename
     # copy
     print(f'Copying doc {filename} to {dest}')
     copy2(
@@ -394,18 +394,24 @@ def process_readme(src_path, filename, rolename):
         dest,
         follow_symlinks=False
     )
-    main_doc = output / 'README.md'
-    if not main_doc.exists():
-        s = '# {0} {1} collections\n\n## Contents\n<!--ts-->\n  * [{2}](roles/{3})\n<!--te-->'.format(namespace, collection, title, rolename + '/' + filename)
-        with open(main_doc, "w") as f:
-            f.write(s)
-    else:
-        with open(main_doc) as f:
-            s = f.read()
-        replace = '  * [{0}](roles/{1})\n<!--te-->'.format(title, rolename + '/' + filename)
-        s = re.sub('<!--te-->', replace, s)
-        with open(main_doc, "w") as f:
-            f.write(s)
+    if not rolename in NO_README_LINK and filename.startswith('README'):
+        if filename == 'README.md':
+            title = rolename
+        elif filename.startswith('README-'):
+            m = re.match('(README-)(.*)(\.md)', filename)
+            title = rolename + '-' + m.group(2)
+        main_doc = output / 'README.md'
+        if not main_doc.exists():
+            s = '# {0} {1} collections\n\n## Supported Linux System Roles\n<!--ts-->\n  * [{2}](roles/{3})\n<!--te-->'.format(namespace, collection, title, rolename + '/' + filename)
+            with open(main_doc, "w") as f:
+                f.write(s)
+        else:
+            with open(main_doc) as f:
+                s = f.read()
+            replace = '  * [{0}](roles/{1})\n<!--te-->'.format(title, rolename + '/' + filename)
+            s = re.sub('<!--te-->', replace, s)
+            with open(main_doc, "w") as f:
+                f.write(s)
 
 
 docs_path = output / Path('docs')
@@ -700,13 +706,12 @@ for extra in extras:
                         symlinks=True,
                         dirs_exist_ok=True
                     )
-                replace_rolepath_with_collection(namespace, collection, dr)
                 # copy tests dir to output/'tests'
                 copy_tests(sr, dr)
                 # remove symlinks in the tests/role, then updating the rolename to the collection format
                 symlink_n_rolename(output / 'tests' / dr, dr, collection)
                 add_to_tests_defaults(dr)
-                # copy README.md to output/docs/sr.name
+                # copy README.md to output/roles/sr.name
                 readme = sr / 'README.md'
                 if readme.is_file():
                     process_readme(sr, 'README.md', dr)
@@ -747,15 +752,8 @@ for extra in extras:
             follow_symlinks=False
         )
 
-# ansible.cfg for the collection path
-ansiblecfg = output / 'ansible.cfg'
-s = '[defaults]\ncollections_paths = ' + str(dest_path) + ':~/.ansible/collections:/usr/share/ansible/collections'
-with open(ansiblecfg, "w") as f:
-    f.write(s)
-
 default_collections_paths = '~/.ansible/collections:/usr/share/ansible/collections'
-default_collections_paths_list = default_collections_paths.split(':')
-default_collections_paths_list = list(map(os.path.expanduser, default_collections_paths_list))
+default_collections_paths_list = list(map(os.path.expanduser, default_collections_paths.split(':')))
 current_dest = os.path.expanduser(str(dest_path))
 # dest_path is not in the default collections path.
 # suggest to run ansible-playbook with ANSIBLE_COLLECTIONS_PATHS env var.

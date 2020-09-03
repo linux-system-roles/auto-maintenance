@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: MIT
 ---
-language: shell
+dist: bionic
 os: linux
-script:
-  - shellcheck *.sh
+# https://docs.travis-ci.com/user/languages/python/#using-tox-as-the-build-script
+language: minimal
+preinstall:
+  - sudo apt-get update
+  - sudo apt-get install -y python3-pip
+  - pip3 install tox
+script: tox

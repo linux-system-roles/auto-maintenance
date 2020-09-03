@@ -272,11 +272,16 @@ def file_replace(path, find, replace, file_patterns):
                     f.write(s)
 
 
-# Replace "{{ role_path }}/roles/rolename" with rolename in role_dir.
-role_dir = output / 'roles' / role
-find = "{{ role_path }}/roles/(.*)"
-replace = ".\\1"
+# Replace "{{ role_path }}/roles/rolename" with "rolename" in role_dir.
+find = "{{ role_path }}/roles/([\w\d]*['\"])"
+replace = "\\1"
 file_patterns = ['*.yml', '*.md']
+file_replace(role_dir, find, replace, file_patterns)
+
+# Replace "{{ role_path }}/roles/rolename/{tasks,vars,defaults}/main.yml" with
+# "rolename/{tasks,vars,defaults}/main.yml" in role_dir.
+find = "{{ role_path }}/roles/([\w\d\./]*)$"
+replace = "\\1"
 file_replace(role_dir, find, replace, file_patterns)
 
 # ==============================================================================
@@ -329,7 +334,7 @@ def recursive_grep(path, find, file_patterns):
     return False
 
 
-def replace_rolename_with_collection(path, role, collection):
+def replace_rolename_with_collection(path, namespace, collection, role):
     """
     Replace the roles or include_role values, ROLE or `linux-system-roles.ROLE`, are replaced
     with `NAMESPACE.COLLECTION.ROLE` in the given dir `path` recursively.
@@ -340,12 +345,12 @@ def replace_rolename_with_collection(path, role, collection):
     file_replace(path, find, replace, file_patterns)
 
 
-def symlink_n_rolename(path, role, collection):
+def symlink_n_rolename(path, namespace, collection, role):
     """
     Handle rolename issues in the test playbooks.
     """
     if path.exists():
-        replace_rolename_with_collection(path, role, collection)
+        replace_rolename_with_collection(path, namespace, collection, role)
         remove_or_reset_symlinks(path, role)
         roles_dir = path / 'roles'
         if roles_dir.exists() and not any(roles_dir.iterdir()):
@@ -353,7 +358,7 @@ def symlink_n_rolename(path, role, collection):
 
 
 # Create tests_defaults.yml in tests for the molecule test.
-def add_to_tests_defaults(role):
+def add_to_tests_defaults(namespace, collection, role):
     tests_default = output / 'tests' / 'tests_default.yml'
     tests_default.parent.mkdir(parents=True, exist_ok=True)
     if tests_default.exists():
@@ -369,8 +374,8 @@ def add_to_tests_defaults(role):
 
 copy_tests(src_path, role)
 # remove symlinks in the tests/role, then updating the rolename to the collection format
-symlink_n_rolename(output / 'tests' / role, role, collection)
-add_to_tests_defaults(role)
+symlink_n_rolename(output / 'tests' / role, namespace, collection, role)
+add_to_tests_defaults(namespace, collection, role)
 
 # ==============================================================================
 
@@ -433,7 +438,7 @@ for doc in DOCS:
 # Remove symlinks in the docs/role (e.g., in the examples).
 # Update the rolename to the collection format as done in the tests.
 docs_role_path = output / 'docs' / role
-symlink_n_rolename(docs_role_path, role, collection)
+symlink_n_rolename(docs_role_path, namespace, collection, role)
 
 # ==============================================================================
 
@@ -709,8 +714,8 @@ for extra in extras:
                 # copy tests dir to output/'tests'
                 copy_tests(sr, dr)
                 # remove symlinks in the tests/role, then updating the rolename to the collection format
-                symlink_n_rolename(output / 'tests' / dr, dr, collection)
-                add_to_tests_defaults(dr)
+                symlink_n_rolename(output / 'tests' / dr, namespace, collection, dr)
+                add_to_tests_defaults(namespace, collection, dr)
                 # copy README.md to output/roles/sr.name
                 readme = sr / 'README.md'
                 if readme.is_file():

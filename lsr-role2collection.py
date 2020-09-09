@@ -19,6 +19,7 @@ import os
 import re
 import fnmatch
 from shutil import copytree, copy2, ignore_patterns, rmtree
+import ansible_role_parser
 
 from pathlib import Path
 
@@ -254,7 +255,7 @@ for role_dir in ROLE_DIRS:
         symlinks=True,
         dirs_exist_ok=True
     )
-
+    ansible_role_parser.parse_role(str(src))
 
 def file_replace(path, find, replace, file_patterns):
     """
@@ -301,6 +302,7 @@ def copy_tests(src_path, role):
                 symlinks=True,
                 dirs_exist_ok=True
             )
+        ansible_role_parser.parse_role(str(src))
 
 
 # Adjust role names to the collections style.

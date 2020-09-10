@@ -181,6 +181,7 @@ args = parser.parse_args()
 
 namespace = args.namespace
 collection = args.collection
+prefix = namespace + "." + collection + "."
 role = args.role
 dest_path = args.dest_path.resolve()
 output = Path.joinpath(dest_path, "ansible_collections/" + namespace + "/" + collection)
@@ -229,33 +230,63 @@ if args.molecule:
 
 # ==============================================================================
 
-# Run with --role ROLE
-src_path = args.src_path.resolve() / role
-if not src_path.exists():
-    print(f'Error: {src_path} does not exists.')
-    sys.exit(errno.NOENT)
-_extras = set(os.listdir(src_path)).difference(ALL_DIRS)
-try:
-    _extras.remove('.git')
-except KeyError:
-    pass
-extras = [src_path / e for e in _extras]
+def add_dest(src, dest, parsed_results):
+    for res in parsed_results:
+        res['destpath'] = res['filepath'].replace(src, dest)
 
-# Role - copy subdirectories, tasks, defaults, vars, etc., in the system role to
-# DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/roles/ROLE.
-for role_dir in ROLE_DIRS:
-    src = src_path / role_dir
-    if not src.is_dir():
-        continue
-    dest = output / 'roles' / role / role_dir
-    print(f'Copying role {src} to {dest}')
-    copytree(
-        src,
-        dest,
-        symlinks=True,
-        dirs_exist_ok=True
-    )
-    ansible_role_parser.parse_role(str(src))
+
+def replace_based_on_parsed_results(parsed_results, prefix, role):
+    for res in parsed_results:
+        with open(res['destpath']) as f:
+            s = f.read()
+        if '{{ role_path }}' in res['task_role']:
+            find = "{{ role_path }}/roles/([\w\d]*['\"])"
+            replace = prefix + "\\1"
+        elif 'linux-system-roles' in res['task_role']:
+            find = res['task_role']
+            replace = prefix + role
+        s = re.sub(find, replace, s)
+        with open(res['destpath'], "w") as f:
+            f.write(s)
+
+
+def copy_tree_with_replace(src_path, prefix, role, TUPLE, isrole=True, ignoreme=None, symlinks=True):
+    """
+    1. Copy files and dirs in the dir to
+       DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/roles/ROLE/dir
+       or
+       DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/dir/ROLE.
+    2. Parse the source tree to look for task_roles
+    3. Replace the task_roles with FQCN
+    """
+    parsed_results = []
+    for dir in TUPLE:
+        src = src_path / dir
+        if src.is_dir():
+            if isrole:
+                dest = output / 'roles' / role / dir
+            else:
+                dest = output / dir / role
+            print(f'Copying role {src} to {dest}')
+            if ignoreme:
+                copytree(
+                    src,
+                    dest,
+                    ignore=ignore_patterns(ignoreme),
+                    symlinks=symlinks,
+                    dirs_exist_ok=True
+                )
+            else:
+                copytree(
+                    src,
+                    dest,
+                    symlinks=symlinks,
+                    dirs_exist_ok=True
+                )
+            ansible_role_parser.parse_role(str(src_path), dir, parsed_results)
+            add_dest(str(src_path / dir), str(dest), parsed_results)
+    replace_based_on_parsed_results(parsed_results, prefix, role)
+
 
 def file_replace(path, find, replace, file_patterns):
     """
@@ -273,37 +304,24 @@ def file_replace(path, find, replace, file_patterns):
                     f.write(s)
 
 
-# Replace "{{ role_path }}/roles/rolename" with "rolename" in role_dir.
-find = "{{ role_path }}/roles/([\w\d]*['\"])"
-replace = "\\1"
-file_patterns = ['*.yml', '*.md']
-file_replace(role_dir, find, replace, file_patterns)
+# Run with --role ROLE
+src_path = args.src_path.resolve() / role
+if not src_path.exists():
+    print(f'Error: {src_path} does not exists.')
+    sys.exit(errno.NOENT)
+_extras = set(os.listdir(src_path)).difference(ALL_DIRS)
+try:
+    _extras.remove('.git')
+except KeyError:
+    pass
+extras = [src_path / e for e in _extras]
 
-# Replace "{{ role_path }}/roles/rolename/{tasks,vars,defaults}/main.yml" with
-# "rolename/{tasks,vars,defaults}/main.yml" in role_dir.
-find = "{{ role_path }}/roles/([\w\d\./]*)$"
-replace = "\\1"
-file_replace(role_dir, find, replace, file_patterns)
+# Role - copy subdirectories, tasks, defaults, vars, etc., in the system role to
+# DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/roles/ROLE.
+copy_tree_with_replace(src_path, prefix, role, ROLE_DIRS)
+
 
 # ==============================================================================
-
-# Tests - copy files and dirs in the tests to
-# DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/tests/ROLE.
-def copy_tests(src_path, role):
-    for tests in TESTS:
-        src = src_path / tests
-        if src.is_dir():
-            dest = output / tests / role
-            print(f'Copying role {src} to {dest}')
-            copytree(
-                src,
-                dest,
-                ignore=ignore_patterns('artifacts'),
-                symlinks=True,
-                dirs_exist_ok=True
-            )
-        ansible_role_parser.parse_role(str(src))
-
 
 # Adjust role names to the collections style.
 def remove_or_reset_symlinks(path, role):
@@ -320,39 +338,11 @@ def remove_or_reset_symlinks(path, role):
             node.rmdir()
 
 
-def recursive_grep(path, find, file_patterns):
-    """
-    Check if a pattern `find` is found in the files that match
-    `file_patterns` under `path`.
-    """
-    for root, dirs, files in os.walk(os.path.abspath(path)):
-        for file_pattern in file_patterns:
-            for filename in fnmatch.filter(files, file_pattern):
-                filepath = os.path.join(root, filename)
-                with open(filepath) as f:
-                    s = f.read()
-                if find in s:
-                    return True
-    return False
-
-
-def replace_rolename_with_collection(path, namespace, collection, role):
-    """
-    Replace the roles or include_role values, ROLE or `linux-system-roles.ROLE`, are replaced
-    with `NAMESPACE.COLLECTION.ROLE` in the given dir `path` recursively.
-    """
-    find = r"( *name: | *- name: | *- | *roletoinclude: | *role: | *- role: )(linux-system-roles\.{0}\b)".format(role, role)
-    replace = r"\1" + namespace + "." + collection + "." + role
-    file_patterns = ['*.yml', '*.md']
-    file_replace(path, find, replace, file_patterns)
-
-
 def symlink_n_rolename(path, namespace, collection, role):
     """
     Handle rolename issues in the test playbooks.
     """
     if path.exists():
-        replace_rolename_with_collection(path, namespace, collection, role)
         remove_or_reset_symlinks(path, role)
         roles_dir = path / 'roles'
         if roles_dir.exists() and not any(roles_dir.iterdir()):
@@ -374,7 +364,8 @@ def add_to_tests_defaults(namespace, collection, role):
         with open(tests_default, "w") as f:
             f.write(s)
 
-copy_tests(src_path, role)
+copy_tree_with_replace(src_path, prefix, role, TESTS, isrole=False, ignoreme='artifacts')
+
 # remove symlinks in the tests/role, then updating the rolename to the collection format
 symlink_n_rolename(output / 'tests' / role, namespace, collection, role)
 add_to_tests_defaults(namespace, collection, role)
@@ -421,8 +412,7 @@ def process_readme(src_path, filename, rolename):
                 f.write(s)
 
 
-docs_path = output / Path('docs')
-dest = docs_path / role
+dest = output / Path('docs') / role
 for doc in DOCS:
     src = src_path / doc
     if src.is_dir():
@@ -701,20 +691,9 @@ for extra in extras:
             for sr in extra.iterdir():
                 # If a role name contains '.', replace it with args.replace_dot
                 dr = sr.name.replace('.', args.replace_dot)
-                for role_dir in ROLE_DIRS:
-                    src = sr / role_dir
-                    if not src.is_dir():
-                        continue
-                    dest = output / extra.name / dr / role_dir
-                    print(f'Copying role {src} to {dest}')
-                    copytree(
-                        src,
-                        dest,
-                        symlinks=True,
-                        dirs_exist_ok=True
-                    )
+                copy_tree_with_replace(sr, prefix, dr, ROLE_DIRS)
                 # copy tests dir to output/'tests'
-                copy_tests(sr, dr)
+                copy_tree_with_replace(sr, prefix, dr, TESTS, isrole=False, ignoreme='artifacts')
                 # remove symlinks in the tests/role, then updating the rolename to the collection format
                 symlink_n_rolename(output / 'tests' / dr, namespace, collection, dr)
                 add_to_tests_defaults(namespace, collection, dr)

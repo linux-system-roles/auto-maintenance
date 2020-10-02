@@ -298,7 +298,7 @@ parser.add_argument(
     "--src-path",
     type=Path,
     default=os.environ.get("COLLECTION_SRC_PATH", HOME + "/linux-system-roles"),
-    help="Path to linux-system-roles",
+    help="Path to the parent directory of the source role; default to ${HOME}/linux-system-roles",
 )
 parser.add_argument(
     "--role",

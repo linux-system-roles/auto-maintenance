@@ -432,6 +432,11 @@ copy_tree_with_replace(
     src_path, dest_path, prefix, role, TESTS, isrole=False, ignoreme="artifacts"
 )
 
+file_patterns = ["*.py"]
+file_replace(
+    dest_path / "tests" / role, r"\blibrary.\b", "plugins.modules.", file_patterns
+)
+
 # remove symlinks in the tests/role, then updating the rolename to the collection format
 cleanup_symlinks(tests_dir / role, role)
 

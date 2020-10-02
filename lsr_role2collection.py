@@ -892,6 +892,11 @@ for extra in extras:
         print(f"Copying extra {extra} to {dest}")
         copy2(extra, dest, follow_symlinks=False)
 
+dest = dest_path / "playbooks" / role
+if dest.is_dir():
+    lsrxfrm = LSRTransformer(dest, False, role, LSRFileTransformer)
+    lsrxfrm.run()
+
 default_collections_paths = "~/.ansible/collections:/usr/share/ansible/collections"
 default_collections_paths_list = list(
     map(os.path.expanduser, default_collections_paths.split(":"))

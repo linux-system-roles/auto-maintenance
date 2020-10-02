@@ -439,56 +439,55 @@ cleanup_symlinks(tests_dir / role, role)
 
 
 def update_readme(src_path, filename, rolename, comment, issubrole=False):
-    if filename.startswith("README"):
-        if filename == "README.md":
-            title = rolename
-        elif filename.startswith("README-"):
-            m = re.match(r"(README-)(.*)([.]md)", filename)
-            title = rolename + "-" + m.group(2)
-        main_doc = dest_path / "README.md"
-        if not main_doc.exists():
-            s = textwrap.dedent(
-                """\
-                # {0} {1} collections
+    if not filename.startswith("README"):
+        return
+    if filename == "README.md":
+        title = rolename
+    else:
+        m = re.match(r"README(.*)(\.md)", filename)
+        title = rolename + m.group(1)
+    main_doc = dest_path / "README.md"
+    if not main_doc.exists():
+        s = textwrap.dedent(
+            """\
+            # {0} {1} collections
+
+            {2}
+            <!--ts-->
+              * [{3}](roles/{4})
+            <!--te-->
+            """
+        ).format(namespace, collection, comment, title, rolename + "/" + filename)
+        with open(main_doc, "w") as f:
+            f.write(s)
+    else:
+        with open(main_doc) as f:
+            s = f.read()
+        if comment not in s:
+            text = (
+                s
+                + textwrap.dedent(
+                    """\
 
                 {2}
                 <!--ts-->
                   * [{3}](roles/{4})
                 <!--te-->
                 """
-            ).format(namespace, collection, comment, title, rolename + "/" + filename)
-            with open(main_doc, "w") as f:
-                f.write(s)
+                ).format(
+                    namespace, collection, comment, title, rolename + "/" + filename
+                )
+            )
         else:
-            with open(main_doc) as f:
-                s = f.read()
-            if comment not in s:
-                text = (
-                    s
-                    + textwrap.dedent(
-                        """\
-
-                    {2}
-                    <!--ts-->
-                      * [{3}](roles/{4})
-                    <!--te-->
-                    """
-                    ).format(
-                        namespace, collection, comment, title, rolename + "/" + filename
-                    )
-                )
-            else:
-                find = (
-                    r"({0}\n<!--ts-->\n)(( |\*|\w|\[|\]|\(|\)|\.|/|-|\n|\r)+)".format(
-                        comment
-                    )
-                )
-                replace = r"\1\2  * [{0}](roles/{1})\n".format(
-                    title, rolename + "/" + filename
-                )
-                text = re.sub(find, replace, s, flags=re.M)
-            with open(main_doc, "w") as f:
-                f.write(text)
+            find = r"({0}\n<!--ts-->\n)(( |\*|\w|\[|\]|\(|\)|\.|/|-|\n|\r)+)".format(
+                comment
+            )
+            replace = r"\1\2  * [{0}](roles/{1})\n".format(
+                title, rolename + "/" + filename
+            )
+            text = re.sub(find, replace, s, flags=re.M)
+        with open(main_doc, "w") as f:
+            f.write(text)
 
 
 # Copy docs, design_docs, and examples to

@@ -118,7 +118,7 @@ class LSRFileTransformerBase(object):
             self.header = ""
         match = re.search(LSRFileTransformerBase.FOOTER_RE, buf)
         if match:
-            self.footer = match.group(1)
+            self.footer = match.group(1) + "\n"
         else:
             self.footer = ""
         self.ruamel_yaml.default_flow_style = False

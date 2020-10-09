@@ -17,6 +17,7 @@ from lsr_role2collection import (
     from_replace,
     gather_module_utils_parts,
     add_rolename,
+    config,
 )
 
 src_path = os.environ.get("COLLECTION_SRC_PATH", "/var/tmp/linux-system-roles")
@@ -24,6 +25,8 @@ dest_path = os.environ.get("COLLECTION_DEST_PATH", "/var/tmp/collections")
 namespace = os.environ.get("COLLECTION_NAMESPACE", "fedora")
 collection_name = os.environ.get("COLLECTION_NAME", "system_roles")
 rolename = "systemrole"
+prefix = namespace + "." + collection_name
+prefixdot = prefix + "."
 
 test_yaml_str = textwrap.dedent(
     """\
@@ -37,8 +40,6 @@ test_yaml_str = textwrap.dedent(
             {1} {2}{3}{4}
     """
 )
-prefix = namespace + "." + collection_name
-prefixdot = prefix + "."
 
 
 class LSRRole2Collection(unittest.TestCase):
@@ -260,8 +261,14 @@ class LSRRole2Collection(unittest.TestCase):
         self.create_test_tree(
             role_path / "tasks", test_yaml_str, pre_params, ".yml", is_vertical=False
         )
+        transformer_args = {
+            "prefix": prefixdot,
+            "subrole_prefix": "",
+            "replace_dot": "_",
+            "role_modules": set(),
+        }
         copy_tree_with_replace(
-            role_path, coll_path, prefixdot, rolename, MYTUPLE, isrole=True
+            role_path, coll_path, rolename, MYTUPLE, transformer_args, isrole=True
         )
         test_path = coll_path / "roles" / rolename / "tasks"
         self.check_test_tree(
@@ -270,7 +277,7 @@ class LSRRole2Collection(unittest.TestCase):
         shutil.rmtree(coll_path)
 
     def test_cleanup_symlinks(self):
-        """test copy_tree_with_replace"""
+        """test cleanup_symlinks"""
 
         params = [
             {
@@ -324,14 +331,10 @@ class LSRRole2Collection(unittest.TestCase):
         module_name = "util0"
         src_module_dir = Path(src_path) / rolename / "module_utils" / module_name
         src_module_dir.mkdir(parents=True, exist_ok=True)
-        dest_module_dir_core = (
-            Path(dest_path)
-            / "ansible_collections"
-            / namespace
-            / collection_name
-            / "plugins"
-            / "module_utils"
+        dest_base_dir = (
+            Path(dest_path) / "ansible_collections" / namespace / collection_name
         )
+        dest_module_dir_core = dest_base_dir / "plugins" / "module_utils"
         dest_module_dir = dest_module_dir_core / module_name
         dest_module_dir.mkdir(parents=True, exist_ok=True)
         input = bytes(
@@ -349,6 +352,20 @@ class LSRRole2Collection(unittest.TestCase):
         IMPORT_RE = re.compile(
             br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)$", flags=re.M
         )
+        config["namespace"] = namespace
+        config["collection"] = collection_name
+        config["role"] = rolename
+        config["src_path"] = Path(src_path) / rolename
+        config["dest_path"] = dest_base_dir
+        config["module_utils_dir"] = dest_module_dir_core
+        config["module_utils"] = [
+            [b"util0"],
+            [b"util0", b"test3"],
+            [b"util0", b"test2"],
+            [b"util0", b"test1"],
+            [b"util0", b"test0"],
+        ]
+        config["additional_rewrites"] = []
         output = IMPORT_RE.sub(import_replace, input)
         self.assertEqual(output, expected)
         shutil.rmtree(src_module_dir)
@@ -358,14 +375,10 @@ class LSRRole2Collection(unittest.TestCase):
         module_name = "util0"
         src_module_dir = Path(src_path) / rolename / "module_utils" / module_name
         src_module_dir.mkdir(parents=True, exist_ok=True)
-        dest_module_dir_core = (
-            Path(dest_path)
-            / "ansible_collections"
-            / namespace
-            / collection_name
-            / "plugins"
-            / "module_utils"
+        dest_base_dir = (
+            Path(dest_path) / "ansible_collections" / namespace / collection_name
         )
+        dest_module_dir_core = dest_base_dir / "plugins" / "module_utils"
         dest_module_dir = dest_module_dir_core / module_name
         dest_module_dir.mkdir(parents=True, exist_ok=True)
 
@@ -429,6 +442,20 @@ class LSRRole2Collection(unittest.TestCase):
             br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(.+)$",
             flags=re.M,
         )
+        config["namespace"] = namespace
+        config["collection"] = collection_name
+        config["role"] = rolename
+        config["src_path"] = Path(src_path) / rolename
+        config["dest_path"] = dest_base_dir
+        config["module_utils_dir"] = dest_module_dir_core
+        config["module_utils"] = [
+            [b"util0"],
+            [b"util0", b"test3"],
+            [b"util0", b"test2"],
+            [b"util0", b"test1"],
+            [b"util0", b"test0"],
+        ]
+        config["additional_rewrites"] = []
         output = FROM_RE.sub(from_replace, input)
         self.assertEqual(output, expected)
         shutil.rmtree(src_module_dir)

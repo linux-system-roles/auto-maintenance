@@ -41,6 +41,7 @@ FILES=(
   '--copy-if-missing=.travis/custom.sh'
   '--copy=.travis/preinstall'
   '--copy=.travis/runblack.sh'
+  '--copy=.travis/runcollection.sh'
   '--copy=.travis/runcoveralls.sh'
   '--copy=.travis/runflake8.sh'
   '--copy=.travis/runpylint.sh'

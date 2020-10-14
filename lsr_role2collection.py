@@ -874,7 +874,7 @@ def main():
         "--dest-path",
         type=Path,
         default=os.environ.get("COLLECTION_DEST_PATH", HOME + "/.ansible/collections"),
-        help="Path to parent of collection where role should be migrated",
+        help="Path to parent of collection where role should be migrated; default to ${HOME}/.ansible/collections",
     )
     parser.add_argument(
         "--src-path",

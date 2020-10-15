@@ -3,6 +3,13 @@
 Set of scripts and configuration options to manage tedious tasks across
 linux-system-roles repos.
 
+<!--ts-->
+  * [shellcheck](#shellcheck)
+  * [sync-template.sh](#sync-templatesh)
+  * [lsr_role2collection.py](#lsr_role2collectionpy)
+<!--te-->
+
+
 # shellcheck
 
 When making edits, use `shellcheck *.sh` to check your scripts for common
@@ -118,3 +125,97 @@ cd ../auto-maintenance
 ./sync-template.sh --use-hub --workdir $HOME/linux-system-roles --repolist somerepo ...other args...
 ```
 to submit another commit for this PR.
+
+# lsr_role2collection.py
+
+This is a tool to convert a linux-system-role style role to the collections format.
+
+## usage
+```
+lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
+                       [--dest-path DEST_PATH] [--src-path SRC_PATH] [--role ROLE]
+                       [--replace-dot REPLACE_DOT] [--subrole-prefix SUBROLE_PREFIX]
+```
+
+### optional arguments
+```
+-h, --help           show this help message and exit
+--namespace NAMESPACE
+                     Collection namespace; default to fedora
+--collection COLLECTION
+                     Collection name; default to system_roles
+--dest-path DEST_PATH
+                     Path to parent of collection where role should be migrated;
+                     default to ${HOME}/.ansible/collections
+--src-path SRC_PATH  Path to the parent directory of the source role;
+                     default to ${HOME}/linux-system-roles
+--role ROLE          Role to convert to collection
+--replace-dot REPLACE_DOT
+                     If sub-role name contains dots, replace them with the specified
+                     value; default to '_'
+--subrole-prefix SUBROLE_PREFIX
+                     If sub-role name does not start with the specified value, change
+                     the name to start with the value; default to an empty string
+```
+
+### environment variables
+
+Each option has corresponding environment variable to set.
+```
+  --namespace NAMESPACE            COLLECTION_NAMESPACE
+  --collection COLLECTION          COLLECTION_NAME
+  --src-path SRC_PATH              COLLECTION_SRC_PATH
+  --dest-path DEST_PATH            COLLECTION_DEST_PATH
+  --role ROLE                      COLLECTION_ROLE
+  --replace-dot REPLACE_DOT        COLLECTION_REPLACE_DOT
+  --subrole-prefix SUBROLE_PREFIX  COLLECTION_SUBROLE_PREFIX
+```
+
+## Table of original and new locations
+
+In this table, DEST_PATH/ansible_collections/NAMESPACE/COLLECTION is represented as COLLECTION_PATH. Assume the role name to be converted is myrole.
+
+| Items | Original roles path | New collections path |
+|-------|---------------------|----------------------|
+| README.md | SRC_PATH/myrole/README.md | COLLECTION_PATH/roles/myrole/README.md [[0]](#0) |
+| role | SRC_PATH/myrole/{defaults,files,handlers,meta,tasks,templates,vars} | COLLECTION_PATH/roles/myrole/* |
+| subrole | SRC_PATH/myrole/roles/mysubrole | COLLECTION_PATH/roles/mysubrole [[1]](#1) |
+| modules | SRC_PATH/myrole/library/*.py | COLLECTION_PATH/plugins/modules/*.py |
+| module_utils | SRC_PATH/myrole/module_utils/*.py | COLLECTION_PATH/plugins/module_utils/myrole/*.py [[2]](#2) |
+| tests | SRC_PATH/myrole/tests/*.yml | COLLECTION_PATH/tests/myrole/*.yml |
+| docs | SRC_PATH/myrole/{docs,design_docs,examples,DCO}/*.{md,yml} | COLLECTION_PATH/docs/myrole/*.{md,yml} |
+| license files | SRC_PATH/myrole/filename | COLLECTION_PATH/filename-myrole |
+
+#### [0]
+A top level README.md is created in COLLECTION_PATH and it lists the link to COLLECTION_PATH/myrole/README.md.
+#### [1]
+If a main role has sub-roles in the roles directory, the sub-roles are copied to the same level as the main role in COLLECTION_PATH/roles. To distinguish such sub-roles from the main roles, the sub-roles are listed in the Private Roles section in the top level README.md.
+#### [2]
+In the current implementation, if a module_utils program is a direct child of SRC_PATH/module_utils, a directory named "myrole" is created in COLLECTIONS_PATH and the module_utils program is copied to COLLECTIONS_PATH/plugins/module_utils/myrole. If a module_utils program is already in a sub-directory of SRC_PATH/module_utils, the program is copied to COLLECTIONS_PATH/plugins/module_utils/sub-directory.
+
+## Example 1
+Convert a role myrole located in the default src-path to the default dest-path with default namespace fedora and default collection name system_roles.
+
+Source role path is /home/user/linux-system-roles/myrole.
+Destination collections path is /home/user/.ansible/collections.
+```
+python lsr_role2collection.py --role myrole
+```
+
+## Example 2
+Convert a role myrole located in the default src-path to the default dest-path with namespace community and collection name test.
+
+Source role path is /home/user/linux-system-roles/myrole.
+Destination collections path is /home/user/.ansible/collections.
+```
+python lsr_role2collection.py --role myrole --namespace community --collection test
+```
+
+## Example 3
+Convert a role myrole located in a custom src-path to a custom dest-path
+
+Source role path is /path/to/role_group/myrole.
+Destination collections path is /path/to/collections.
+```
+python lsr_role2collection.py --src-path /path/to/role_group --dest-path /path/to/collections --role myrole
+```

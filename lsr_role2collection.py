@@ -877,6 +877,12 @@ def main():
         help="Path to parent of collection where role should be migrated; default to ${HOME}/.ansible/collections",
     )
     parser.add_argument(
+        "--tests-dest-path",
+        type=Path,
+        default=os.environ.get("COLLECTION_TESTS_DEST_PATH", None),
+        help="Path to parent of tests directory in which rolename directory is created and test scripts are copied to the directory; default to DEST_PATH/NAMESPACE/COLLECTION",  # noqa:E501
+    )
+    parser.add_argument(
         "--src-path",
         type=Path,
         default=os.environ.get("COLLECTION_SRC_PATH", HOME + "/linux-system-roles"),
@@ -924,6 +930,12 @@ def main():
     dest_path = Path.joinpath(
         top_dest_path, "ansible_collections/" + namespace + "/" + collection
     )
+    _tests_dest_path = args.tests_dest_path
+    if _tests_dest_path:
+        tests_dest_path = Path(_tests_dest_path)
+    else:
+        tests_dest_path = dest_path
+
     os.makedirs(dest_path, exist_ok=True)
 
     roles_dir = dest_path / "roles"
@@ -971,7 +983,7 @@ def main():
 
     copy_tree_with_replace(
         src_path,
-        dest_path,
+        tests_dest_path,
         role,
         TESTS,
         transformer_args,
@@ -1181,7 +1193,7 @@ def main():
                     # copy tests dir to dest_path/"tests"
                     copy_tree_with_replace(
                         sr,
-                        dest_path,
+                        tests_dest_path,
                         dr,
                         TESTS,
                         transformer_args,

@@ -132,6 +132,7 @@ class LSRFileTransformerBase(object):
         self.subrole_prefix = args["subrole_prefix"]
         self.replace_dot = args["replace_dot"]
         self.role_modules = args["role_modules"]
+        self.src_owner = args["src_owner"]
         dl = DataLoader()
         self.ans_data = dl.load_from_file(filepath)
         if self.ans_data is None:
@@ -399,7 +400,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
         """do something with a task item"""
         if module_name == "include_role" or module_name == "import_role":
             rolename = ru_task[module_name]["name"]
-            lsr_rolename = "linux-system-roles." + self.rolename
+            lsr_rolename = self.src_owner + "." + self.rolename
             logging.debug(f"\ttask role {rolename}")
             if rolename == self.rolename or rolename == lsr_rolename:
                 ru_task[module_name]["name"] = self.prefix + self.rolename
@@ -452,7 +453,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
         """ru_item is an item which may contain a roles or dependencies
         specifier - the roles_kw is either "roles" or "dependencies"
         """
-        lsr_rolename = "linux-system-roles." + self.rolename
+        lsr_rolename = self.src_owner + "." + self.rolename
         for idx, role in enumerate(ru_item.get(roles_kw, [])):
             changed = False
             if isinstance(role, dict):
@@ -855,7 +856,7 @@ def add_rolename(filename, rolename):
 config = {}
 
 
-def main():
+def role2collection():
     HOME = os.environ.get("HOME")
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -886,7 +887,13 @@ def main():
         "--src-path",
         type=Path,
         default=os.environ.get("COLLECTION_SRC_PATH", HOME + "/linux-system-roles"),
-        help="Path to the parent directory of the source role; default to ${HOME}/linux-system-roles",
+        help="Path to the parent directory of the source role; default to default to ${HOME}/linux-system-roles",
+    )
+    parser.add_argument(
+        "--src-owner",
+        type=str,
+        default=os.environ.get("COLLECTION_SRC_OWNER", ""),
+        help='Owner of the role in github. If the parent directory name in SRC_PATH is not the github owner, may need to set to it, e.g., "linux-system-roles"; default to the parent directory of SRC_PATH',  # noqa:E501
     )
     parser.add_argument(
         "--role",
@@ -939,14 +946,17 @@ def main():
     os.makedirs(dest_path, exist_ok=True)
 
     roles_dir = dest_path / "roles"
-    tests_dir = dest_path / "tests"
+    tests_dir = tests_dest_path / "tests"
     plugin_dir = dest_path / "plugins"
     modules_dir = plugin_dir / "modules"
     module_utils_dir = plugin_dir / "module_utils"
     docs_dir = dest_path / "docs"
 
-    # Run with --role ROLE
-    src_path = args.src_path.resolve() / role
+    _src_path = args.src_path.resolve()
+    src_owner = args.src_owner
+    if not src_owner:
+        src_owner = os.path.basename(_src_path)
+    src_path = Path(_src_path) / role
     if not src_path.exists():
         print(f"Error: {src_path} does not exists.")
         sys.exit(errno.ENOENT)
@@ -973,6 +983,7 @@ def main():
         "replace_dot": replace_dot,
         # get role modules - will need to find and convert these to use FQCN
         "role_modules": get_role_modules(src_path),
+        "src_owner": src_owner,
     }
 
     # Role - copy subdirectories, tasks, defaults, vars, etc., in the system role to
@@ -1068,9 +1079,7 @@ def main():
         copy2(src, dest, follow_symlinks=False)
         dest = roles_dir / rolename
         file_patterns = ["*.md"]
-        file_replace(
-            dest, "linux-system-roles." + rolename, prefix + rolename, file_patterns
-        )
+        file_replace(dest, src_owner + "." + rolename, prefix + rolename, file_patterns)
         if original:
             file_replace(dest, original, prefix + rolename, file_patterns)
         if issubrole:
@@ -1263,4 +1272,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(role2collection())

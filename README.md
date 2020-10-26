@@ -134,8 +134,8 @@ This is a tool to convert a linux-system-role style role to the collections form
 ```
 lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                        [--dest-path DEST_PATH] [--tests-dest-path TESTS_DEST_PATH]
-                       [--src-path SRC_PATH] [--role ROLE] [--replace-dot REPLACE_DOT]
-                       [--subrole-prefix SUBROLE_PREFIX]
+                       [--src-path SRC_PATH] [--src-owner SRC_OWNER] [--role ROLE]
+                       [--replace-dot REPLACE_DOT] [--subrole-prefix SUBROLE_PREFIX]
 ```
 
 ### optional arguments
@@ -154,6 +154,10 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      DEST_PATH/NAMESPACE/COLLECTION
 --src-path SRC_PATH  Path to the parent directory of the source role;
                      default to ${HOME}/linux-system-roles
+--src-owner SRC_OWNER
+                     Owner of the role in github. If the parent directory name in SRC_PATH is
+                     not the github owner, may need to set to it, e.g., "linux-system-roles";
+                     default to the parent directory of SRC_PATH
 --role ROLE          Role to convert to collection
 --replace-dot REPLACE_DOT
                      If sub-role name contains dots, replace them with the specified
@@ -223,4 +227,13 @@ Source role path is /path/to/role_group/myrole.
 Destination collections path is /path/to/collections.
 ```
 python lsr_role2collection.py --src-path /path/to/role_group --dest-path /path/to/collections --tests-dest-path /path/to/test_dir --role myrole
+```
+
+## Example 4
+Convert a role myrole in a github owner "linux-system-roles" located in a custom src-path to a custom dest-path and a custom tests-dest-path
+
+Source role path is /path/to/role_group/myrole.
+Destination collections path is /path/to/collections.
+```
+python lsr_role2collection.py --src-path /path/to/role_group --dest-path /path/to/collections --tests-dest-path /path/to/test_dir --role myrole --src-owner linux-system-roles
 ```

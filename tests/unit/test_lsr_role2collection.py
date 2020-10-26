@@ -266,6 +266,7 @@ class LSRRole2Collection(unittest.TestCase):
             "subrole_prefix": "",
             "replace_dot": "_",
             "role_modules": set(),
+            "src_owner": "linux-system-roles",
         }
         copy_tree_with_replace(
             role_path, coll_path, rolename, MYTUPLE, transformer_args, isrole=True
@@ -278,12 +279,12 @@ class LSRRole2Collection(unittest.TestCase):
 
     def test_cleanup_symlinks(self):
         """test cleanup_symlinks"""
-
+        owner = "linux-system-roles"
         params = [
             {
                 "key": "roles",
                 "subkey": "-",
-                "value": "linux-system-roles",
+                "value": owner,
                 "delim": ".",
                 "subvalue": rolename,
             },
@@ -300,13 +301,13 @@ class LSRRole2Collection(unittest.TestCase):
         self.create_test_tree(
             test_path, test_yaml_str, params, ".yml", is_vertical=False
         )
-        link = "linux-system-roles." + rolename
+        link = owner + "." + rolename
         test_role_path = test_path / "roles"
-        # case 1. tests/roles/linux-system-roles.systemrole -> roles/systemrole
+        # case 1. tests/roles/owner.systemrole -> roles/systemrole
         self.create_test_link(test_role_path, link, role_path, True)
         cleanup_symlinks(test_path, rolename)
         self.check_test_link(test_role_path, False)
-        # case 2. tests/roles/linux-system-roles.systemrole -> roles/systemrole
+        # case 2. tests/roles/owner.systemrole -> roles/systemrole
         #         tests/roles/some_file
         self.create_test_link(test_role_path, link, role_path, True)
         self.create_test_tree(
@@ -316,7 +317,7 @@ class LSRRole2Collection(unittest.TestCase):
         self.check_test_link(test_role_path, True)
         self.check_test_link(test_role_path / link, False)
         shutil.rmtree(test_role_path)
-        # case 3. tests/roles/linux-system-roles.systemrole -> roles/systemrole
+        # case 3. tests/roles/owner.systemrole -> roles/systemrole
         #         tests/roles/some_symlinks
         self.create_test_link(test_role_path, link, role_path, True)
         extralink = "extralink"

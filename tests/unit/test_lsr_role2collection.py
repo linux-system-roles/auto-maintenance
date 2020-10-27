@@ -351,7 +351,7 @@ class LSRRole2Collection(unittest.TestCase):
             "utf-8",
         )
         IMPORT_RE = re.compile(
-            br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)$", flags=re.M
+            br"(\bimport) (ansible\.module_utils\.)(\S+)(\S*)(\s+#.+|.*)$", flags=re.M
         )
         config["namespace"] = namespace
         config["collection"] = collection_name
@@ -398,8 +398,9 @@ class LSRRole2Collection(unittest.TestCase):
                 {0}.{1} import MyError
                 {0}.{1}.{3} import (
                     ArgUtil,
-                    ArgValidator_ListConnections,    ValidationError,
-                )
+                    ArgValidator_ListConnections,
+                    ValidationError,
+                )  # noqa:E501
                 {0}.{1}.{4} import Util
                 {0}.{1} import {5}
                 """
@@ -422,8 +423,9 @@ class LSRRole2Collection(unittest.TestCase):
                 {0}.{1}.{2}.plugins.module_utils.{3}.__init__ import MyError
                 {0}.{1}.{2}.plugins.module_utils.{3}.{5} import (
                     ArgUtil,
-                    ArgValidator_ListConnections,    ValidationError,
-                )
+                    ArgValidator_ListConnections,
+                    ValidationError,
+                )  # noqa:E501
                 {0}.{1}.{2}.plugins.module_utils.{3}.{6} import Util
                 {0}.{1}.{2}.plugins.module_utils.{3} import {7}
                 """
@@ -440,7 +442,7 @@ class LSRRole2Collection(unittest.TestCase):
             "utf-8",
         )
         FROM_RE = re.compile(
-            br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(.+)$",
+            br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(.+)(\s+#.+|.*)$",
             flags=re.M,
         )
         config["namespace"] = namespace

@@ -381,7 +381,7 @@ DO_NOT_COPY = (
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
 
 IMPORT_RE = re.compile(
-    br"(\bimport) (ansible\.module_utils\.)(\S+)(\S*)(\s+#.+|.*)$", flags=re.M
+    br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
 )
 FROM_RE = re.compile(
     br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(\S+)(\s+#.+|.*)$",

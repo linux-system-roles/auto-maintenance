@@ -329,29 +329,38 @@ class LSRRole2Collection(unittest.TestCase):
         shutil.rmtree(test_role_path)
 
     def test_import_replace(self):
-        module_name = "util0"
-        src_module_dir = Path(src_path) / rolename / "module_utils" / module_name
-        src_module_dir.mkdir(parents=True, exist_ok=True)
+        module_names = ["util0", "util1"]
+        src_module_utils = []
+        src_module_dir_core = Path(src_path) / rolename / "module_utils"
+        src_module_dir_core.mkdir(parents=True, exist_ok=True)
+        for mn in module_names:
+            _src_module_util = src_module_dir_core / (mn + ".py")
+            _src_module_util.touch(exist_ok=True)
+            src_module_utils.append(_src_module_util)
         dest_base_dir = (
             Path(dest_path) / "ansible_collections" / namespace / collection_name
         )
         dest_module_dir_core = dest_base_dir / "plugins" / "module_utils"
-        dest_module_dir = dest_module_dir_core / module_name
-        dest_module_dir.mkdir(parents=True, exist_ok=True)
+        dest_module_dir_core.mkdir(parents=True, exist_ok=True)
+        dest_module_utils = []
+        for mn in module_names:
+            _dest_module_util = dest_module_dir_core / mn
+            _dest_module_util.touch(exist_ok=True)
+            dest_module_utils.append(_dest_module_util)
         input = bytes(
-            "import os\nimport ansible.module_utils.{0}\nimport re\n".format(
-                module_name
+            "import os\nimport ansible.module_utils.{0}  # noqa:E501\nimport ansible.module_utils.{1} as local1  # noqa:E501\nimport re\n".format(
+                module_names[0], module_names[1]
             ),
             "utf-8",
         )
         expected = bytes(
-            "import os\nimport ansible_collections.{0}.{1}.plugins.module_utils.{2}\nimport re\n".format(
-                namespace, collection_name, module_name
+            "import os\nimport ansible_collections.{0}.{1}.plugins.module_utils.{2}  # noqa:E501\nimport ansible_collections.{0}.{1}.plugins.module_utils.{3} as local1  # noqa:E501\nimport re\n".format(
+                namespace, collection_name, module_names[0], module_names[1]
             ),
             "utf-8",
         )
         IMPORT_RE = re.compile(
-            br"(\bimport) (ansible\.module_utils\.)(\S+)(\S*)(\s+#.+|.*)$", flags=re.M
+            br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
         )
         config["namespace"] = namespace
         config["collection"] = collection_name
@@ -361,16 +370,13 @@ class LSRRole2Collection(unittest.TestCase):
         config["module_utils_dir"] = dest_module_dir_core
         config["module_utils"] = [
             [b"util0"],
-            [b"util0", b"test3"],
-            [b"util0", b"test2"],
-            [b"util0", b"test1"],
-            [b"util0", b"test0"],
+            [b"util1"],
         ]
         config["additional_rewrites"] = []
         output = IMPORT_RE.sub(import_replace, input)
         self.assertEqual(output, expected)
-        shutil.rmtree(src_module_dir)
-        shutil.rmtree(dest_module_dir)
+        shutil.rmtree(src_module_dir_core)
+        shutil.rmtree(dest_module_dir_core)
 
     def test_from_replace(self):
         module_name = "util0"

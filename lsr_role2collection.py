@@ -432,6 +432,10 @@ class LSRFileTransformer(LSRFileTransformerBase):
         """handle vars of Ansible item, or vars from a vars file"""
         for var in a_item.get("vars", []):
             logging.debug(f"\tvar = {var}")
+            if var == "roletoinclude":
+                lsr_rolename = self.src_owner + "." + self.rolename
+                if a_item["vars"][var] == lsr_rolename:
+                    ru_item["vars"][var] = self.prefix + self.rolename
         return
 
     def meta_cb(self, a_item, ru_item):

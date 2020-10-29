@@ -380,9 +380,11 @@ DO_NOT_COPY = (
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
 
-IMPORT_RE = re.compile(br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)$", flags=re.M)
+IMPORT_RE = re.compile(
+    br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
+)
 FROM_RE = re.compile(
-    br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(.+)$",
+    br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(\S+)(\s+#.+|.*)$",
     flags=re.M,
 )
 
@@ -660,27 +662,30 @@ def import_replace(match):
         if match.group(1) == b"import" and match.group(4) == b"":
             _additional_rewrites.append(parts)
             if src_module_path.exists() or Path(str(src_module_path) + ".py").exists():
-                return b"import ansible_collections.%s.%s.plugins.module_utils.%s" % (
+                return b"import ansible_collections.%s.%s.plugins.module_utils.%s%s" % (
                     bytes(_namespace, "utf-8"),
                     bytes(_collection, "utf-8"),
                     match_group3,
+                    match.group(5),
                 )
             else:
                 return (
-                    b"import ansible_collections.%s.%s.plugins.module_utils.%s as %s"
+                    b"import ansible_collections.%s.%s.plugins.module_utils.%s as %s%s"
                     % (
                         bytes(_namespace, "utf-8"),
                         bytes(_collection, "utf-8"),
                         match_group3,
                         parts[-1],
+                        match.group(5),
                     )
                 )
-        return b"%s ansible_collections.%s.%s.plugins.module_utils.%s%s" % (
+        return b"%s ansible_collections.%s.%s.plugins.module_utils.%s%s%s" % (
             match.group(1),
             bytes(_namespace, "utf-8"),
             bytes(_collection, "utf-8"),
             match_group3,
             match.group(4),
+            match.group(5),
         )
     return match.group(0)
 
@@ -763,7 +768,7 @@ def from_replace(match):
             or lfrom_file1.is_file()
         ):
             return (
-                b"%s ansible_collections.%s.%s.plugins.module_utils.%s import %s%s"
+                b"%s ansible_collections.%s.%s.plugins.module_utils.%s import %s%s%s"
                 % (
                     match.group(1),
                     bytes(_namespace, "utf-8"),
@@ -771,16 +776,18 @@ def from_replace(match):
                     match_group3,
                     match.group(4),
                     match.group(5),
+                    match.group(6),
                 )
             )
         else:
-            return b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s" % (
+            return b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s%s" % (
                 match.group(1),
                 bytes(_namespace, "utf-8"),
                 bytes(_collection, "utf-8"),
                 match_group3,
                 match.group(4),
                 match.group(5),
+                match.group(6),
             )
     if parts5 in _module_utils:
         from_file0, lfrom_file0, from_file1, lfrom_file1 = get_candidates(
@@ -793,25 +800,24 @@ def from_replace(match):
                 or lfrom_file0.is_file()
                 or lfrom_file1.is_file()
             ):
-                return (
-                    b"%s ansible_collections.%s.%s.plugins.module_utils.%s import %s%s"
-                    % (
-                        match.group(1),
-                        bytes(_namespace, "utf-8"),
-                        bytes(_collection, "utf-8"),
-                        match.group(3),
-                        match.group(4),
-                        match.group(5),
-                    )
-                )
-            else:
-                return b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s" % (
+                return b"%s ansible_collections.%s.%s.plugins.module_utils.%s import %s%s%s" % (
                     match.group(1),
                     bytes(_namespace, "utf-8"),
                     bytes(_collection, "utf-8"),
                     match.group(3),
                     match.group(4),
                     match.group(5),
+                    match.group(6),
+                )
+            else:
+                return b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s%s" % (
+                    match.group(1),
+                    bytes(_namespace, "utf-8"),
+                    bytes(_collection, "utf-8"),
+                    match.group(3),
+                    match.group(4),
+                    match.group(5),
+                    match.group(6),
                 )
         if (
             from_file0.is_file()
@@ -819,20 +825,25 @@ def from_replace(match):
             or lfrom_file0.is_file()
             or lfrom_file1.is_file()
         ):
-            return b"%s ansible_collections.%s.%s.plugins.module_utils import %s%s" % (
-                match.group(1),
-                bytes(_namespace, "utf-8"),
-                bytes(_collection, "utf-8"),
-                match.group(4),
-                match.group(5),
+            return (
+                b"%s ansible_collections.%s.%s.plugins.module_utils import %s%s%s"
+                % (
+                    match.group(1),
+                    bytes(_namespace, "utf-8"),
+                    bytes(_collection, "utf-8"),
+                    match.group(4),
+                    match.group(5),
+                    match.group(6),
+                )
             )
         else:
-            return b"%s ansible_collections.%s.%s.plugins.module_utils.__init__ import %s%s" % (
+            return b"%s ansible_collections.%s.%s.plugins.module_utils.__init__ import %s%s%s" % (
                 match.group(1),
                 bytes(_namespace, "utf-8"),
                 bytes(_collection, "utf-8"),
                 match.group(4),
                 match.group(5),
+                match.group(6),
             )
     return match.group(0)
 

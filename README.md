@@ -179,6 +179,9 @@ Each option has corresponding environment variable to set.
   --replace-dot REPLACE_DOT        COLLECTION_REPLACE_DOT
   --subrole-prefix SUBROLE_PREFIX  COLLECTION_SUBROLE_PREFIX
 ```
+The default logging level is ERROR.
+To increase the level to INFO, set `LSR_INFO` to `true`.
+To increase the level to DEBUG, set `LSR_DEBUG` to `true`.
 
 ## Table of original and new locations
 

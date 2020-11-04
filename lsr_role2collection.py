@@ -1056,33 +1056,29 @@ def role2collection():
         else:
             with open(main_doc) as f:
                 s = f.read()
-            if comment not in s:
-                text = (
-                    s
-                    + textwrap.dedent(
-                        """\
+            role_link = "[{0}](roles/{1}/{2})".format(title, rolename, filename)
+            if role_link not in s:
+                if comment not in s:
+                    text = (
+                        s
+                        + textwrap.dedent(
+                            """\
 
-                    {2}
-                    <!--ts-->
-                      * [{3}](roles/{4})
-                    <!--te-->
-                    """
-                    ).format(
-                        namespace, collection, comment, title, rolename + "/" + filename
+                        {2}
+                        <!--ts-->
+                          * {3}
+                        <!--te-->
+                        """
+                        ).format(namespace, collection, comment, role_link)
                     )
-                )
-            else:
-                find = (
-                    r"({0}\n<!--ts-->\n)(( |\*|\w|\[|\]|\(|\)|\.|/|-|\n|\r)+)".format(
+                else:
+                    find = r"({0}\n<!--ts-->\n)(( |\*|\w|\[|\]|\(|\)|\.|/|-|\n|\r)+)".format(
                         comment
                     )
-                )
-                replace = r"\1\2  * [{0}](roles/{1})\n".format(
-                    title, rolename + "/" + filename
-                )
-                text = re.sub(find, replace, s, flags=re.M)
-            with open(main_doc, "w") as f:
-                f.write(text)
+                    replace = r"\1\2  * {0}\n".format(role_link)
+                    text = re.sub(find, replace, s, flags=re.M)
+                with open(main_doc, "w") as f:
+                    f.write(text)
 
     # Copy docs, design_docs, and examples to
     # DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/docs/ROLE.

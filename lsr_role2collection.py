@@ -591,7 +591,7 @@ def copy_tree_with_replace(
                 lsr_copytree(
                     src,
                     dest,
-                    ignore=ignore_patterns(ignoreme),
+                    ignore=ignore_patterns(*ignoreme),
                     symlinks=symlinks,
                     dirs_exist_ok=True,
                 )
@@ -603,23 +603,11 @@ def copy_tree_with_replace(
             lsrxfrm.run()
 
 
-def cleanup_symlinks(path, role):
+def cleanup_roles_dir(path):
     """
     Clean up symlinks in tests/roles
-    - Remove symlinks.
-    - If linux-system-roles.rolename is an empty dir, rmdir it.
     """
     if path.exists():
-        nodes = sorted(list(path.rglob("*")), reverse=True)
-        for node in nodes:
-            if node.is_symlink() and r"linux-system-roles." + role == node.name:
-                node.unlink()
-            elif (
-                node.is_dir()
-                and r"linux-system-roles." + role == node.name
-                and not any(node.iterdir())
-            ):
-                node.rmdir()
         roles_dir = path / "roles"
         if roles_dir.exists() and not any(roles_dir.iterdir()):
             roles_dir.rmdir()
@@ -1022,12 +1010,12 @@ def role2collection():
         TESTS,
         transformer_args,
         isrole=False,
-        ignoreme="artifacts",
-        symlinks=True,
+        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
+        symlinks=False,
     )
 
-    # remove symlinks in the tests/role, then updating the rolename to the collection format
-    cleanup_symlinks(tests_dir / role, role)
+    # remove "roles" directory if empty.
+    cleanup_roles_dir(tests_dir / role)
 
     # ==============================================================================
 
@@ -1107,6 +1095,7 @@ def role2collection():
             comment = "## Supported Linux System Roles"
         update_readme(src_path, filename, rolename, comment, issubrole)
 
+    ignoreme = ["linux-system-roles.*"]
     dest = docs_dir / role
     for doc in DOCS:
         src = src_path / doc
@@ -1116,7 +1105,7 @@ def role2collection():
                 src,
                 dest,
                 symlinks=False,
-                ignore=ignore_patterns("roles"),
+                ignore=ignore_patterns(*ignoreme),
                 dirs_exist_ok=True,
             )
             if doc == "examples":
@@ -1131,9 +1120,8 @@ def role2collection():
         elif src.is_file():
             process_readme(src_path, doc, role)
 
-    # Remove symlinks in the docs/role (e.g., in the examples).
-    # Update the rolename to the collection format as done in the tests.
-    cleanup_symlinks(dest, role)
+    # remove "roles" directory if empty.
+    cleanup_roles_dir(dest)
 
     # ==============================================================================
 
@@ -1226,10 +1214,11 @@ def role2collection():
                         TESTS,
                         transformer_args,
                         isrole=False,
-                        ignoreme="artifacts",
+                        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
+                        symlinks=False,
                     )
-                    # remove symlinks in the tests/role, then updating the rolename to the collection format
-                    cleanup_symlinks(tests_dir / dr, dr)
+                    # remove "roles" directory if empty.
+                    cleanup_roles_dir(tests_dir / dr)
                     # copy README.md to dest_path/roles/sr.name
                     readme = sr / "README.md"
                     if readme.is_file():
@@ -1252,7 +1241,7 @@ def role2collection():
             else:
                 dest = dest_path / extra.name
                 logging.info(f"Copying extra {extra} to {dest}")
-                copytree(extra, dest)
+                lsr_copytree(extra, dest)
         # Other extra files.
         else:
             if extra.name.endswith(".yml") and "playbook" in extra.name:

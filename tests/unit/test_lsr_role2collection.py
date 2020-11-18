@@ -12,7 +12,6 @@ import unittest
 from lsr_role2collection import (
     file_replace,
     copy_tree_with_replace,
-    cleanup_symlinks,
     import_replace,
     from_replace,
     gather_module_utils_parts,
@@ -279,57 +278,6 @@ class LSRRole2Collection(unittest.TestCase):
             test_path, test_yaml_str, post_params, ".yml", is_vertical=False
         )
         shutil.rmtree(coll_path)
-
-    def test_cleanup_symlinks(self):
-        """test cleanup_symlinks"""
-        owner = "linux-system-roles"
-        params = [
-            {
-                "key": "roles",
-                "subkey": "-",
-                "value": owner,
-                "delim": ".",
-                "subvalue": rolename,
-            },
-        ]
-        tmpdir = tempfile.TemporaryDirectory()
-        coll_path = (
-            Path(tmpdir.name) / "ansible_collections" / namespace / collection_name
-        )
-        role_path = coll_path / "roles" / rolename
-        self.create_test_tree(
-            role_path / "tasks", test_yaml_str, params, ".yml", is_vertical=False
-        )
-        test_path = coll_path / "tests" / rolename
-        self.create_test_tree(
-            test_path, test_yaml_str, params, ".yml", is_vertical=False
-        )
-        link = owner + "." + rolename
-        test_role_path = test_path / "roles"
-        # case 1. tests/roles/owner.systemrole -> roles/systemrole
-        self.create_test_link(test_role_path, link, role_path, True)
-        cleanup_symlinks(test_path, rolename)
-        self.check_test_link(test_role_path, False)
-        # case 2. tests/roles/owner.systemrole -> roles/systemrole
-        #         tests/roles/some_file
-        self.create_test_link(test_role_path, link, role_path, True)
-        self.create_test_tree(
-            test_role_path, test_yaml_str, params, ".yml", is_vertical=False
-        )
-        cleanup_symlinks(test_path, rolename)
-        self.check_test_link(test_role_path, True)
-        self.check_test_link(test_role_path / link, False)
-        shutil.rmtree(test_role_path)
-        # case 3. tests/roles/owner.systemrole -> roles/systemrole
-        #         tests/roles/some_symlinks
-        self.create_test_link(test_role_path, link, role_path, True)
-        extralink = "extralink"
-        self.create_test_link(test_role_path, extralink, role_path, True)
-        cleanup_symlinks(test_path, rolename)
-        self.check_test_link(test_role_path, True)
-        self.check_test_link(test_role_path / link, False)
-        self.check_test_link(test_role_path / extralink, True)
-        shutil.rmtree(test_role_path)
 
     def test_import_replace(self):
         module_names = ["util0", "util1"]

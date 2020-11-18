@@ -35,6 +35,7 @@ import textwrap
 from pathlib import Path
 from ruamel.yaml import YAML
 from shutil import copytree, copy2, ignore_patterns, rmtree
+from six import string_types
 
 from ansible.errors import AnsibleParserError
 from ansible.parsing.dataloader import DataLoader
@@ -128,11 +129,14 @@ class LSRFileTransformerBase(object):
 
     def __init__(self, filepath, rolename, args):
         self.filepath = filepath
+        self.namespace = args["namespace"]
+        self.collection = args["collection"]
         self.prefix = args["prefix"]
         self.subrole_prefix = args["subrole_prefix"]
         self.replace_dot = args["replace_dot"]
         self.role_modules = args["role_modules"]
         self.src_owner = args["src_owner"]
+        self.top_dir = args["top_dir"]
         dl = DataLoader()
         self.ans_data = dl.load_from_file(filepath)
         if self.ans_data is None:
@@ -420,6 +424,58 @@ class LSRFileTransformer(LSRFileTransformerBase):
                         + self.subrole_prefix
                         + match.group(1).replace(".", self.replace_dot)
                     )
+        elif module_name == "include_vars":
+            """
+            Convert include_vars in the test playbook.
+            include_vars: path/to/linux-system-roles.ROLENAME/file_or_dir
+            or
+            include_vars:
+              file|dir: path/to/linux-system-roles.ROLENAME/file_or_dir
+            Note: If the path is relative and not inside a role,
+            it will be parsed relative to the playbook.
+            To solve it, the relative path is converted to the absolute path.
+            """
+            if isinstance(ru_task[module_name], dict):
+                _key = None
+                if (
+                    "file" in ru_task[module_name].keys()
+                    and "/linux-system-roles." in ru_task[module_name]["file"]
+                ):
+                    _key = "file"
+                elif (
+                    "dir" in ru_task[module_name].keys()
+                    and "/linux-system-roles." in ru_task[module_name]["dir"]
+                ):
+                    _key = "dir"
+                if _key:
+                    _path = ru_task[module_name][_key]
+                    _match = re.match(
+                        r".*/linux-system-roles.(\w+)/([\w\d\./]+)", _path
+                    )
+                    ru_task[module_name][
+                        _key
+                    ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
+                        self.top_dir,
+                        self.namespace,
+                        self.collection,
+                        _match.group(1),
+                        _match.group(2),
+                    )
+            elif (
+                isinstance(ru_task[module_name], string_types)
+                and "/linux-system-roles." in ru_task[module_name]
+            ):
+                _path = ru_task[module_name]
+                _match = re.match(r".*/linux-system-roles.(\w+)/([\w\d\./]+)", _path)
+                ru_task[
+                    module_name
+                ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
+                    self.top_dir,
+                    self.namespace,
+                    self.collection,
+                    _match.group(1),
+                    _match.group(2),
+                )
         elif module_name in self.role_modules:
             logging.debug(f"\ttask role module {module_name}")
             # assumes ru_task is an orderreddict
@@ -948,6 +1004,7 @@ def role2collection():
     collection = args.collection
     prefix = namespace + "." + collection + "."
     top_dest_path = args.dest_path.resolve()
+    current_dest = os.path.expanduser(str(top_dest_path))
     replace_dot = args.replace_dot
     subrole_prefix = args.subrole_prefix
 
@@ -1001,12 +1058,15 @@ def role2collection():
     }
 
     transformer_args = {
+        "namespace": namespace,
+        "collection": collection,
         "prefix": prefix,
         "subrole_prefix": subrole_prefix,
         "replace_dot": replace_dot,
         # get role modules - will need to find and convert these to use FQCN
         "role_modules": get_role_modules(src_path),
         "src_owner": src_owner,
+        "top_dir": current_dest,
     }
 
     # Role - copy subdirectories, tasks, defaults, vars, etc., in the system role to
@@ -1280,7 +1340,6 @@ def role2collection():
     default_collections_paths_list = list(
         map(os.path.expanduser, default_collections_paths.split(":"))
     )
-    current_dest = os.path.expanduser(str(top_dest_path))
     # top_dest_path is not in the default collections path.
     # suggest to run ansible-playbook with ANSIBLE_COLLECTIONS_PATHS env var.
     if current_dest not in default_collections_paths_list:

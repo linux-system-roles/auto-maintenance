@@ -262,11 +262,14 @@ class LSRRole2Collection(unittest.TestCase):
             role_path / "tasks", test_yaml_str, pre_params, ".yml", is_vertical=False
         )
         transformer_args = {
+            "namespace": namespace,
+            "collection": collection_name,
             "prefix": prefixdot,
             "subrole_prefix": "",
             "replace_dot": "_",
             "role_modules": set(),
             "src_owner": "linux-system-roles",
+            "top_dir": dest_path,
         }
         copy_tree_with_replace(
             role_path, coll_path, rolename, MYTUPLE, transformer_args, isrole=True

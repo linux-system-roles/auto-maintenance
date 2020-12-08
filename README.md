@@ -1,5 +1,7 @@
 # Automatic Maintenance
 
+![CI Status](https://github.com/linux-system-roles/auto-maintenance/workflows/tox/badge.svg)
+
 Set of scripts and configuration options to manage tedious tasks across
 linux-system-roles repos.
 

@@ -1,0 +1,25 @@
+name: tox
+on:  # yamllint disable-line rule:truthy
+  - pull_request
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pyver: ['3.8', '3.9']
+    steps:
+      - name: checkout PR
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.pyver }}
+      - name: Install platform dependencies, python, tox
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          pip install tox
+      - name: Run tox tests
+        run: |
+          set -euxo pipefail
+          tox

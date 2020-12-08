@@ -625,7 +625,7 @@ def copy_tree_with_replace(
     transformer_args,
     isrole=True,
     ignoreme=None,
-    symlinks=False,
+    symlinks=True,
 ):
     """
     1. Copy files and dirs in the dir to
@@ -659,11 +659,23 @@ def copy_tree_with_replace(
             lsrxfrm.run()
 
 
-def cleanup_roles_dir(path):
+def cleanup_symlinks(path, role, rmlist):
     """
     Clean up symlinks in tests/roles
     """
     if path.exists():
+        nodes = sorted(list(path.rglob("*")), reverse=True)
+        for node in nodes:
+            for item in rmlist:
+                if item == node.name:
+                    if node.is_symlink():
+                        node.unlink()
+            if (
+                node.is_dir()
+                and r"linux-system-roles." + role == node.name
+                and not any(node.iterdir())
+            ):
+                node.rmdir()
         roles_dir = path / "roles"
         if roles_dir.exists() and not any(roles_dir.iterdir()):
             roles_dir.rmdir()
@@ -1071,11 +1083,11 @@ def role2collection():
         transformer_args,
         isrole=False,
         ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
-        symlinks=False,
     )
 
-    # remove "roles" directory if empty.
-    cleanup_roles_dir(tests_dir / role)
+    # remove symlinks in the tests/role.
+    removeme = ["library", "modules", "module_utils", "roles"]
+    cleanup_symlinks(tests_dir / role, role, removeme)
 
     # ==============================================================================
 
@@ -1180,8 +1192,9 @@ def role2collection():
         elif src.is_file():
             process_readme(src_path, doc, role)
 
-    # remove "roles" directory if empty.
-    cleanup_roles_dir(dest)
+    # Remove symlinks in the docs/role (e.g., in the examples).
+    removeme = ["library", "modules", "module_utils", "roles"]
+    cleanup_symlinks(dest, role, removeme)
 
     # ==============================================================================
 
@@ -1275,10 +1288,10 @@ def role2collection():
                         transformer_args,
                         isrole=False,
                         ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
-                        symlinks=False,
                     )
-                    # remove "roles" directory if empty.
-                    cleanup_roles_dir(tests_dir / dr)
+                    # remove symlinks in the tests/role.
+                    removeme = ["library", "modules", "module_utils", "roles"]
+                    cleanup_symlinks(tests_dir / dr, dr, removeme)
                     # copy README.md to dest_path/roles/sr.name
                     readme = sr / "README.md"
                     if readme.is_file():

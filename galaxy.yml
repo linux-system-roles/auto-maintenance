@@ -1,0 +1,27 @@
+namespace: "fedora"
+name: "linux_system_roles"
+version: "0.0.2"
+description: "Ansible roles for linux system components management"
+
+authors:
+  - "System Roles Owners <systemroles@lists.fedorahosted.org>"
+
+repository: "https://github.com/linux-system-roles/linux-system-roles.github.io/"
+documentation: "https://github.com/linux-system-roles/linux-system-roles.github.io/blob/master/README.md"
+homepage: "https://linux-system-roles.github.io"
+issues: "https://github.com/linux-system-roles/linux-system-roles.github.io/issues"
+
+readme: "README.md"
+license:
+    - GPL-2.0-or-later
+    - GPL-3.0-only
+    - GPL-3.0-or-later
+    - LGPL-3.0-only
+    - MIT
+    - BSD-3-Clause
+
+dependencies:
+
+tags:
+  - "system"
+  - "collection"

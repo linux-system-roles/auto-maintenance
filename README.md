@@ -9,6 +9,7 @@ linux-system-roles repos.
   * [shellcheck](#shellcheck)
   * [sync-template.sh](#sync-templatesh)
   * [lsr_role2collection.py](#lsr_role2collectionpy)
+  * [release_collection.py](#release_collectionpy)
 <!--te-->
 
 
@@ -242,3 +243,129 @@ Destination collections path is /path/to/collections.
 ```
 python lsr_role2collection.py --src-path /path/to/role_group --dest-path /path/to/collections --tests-dest-path /path/to/test_dir --role myrole --src-owner linux-system-roles
 ```
+
+# release_collection.py
+
+This script is used to convert the roles to collection format using
+[lsr_role2collection.py](#lsr_role2collectionpy) and build the collection file
+for publishing.  It doesn't do the publishing, that must be done separately.
+
+The list of roles is specified by default in the file `collection_release.yml`.  The format of this file is a `dict` of
+role names.  Each role name is a dict which must specify the `ref` which
+is the git tag, branch, or commit hash specifying the commit in the role repo to use to build the collection from.  You can optionally specify the `org` (default: `linux-system-roles`) and the `repo` (default: role name).
+
+The other collection metadata comes from `galaxy.yml` - namespace, collection name, version, etc.  The script reads this metadata.
+
+The script reads the list of roles from `collection_release.yml`.  For each
+role, it will clone the repo from github to a local working directory (if there
+is no local clone) and update the local clone to the commit specified by `ref`.
+The script calls [lsr_role2collection.py](#lsr_role2collectionpy) to convert
+each role to collection format using the galaxy namespace name and collection
+name.  After all of the roles have been converted, the script uses
+`ansible-galaxy collection build` to build the collection package file suitable
+for publishing.
+
+To publish, use something like
+```
+ansible-galaxy collection publish /path/to/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz
+```
+
+## Pre-requisites
+
+`git clone https://github.com/linux-system-roles/auto-maintenance [-b STABLE_TAG]`
+
+`STABLE_TAG` can be omitted to use `master`.
+
+Or, figure out some way to download the correct versions of
+[lsr_role2collection.py](#lsr_role2collectionpy), `galaxy.yml`,
+`collection_release.yml`, and `release_collection.py` from this repo.
+
+You will need to ensure that the information in `galaxy.yml` (particularly the
+`version:` field), and the information in `collection_release.yml` (particularly
+the `ref:` fields), are correct and up-to-date for the collection you want to
+build and publish.
+
+## collection_release.yml format
+```yaml
+ROLENAME:
+  ref: TAG_OR_HASH_OR_BRANCH
+  org: github-organization
+  repo: github-repo
+```
+Where `ROLENAME` is the name of the role as it will appear in the collection (under `NAMESPACE/COLLECTION_NAME/roles/`).  `ref` is the git tag (preferred), commit hash, or branch to use (in the format used as the argument to `git clone -b` or `git checkout`).  `org` is the github organization (default `linux-system-roles`).  The `repo` is the name of the repo under the github organization, and the default is the `ROLENAME`, so only use this if you need to specify a different name for the role in the collection.
+
+Example:
+```yaml
+certificate:
+  ref: "1.0.0"
+kdump:
+  ref: "1.0.1"
+kernel_settings:
+  ref: "1.0.0"
+```
+This will use e.g. `git clone https://github.com/linux-system-roles/certificate -b 1.0.0`, etc.
+
+## Usage
+Basic usage:
+```
+# cd auto-maintenance
+# python release_collection.py
+```
+This will use the `galaxy.yml` and `collection_release.yml` files in the current directory, will create a temporary working directory to clone the roles into, will create a collection under `$HOME/.ansible/collections/ansible_collections/NAMESPACE/COLLECTION_NAME`, and will create the collection package file `$HOME/.ansible/collections/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz`, where `NAMESPACE`, `COLLECTION_NAME`, and `VERSION` are specified in `galaxy.yml`.
+
+## Options
+
+* `--galaxy-yml` - env: `GALAXY_YML` - default `galaxy.yml` in current directory
+  - full path and filename of `galaxy.yml` to use to build the collection
+* `--collection-release-yml` - env: `COLLECTION_RELEASE_YML` - default
+  `collection_release.yml` in current directory - full path and filename of
+  `collection_release.yml` to use to build the collection
+* `--src-path` - env: `COLLECTION_SRC_PATH` - no default - Path to the directory
+  containing the local clone of the role repos - if nothing is specified, the
+  script will create a temporary directory
+* `--dest-path` - env: `COLLECTION_DEST_PATH` - default
+  `$HOME/.ansible/collections` - collection directory structure will be created
+  in `DIR/ansible_collection/NAMESPACE/COLLECTION_NAME`  - collection package
+  file will be created in `DIR`
+* `--force` - boolean - default `False` - if specified, the collection directory
+  will be removed first if it exists, and the package file, if any, will be
+  overwritten
+
+## Version
+
+For the `version:` field in `galaxy.yml`, we have to use `X.Y.Z` where `X`, `Y`,
+and `Z` are non-negative integers.  We will start at `0.0.1` until the
+collection stabilizes, then we should start at `1.0.0`.  During this
+stabilization period, we should just increase the `Z` number when we do a new
+release.
+
+After stabilization, when we want to do a new release, we assume that each role
+will be doing regular tagged releases where the tag is the semantic version.  If
+not, then it will be difficult to determine what sort of change the role has
+made, and how it should affect the collection version.
+
+The collection version will be derived from all of the role versions, and will
+be semantic versioned.
+
+Notation: `Xr` is the `X` number from the version of a given role `r`.  `Xc` is
+the `X` number for the collection `c`.  Similarly for `Yr`, `Yc`, `Zr`, and
+`Zc`.
+
+Examine the versions in the updated roles and compare them to the roles in the
+`collection_release.yml`.
+
+If any of the `Xr` has changed, set the new `Xc` to `Xc + 1` - bump major
+release number to indicate there is a role which has introduced an api breaking
+change, and set `Yc` and `Zc` to `0`.
+
+If none of the `Xr` has changed, and if any of the `Yr` has changed, set the new
+`Yc` to `Yc + 1` - bump minor release number to indicate there is a role which
+has introduced a non-breaking api change, and set `Zc` to `0`.
+
+If none of the `Xr` or `Yr` has changed, and if any of the `Zr` has changed, set
+`Zc` `Zc + 1` - some role has changed.
+
+If the role does not use a semantic version for the tag, or it is otherwise
+unclear how to determine what sort of changes have occurred in the role, it is
+up to the collection maintainer to investigate the role to determine how to
+change `Xc`, `Yc`, or `Zc`.

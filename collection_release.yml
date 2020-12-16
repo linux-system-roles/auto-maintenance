@@ -1,0 +1,30 @@
+certificate:
+  ref: "1.0.1"
+kdump:
+  ref: "1.0.2"
+kernel_settings:
+  ref: "1.0.1"
+logging:
+  ref: "1.1.0"
+metrics:
+  ref: "1.1.0"
+nbde_client:
+  ref: "1.0.1"
+nbde_server:
+  ref: "1.0.1"
+network:
+  ref: "1.2.0"
+postfix:
+  ref: "0.0.2"
+selinux:
+  ref: "1.2.0"
+sshd:
+  org: willshersystems
+  repo: ansible-sshd
+  ref: v0.12.0
+storage:
+  ref: "1.2.2"
+timesync:
+  ref: "1.2.0"
+tlog:
+  ref: "1.1.0"

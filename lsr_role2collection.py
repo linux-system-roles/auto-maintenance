@@ -37,11 +37,6 @@ from ruamel.yaml import YAML
 from shutil import copytree, copy2, copyfile, ignore_patterns, rmtree
 from six import string_types
 
-from ansible.errors import AnsibleParserError
-from ansible.parsing.dataloader import DataLoader
-from ansible.parsing.mod_args import ModuleArgsParser
-from ansible.parsing.yaml.objects import AnsibleMapping, AnsibleSequence
-
 ALL_ROLE_DIRS = [
     "defaults",
     "examples",
@@ -94,18 +89,18 @@ def get_role_dir(role_path, dirpath):
 
 
 def get_file_type(item):
-    if isinstance(item, AnsibleMapping):
+    if isinstance(item, dict):
         if "galaxy_info" in item or "dependencies" in item:
             return "meta"
         return "vars"
-    elif isinstance(item, AnsibleSequence):
+    elif isinstance(item, list):
         return "tasks"
     else:
         raise LSRException(f"Error: unknown type of file: {item}")
 
 
 def get_item_type(item):
-    if isinstance(item, AnsibleMapping):
+    if isinstance(item, dict):
         for key in PLAY_KEYS:
             if key in item:
                 return "play"
@@ -137,11 +132,6 @@ class LSRFileTransformerBase(object):
         self.role_modules = args["role_modules"]
         self.src_owner = args["src_owner"]
         self.top_dir = args["top_dir"]
-        dl = DataLoader()
-        self.ans_data = dl.load_from_file(filepath)
-        if self.ans_data is None:
-            raise LSRException(f"file is empty {filepath}")
-        self.file_type = get_file_type(self.ans_data)
         self.rolename = rolename
         buf = open(filepath).read()
         self.ruamel_yaml = YAML(typ="rt")
@@ -160,17 +150,18 @@ class LSRFileTransformerBase(object):
         self.ruamel_yaml.width = 1024
         self.ruamel_data = self.ruamel_yaml.load(buf)
         self.ruamel_yaml.indent(mapping=2, sequence=4, offset=2)
+        self.file_type = get_file_type(self.ruamel_data)
         self.outputfile = None
         self.outputstream = sys.stdout
 
     def run(self):
         if self.file_type == "vars":
-            self.handle_vars(self.ans_data, self.ruamel_data)
+            self.handle_vars(self.ruamel_data)
         elif self.file_type == "meta":
-            self.handle_meta(self.ans_data, self.ruamel_data)
+            self.handle_meta(self.ruamel_data)
         else:
-            for a_item, ru_item in zip(self.ans_data, self.ruamel_data):
-                self.handle_item(a_item, ru_item)
+            for item in self.ruamel_data:
+                self.handle_item(item)
 
     def write(self):
         def xform(thing):
@@ -189,63 +180,53 @@ class LSRFileTransformerBase(object):
             outstrm = self.outputstream
         self.ruamel_yaml.dump(self.ruamel_data, outstrm, transform=xform)
 
-    def task_cb(self, a_task, ru_task, module_name, module_args, delegate_to):
+    def task_cb(self, task):
         """subclass will override"""
         pass
 
-    def other_cb(self, a_item, ru_item):
+    def other_cb(self, item):
         """subclass will override"""
         pass
 
-    def vars_cb(self, a_item, ru_item):
+    def vars_cb(self, item):
         """subclass will override"""
         pass
 
-    def meta_cb(self, a_item, ru_item):
+    def meta_cb(self, item):
         """subclass will override"""
         pass
 
-    def handle_item(self, a_item, ru_item):
+    def handle_item(self, item):
         """handle any type of item - call the appropriate handlers"""
-        ans_type = get_item_type(a_item)
-        self.handle_vars(a_item, ru_item)
-        self.handle_other(a_item, ru_item)
+        ans_type = get_item_type(item)
+        self.handle_vars(item)
+        self.handle_other(item)
         if ans_type == "task":
-            self.handle_task(a_item, ru_item)
-        self.handle_task_list(a_item, ru_item)
+            self.handle_task(item)
+        self.handle_task_list(item)
 
-    def handle_other(self, a_item, ru_item):
+    def handle_other(self, item):
         """handle properties of Ansible item other than vars and tasks"""
-        self.other_cb(a_item, ru_item)
+        self.other_cb(item)
 
-    def handle_vars(self, a_item, ru_item):
+    def handle_vars(self, item):
         """handle vars of Ansible item"""
-        self.vars_cb(a_item, ru_item)
+        self.vars_cb(item)
 
-    def handle_meta(self, a_item, ru_item):
+    def handle_meta(self, item):
         """handle meta/main.yml file"""
-        self.meta_cb(a_item, ru_item)
+        self.meta_cb(item)
 
-    def handle_task(self, a_task, ru_task):
+    def handle_task(self, task):
         """handle a single task"""
-        mod_arg_parser = ModuleArgsParser(a_task)
-        try:
-            action, args, delegate_to = mod_arg_parser.parse(
-                skip_action_validation=True
-            )
-        except AnsibleParserError as e:
-            raise LSRException(
-                "Couldn't parse task at %s (%s)\n%s"
-                % (a_task.ansible_pos, e.message, a_task)
-            )
-        self.task_cb(a_task, ru_task, action, args, delegate_to)
+        self.task_cb(task)
 
-    def handle_task_list(self, a_item, ru_item):
+    def handle_task_list(self, item):
         """item has one or more fields which hold a list of Task objects"""
         for kw in TASK_LIST_KWS:
-            if kw in a_item:
-                for a_task, ru_task in zip(a_item[kw], ru_item[kw]):
-                    self.handle_item(a_task, ru_task)
+            if kw in item:
+                for task in item[kw]:
+                    self.handle_item(task)
 
 
 def get_role_modules(role_path):
@@ -404,22 +385,36 @@ class LSRFileTransformer(LSRFileTransformerBase):
     """Do the role file transforms - fix role names, add FQCN
     to module names, etc."""
 
-    def task_cb(self, a_task, ru_task, module_name, module_args, delegate_to):
+    def task_cb(self, task):
         """do something with a task item"""
+        module_name = None
+        role_module_name = None
+        if "include_role" in task:
+            module_name = "include_role"
+        elif "import_role" in task:
+            module_name = "import_role"
+        elif "include_vars" in task:
+            module_name = "include_vars"
+        else:
+            for rm in self.role_modules:
+                if rm in task:
+                    module_name = rm
+                    role_module_name = rm
+                    break
         if module_name == "include_role" or module_name == "import_role":
-            rolename = ru_task[module_name]["name"]
+            rolename = task[module_name]["name"]
             lsr_rolename = self.src_owner + "." + self.rolename
             logging.debug(f"\ttask role {rolename}")
             if rolename == self.rolename or rolename == lsr_rolename:
-                ru_task[module_name]["name"] = self.prefix + self.rolename
+                task[module_name]["name"] = self.prefix + self.rolename
             elif rolename.startswith("{{ role_path }}"):
                 match = re.match(r"{{ role_path }}/roles/([\w\d\.]+)", rolename)
                 if match.group(1).startswith(self.subrole_prefix):
-                    ru_task[module_name]["name"] = self.prefix + match.group(1).replace(
+                    task[module_name]["name"] = self.prefix + match.group(1).replace(
                         ".", self.replace_dot
                     )
                 else:
-                    ru_task[module_name]["name"] = (
+                    task[module_name]["name"] = (
                         self.prefix
                         + self.subrole_prefix
                         + match.group(1).replace(".", self.replace_dot)
@@ -435,24 +430,24 @@ class LSRFileTransformer(LSRFileTransformerBase):
             it will be parsed relative to the playbook.
             To solve it, the relative path is converted to the absolute path.
             """
-            if isinstance(ru_task[module_name], dict):
+            if isinstance(task[module_name], dict):
                 _key = None
                 if (
-                    "file" in ru_task[module_name].keys()
-                    and "/linux-system-roles." in ru_task[module_name]["file"]
+                    "file" in task[module_name].keys()
+                    and "/linux-system-roles." in task[module_name]["file"]
                 ):
                     _key = "file"
                 elif (
-                    "dir" in ru_task[module_name].keys()
-                    and "/linux-system-roles." in ru_task[module_name]["dir"]
+                    "dir" in task[module_name].keys()
+                    and "/linux-system-roles." in task[module_name]["dir"]
                 ):
                     _key = "dir"
                 if _key:
-                    _path = ru_task[module_name][_key]
+                    _path = task[module_name][_key]
                     _match = re.match(
                         r".*/linux-system-roles.(\w+)/([\w\d\./]+)", _path
                     )
-                    ru_task[module_name][
+                    task[module_name][
                         _key
                     ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
                         self.top_dir,
@@ -462,12 +457,12 @@ class LSRFileTransformer(LSRFileTransformerBase):
                         _match.group(2),
                     )
             elif (
-                isinstance(ru_task[module_name], string_types)
-                and "/linux-system-roles." in ru_task[module_name]
+                isinstance(task[module_name], string_types)
+                and "/linux-system-roles." in task[module_name]
             ):
-                _path = ru_task[module_name]
+                _path = task[module_name]
                 _match = re.match(r".*/linux-system-roles.(\w+)/([\w\d\./]+)", _path)
-                ru_task[
+                task[
                     module_name
                 ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
                     self.top_dir,
@@ -476,31 +471,31 @@ class LSRFileTransformer(LSRFileTransformerBase):
                     _match.group(1),
                     _match.group(2),
                 )
-        elif module_name in self.role_modules:
-            logging.debug(f"\ttask role module {module_name}")
-            # assumes ru_task is an orderreddict
-            idx = tuple(ru_task).index(module_name)
-            val = ru_task.pop(module_name)
-            ru_task.insert(idx, self.prefix + module_name, val)
+        elif role_module_name:
+            logging.debug(f"\ttask role module {role_module_name}")
+            # assumes task is an orderreddict
+            idx = tuple(task).index(role_module_name)
+            val = task.pop(role_module_name)
+            task.insert(idx, self.prefix + role_module_name, val)
 
-    def other_cb(self, a_item, ru_item):
+    def other_cb(self, item):
         """do something with the other non-task information in an item
         this is where you will get e.g. the `roles` keyword from a play"""
-        self.change_roles(ru_item, "roles")
+        self.change_roles(item, "roles")
 
-    def vars_cb(self, a_item, ru_item):
+    def vars_cb(self, item):
         """handle vars of Ansible item, or vars from a vars file"""
-        for var in a_item.get("vars", []):
+        for var in item.get("vars", []):
             logging.debug(f"\tvar = {var}")
             if var == "roletoinclude":
                 lsr_rolename = self.src_owner + "." + self.rolename
-                if a_item["vars"][var] == lsr_rolename:
-                    ru_item["vars"][var] = self.prefix + self.rolename
+                if item["vars"][var] == lsr_rolename:
+                    item["vars"][var] = self.prefix + self.rolename
         return
 
-    def meta_cb(self, a_item, ru_item):
+    def meta_cb(self, item):
         """hand a meta/main.yml style file"""
-        self.change_roles(ru_item, "dependencies")
+        self.change_roles(item, "dependencies")
 
     def comp_rolenames(self, name0, name1):
         if name0 == name1:
@@ -513,12 +508,12 @@ class LSRFileTransformer(LSRFileTransformerBase):
             else:
                 return False
 
-    def change_roles(self, ru_item, roles_kw):
+    def change_roles(self, item, roles_kw):
         """ru_item is an item which may contain a roles or dependencies
         specifier - the roles_kw is either "roles" or "dependencies"
         """
         lsr_rolename = self.src_owner + "." + self.rolename
-        for idx, role in enumerate(ru_item.get(roles_kw, [])):
+        for idx, role in enumerate(item.get(roles_kw, [])):
             changed = False
             if isinstance(role, dict):
                 if "name" in role:
@@ -534,7 +529,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
                 role = self.prefix + self.rolename
                 changed = True
             if changed:
-                ru_item[roles_kw][idx] = role
+                item[roles_kw][idx] = role
 
     def write(self):
         """assume we are operating on files already copied to the dest dir,
@@ -1360,6 +1355,7 @@ def role2collection():
         print(
             f"Run ansible-playbook with environment variable ANSIBLE_COLLECTIONS_PATHS={ansible_collections_paths}"
         )
+    return 0
 
 
 if __name__ == "__main__":

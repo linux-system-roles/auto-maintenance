@@ -998,6 +998,12 @@ def role2collection():
             "change the name to start with the value; default to an empty string"
         ),
     )
+    parser.add_argument(
+        "--readme",
+        type=Path,
+        default=os.environ.get("COLLECTION_README", None),
+        help="Path to the readme file used in top README.md",
+    )
     args, unknown = parser.parse_known_args()
 
     role = args.role
@@ -1013,6 +1019,7 @@ def role2collection():
     current_dest = os.path.expanduser(str(top_dest_path))
     replace_dot = args.replace_dot
     subrole_prefix = args.subrole_prefix
+    readme_path = args.readme
 
     dest_path = Path.joinpath(
         top_dest_path, "ansible_collections/" + namespace + "/" + collection
@@ -1107,16 +1114,26 @@ def role2collection():
             title = rolename + m.group(1)
         main_doc = dest_path / "README.md"
         if not main_doc.exists():
+            if readme_path and Path(readme_path).exists():
+                with open(readme_path) as f:
+                    _s = f.read()
+            else:
+                _s = textwrap.dedent(
+                    """\
+                    # {0} {1} collections
+                    """
+                ).format(namespace, collection)
+
             s = textwrap.dedent(
                 """\
-                # {0} {1} collections
+                {0}
 
-                {2}
+                {1}
                 <!--ts-->
-                  * [{3}](roles/{4})
+                  * [{2}](roles/{3})
                 <!--te-->
                 """
-            ).format(namespace, collection, comment, title, rolename + "/" + filename)
+            ).format(_s, comment, title, rolename + "/" + filename)
             with open(main_doc, "w") as f:
                 f.write(s)
         else:
@@ -1167,11 +1184,12 @@ def role2collection():
         file_replace(dest, src_owner + "." + rolename, prefix + rolename, file_patterns)
         if original:
             file_replace(dest, original, prefix + rolename, file_patterns)
-        if issubrole:
-            comment = "## Private Roles"
-        else:
-            comment = "## Supported Linux System Roles"
-        update_readme(src_path, filename, rolename, comment, issubrole)
+        if filename == "README.md":
+            if issubrole:
+                comment = "### Private Roles"
+            else:
+                comment = "### Supported Roles"
+            update_readme(src_path, filename, rolename, comment, issubrole)
 
     ignoreme = ["linux-system-roles.*"]
     dest = docs_dir / role
@@ -1299,8 +1317,8 @@ def role2collection():
                     removeme = ["library", "modules", "module_utils", "roles"]
                     cleanup_symlinks(tests_dir / dr, dr, removeme)
                     # copy README.md to dest_path/roles/sr.name
-                    readme = sr / "README.md"
-                    if readme.is_file():
+                    _readme = sr / "README.md"
+                    if _readme.is_file():
                         process_readme(
                             sr, "README.md", dr, original=sr.name, issubrole=True
                         )

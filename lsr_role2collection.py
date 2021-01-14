@@ -34,7 +34,7 @@ import textwrap
 
 from pathlib import Path
 from ruamel.yaml import YAML
-from shutil import copytree, copy2, ignore_patterns, rmtree
+from shutil import copytree, copy2, copyfile, ignore_patterns, rmtree
 from six import string_types
 
 from ansible.errors import AnsibleParserError
@@ -543,9 +543,21 @@ class LSRFileTransformer(LSRFileTransformerBase):
         super().write()
 
 
+def lsr_copyleaf(src, dest, symlinks=True, ignore=None):
+    if src.is_symlink() and symlinks:
+        # symlinks=True --> symlink in dest
+        copyfile(src, dest, follow_symlinks=(not symlinks))
+    elif src.is_dir():
+        # symlinks=True --> symlink in dest
+        # symlinks=False --> copy in dest
+        copytree(src, dest, symlinks=symlinks, ignore=ignore)
+    else:
+        copyfile(src, dest)
+
+
 # Once python 3.8 is available in Travis CI,
 # replace lsr_copytree with shutil.copytree with dirs_exist_ok=True.
-def lsr_copytree(src, dest, symlinks=False, dirs_exist_ok=False, ignore=None):
+def lsr_copytree(src, dest, symlinks=True, dirs_exist_ok=False, ignore=None):
     if dest.exists():
         if dest.is_dir():
             for sr in src.iterdir():
@@ -564,11 +576,11 @@ def lsr_copytree(src, dest, symlinks=False, dirs_exist_ok=False, ignore=None):
                                 dirs_exist_ok=True,
                             )
                         else:
-                            if (
-                                subdest.exists() or subdest.is_symlink()
-                            ) and dirs_exist_ok:
+                            if subdest.exists() and dirs_exist_ok:
                                 subdest.unlink()
-                            copy2(subsrc, subdest, follow_symlinks=(not symlinks))
+                            lsr_copyleaf(
+                                subsrc, subdest, symlinks=symlinks, ignore=ignore
+                            )
                 else:
                     if subsrc.is_dir():
                         if subdest.exists() and dirs_exist_ok:
@@ -582,15 +594,14 @@ def lsr_copytree(src, dest, symlinks=False, dirs_exist_ok=False, ignore=None):
                     else:
                         if (subdest.exists() or subdest.is_symlink()) and dirs_exist_ok:
                             subdest.unlink()
+                        # symlinks=False --> copy in dest
                         copy2(subsrc, subdest, follow_symlinks=(not symlinks))
         else:
-            if (dest.exists() or dest.is_symlink()) and dirs_exist_ok:
+            if dest.exists() and dirs_exist_ok:
                 dest.unlink()
-            copytree(src, dest, symlinks=symlinks, ignore=ignore)
+            lsr_copyleaf(src, dest, symlinks=symlinks, ignore=ignore)
     else:
-        if dest.is_symlink() and dirs_exist_ok:
-            dest.unlink()
-        copytree(src, dest, symlinks=symlinks, ignore=ignore)
+        lsr_copyleaf(src, dest, symlinks=symlinks, ignore=ignore)
 
 
 def dir_to_plugin(v):

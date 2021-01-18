@@ -952,8 +952,8 @@ def role2collection():
     parser.add_argument(
         "--collection",
         type=str,
-        default=os.environ.get("COLLECTION_NAME", "system_roles"),
-        help="Collection name; default to system_roles",
+        default=os.environ.get("COLLECTION_NAME", "linux_system_roles"),
+        help="Collection name; default to linux_system_roles",
     )
     parser.add_argument(
         "--dest-path",

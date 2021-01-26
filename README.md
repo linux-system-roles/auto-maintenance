@@ -139,6 +139,7 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                        [--dest-path DEST_PATH] [--tests-dest-path TESTS_DEST_PATH]
                        [--src-path SRC_PATH] [--src-owner SRC_OWNER] [--role ROLE]
                        [--replace-dot REPLACE_DOT] [--subrole-prefix SUBROLE_PREFIX]
+                       [--readme README]
 ```
 
 ### optional arguments
@@ -168,6 +169,7 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
 --subrole-prefix SUBROLE_PREFIX
                      If sub-role name does not start with the specified value, change
                      the name to start with the value; default to an empty string
+--readme README      Path to the readme file used in top README.md
 ```
 
 ### environment variables

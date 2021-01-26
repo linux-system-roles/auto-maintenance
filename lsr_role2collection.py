@@ -431,7 +431,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
             To solve it, the relative path is converted to the absolute path.
             """
             _src_owner_match = "/" + self.src_owner + "."
-            _src_owner_pattern = r".*/{0}.(\w+)/([\w\d\./]+)".format(self.src_owner)
+            _src_owner_pattern = r".*/{0}[.](\w+)/([\w\d\./]+)".format(self.src_owner)
             if isinstance(task[module_name], dict):
                 _key = None
                 if (

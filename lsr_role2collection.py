@@ -15,7 +15,7 @@
 #                        [-h]
 # Or
 #
-# COLLECTION_SRC_PATH=/path/to/linux-system-roles \
+# COLLECTION_SRC_PATH=/path/to/{src_owner} \
 # COLLECTION_DEST_PATH=/path/to/collections \
 # COLLECTION_NAMESPACE=mynamespace \
 # COLLECTION_NAME=myname \
@@ -422,31 +422,31 @@ class LSRFileTransformer(LSRFileTransformerBase):
         elif module_name == "include_vars":
             """
             Convert include_vars in the test playbook.
-            include_vars: path/to/linux-system-roles.ROLENAME/file_or_dir
+            include_vars: path/to/{src_owner}.ROLENAME/file_or_dir
             or
             include_vars:
-              file|dir: path/to/linux-system-roles.ROLENAME/file_or_dir
+              file|dir: path/to/{src_owner}.ROLENAME/file_or_dir
             Note: If the path is relative and not inside a role,
             it will be parsed relative to the playbook.
             To solve it, the relative path is converted to the absolute path.
             """
+            _src_owner_match = "/" + self.src_owner + "."
+            _src_owner_pattern = r".*/{0}[.](\w+)/([\w\d\./]+)".format(self.src_owner)
             if isinstance(task[module_name], dict):
                 _key = None
                 if (
                     "file" in task[module_name].keys()
-                    and "/linux-system-roles." in task[module_name]["file"]
+                    and _src_owner_match in task[module_name]["file"]
                 ):
                     _key = "file"
                 elif (
                     "dir" in task[module_name].keys()
-                    and "/linux-system-roles." in task[module_name]["dir"]
+                    and _src_owner_match in task[module_name]["dir"]
                 ):
                     _key = "dir"
                 if _key:
                     _path = task[module_name][_key]
-                    _match = re.match(
-                        r".*/linux-system-roles.(\w+)/([\w\d\./]+)", _path
-                    )
+                    _match = re.match(_src_owner_pattern, _path)
                     task[module_name][
                         _key
                     ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
@@ -458,10 +458,10 @@ class LSRFileTransformer(LSRFileTransformerBase):
                     )
             elif (
                 isinstance(task[module_name], string_types)
-                and "/linux-system-roles." in task[module_name]
+                and _src_owner_match in task[module_name]
             ):
                 _path = task[module_name]
-                _match = re.match(r".*/linux-system-roles.(\w+)/([\w\d\./]+)", _path)
+                _match = re.match(_src_owner_pattern, _path)
                 task[
                     module_name
                 ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(

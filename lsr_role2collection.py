@@ -339,6 +339,7 @@ TOX = (
     ".travis.yml",
     ".yamllint_defaults.yml",
     ".yamllint.yml",
+    ".yamllint.yaml",
     "ansible_pytest_extra_requirements.txt",
     "custom_requirements.txt",
     "molecule",
@@ -361,6 +362,7 @@ DO_NOT_COPY = (
     "scripts",
     "semaphore",
     "standard-inventory-qcow2",
+    "Vagrantfile",
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY

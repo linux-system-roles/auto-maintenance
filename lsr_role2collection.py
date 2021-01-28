@@ -363,6 +363,7 @@ DO_NOT_COPY = (
     "semaphore",
     "standard-inventory-qcow2",
     "Vagrantfile",
+    "README.html",
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY

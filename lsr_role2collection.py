@@ -1280,15 +1280,10 @@ def role2collection():
 
     # ==============================================================================
 
-    # Before handling extra files, clean up tox/travis files.
-    for tox in TOX:
-        tox_obj = dest_path / tox
-        if tox_obj.is_dir():
-            rmtree(tox_obj)
-        elif tox_obj.exists():
-            tox_obj.unlink()
     # Extra files and directories including the sub-roles
     for extra in extras:
+        if extra.name in TOX:
+            continue
         if extra.name.endswith(".md"):
             # E.g., contributing.md, README-devel.md and README-testing.md
             process_readme(extra.parent, extra.name, role)
@@ -1352,9 +1347,6 @@ def role2collection():
                 # some-playbook.yml is copied to playbooks/role dir.
                 dest = dest_path / "playbooks" / role
                 dest.mkdir(parents=True, exist_ok=True)
-            elif extra.name in TOX:
-                # If the file in the TOX tuple, it is copied to the collection dir as it is.
-                dest = dest_path / extra.name
             else:
                 # If the extra file 'filename' has no extension, it is copied to the collection dir as
                 # 'filename-ROLE'. If the extra file is 'filename.ext', it is copied to 'filename-ROLE.ext'.

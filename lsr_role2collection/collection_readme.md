@@ -1,7 +1,10 @@
-﻿# Linux System Roles Ansible Collection
+﻿Linux System Roles Ansible Collection
+=====================================
+
 Linux System Roles is a collection of roles for managing Linux system components.
 
 ## Currently supported distributions
+
 * Fedora
 * Red Hat Enterprise Linux (RHEL 6+)
 * RHEL 6+ derivatives such as CentOS 6+
@@ -14,9 +17,11 @@ The following dependency is required for the Ansible Controller:
 * jmespath
 
 ## Installation
+
 There are currently two ways to use the Linux System Roles Collection in your setup.
 
 ### Installation from Ansible Galaxy
+
 You can install the collection from Ansible Galaxy by running:
 ```
 ansible-galaxy collection install fedora.linux_system_roles
@@ -34,6 +39,7 @@ dnf install linux-system-roles
 ```
 
 ## Documentation
+
 A list of all roles and their documentation can be found at https://linux-system-roles.github.io/ as well as in the Supported Roles section.
 
 Once Linux System Roles Collection is installed, the individual role documentation is found at:
@@ -44,7 +50,9 @@ Once Linux System Roles Collection is installed, the individual role documentati
 ## Support
 
 ### Supported Ansible Versions
+
 The supported Ansible versions are aligned with currently maintained Ansible versions that support Collections (Ansible 2.9 and later). You can find the list of maintained Ansible versions [here](https://docs.ansible.com/ansible/latest/reference_appendices/release_and_maintenance.html#release-status).
 
 ### Modules and Plugins
+
 The modules and other plugins in this collection are private, used only internally to the collection, unless otherwise noted.

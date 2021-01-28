@@ -1097,7 +1097,7 @@ def role2collection():
         TESTS,
         transformer_args,
         isrole=False,
-        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
+        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__", ".git*"],
     )
 
     # remove symlinks in the tests/role.
@@ -1313,7 +1313,12 @@ def role2collection():
                         TESTS,
                         transformer_args,
                         isrole=False,
-                        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
+                        ignoreme=[
+                            "artifacts",
+                            "linux-system-roles.*",
+                            "__pycache__",
+                            ".git*",
+                        ],
                     )
                     # remove symlinks in the tests/role.
                     removeme = ["library", "modules", "module_utils", "roles"]

@@ -1344,8 +1344,8 @@ def role2collection():
         # Other extra files.
         else:
             if extra.name.endswith(".yml") and "playbook" in extra.name:
-                # some-playbook.yml is copied to playbooks/role dir.
-                dest = dest_path / "playbooks" / role
+                # some-playbook.yml is copied to docs/role dir.
+                dest = dest_path / "docs" / role
                 dest.mkdir(parents=True, exist_ok=True)
             else:
                 # If the extra file 'filename' has no extension, it is copied to the collection dir as
@@ -1354,7 +1354,7 @@ def role2collection():
             logging.info(f"Copying extra {extra} to {dest}")
             copy2(extra, dest, follow_symlinks=False)
 
-    dest = dest_path / "playbooks" / role
+    dest = dest_path / "docs" / role
     if dest.is_dir():
         lsrxfrm = LSRTransformer(
             dest, transformer_args, False, role, LSRFileTransformer

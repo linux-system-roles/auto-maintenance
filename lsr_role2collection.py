@@ -339,6 +339,7 @@ TOX = (
     ".travis.yml",
     ".yamllint_defaults.yml",
     ".yamllint.yml",
+    ".yamllint.yaml",
     "ansible_pytest_extra_requirements.txt",
     "custom_requirements.txt",
     "molecule",
@@ -361,6 +362,8 @@ DO_NOT_COPY = (
     "scripts",
     "semaphore",
     "standard-inventory-qcow2",
+    "Vagrantfile",
+    "README.html",
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
@@ -1095,7 +1098,7 @@ def role2collection():
         TESTS,
         transformer_args,
         isrole=False,
-        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
+        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__", ".git*"],
     )
 
     # remove symlinks in the tests/role.
@@ -1278,15 +1281,10 @@ def role2collection():
 
     # ==============================================================================
 
-    # Before handling extra files, clean up tox/travis files.
-    for tox in TOX:
-        tox_obj = dest_path / tox
-        if tox_obj.is_dir():
-            rmtree(tox_obj)
-        elif tox_obj.exists():
-            tox_obj.unlink()
     # Extra files and directories including the sub-roles
     for extra in extras:
+        if extra.name in TOX:
+            continue
         if extra.name.endswith(".md"):
             # E.g., contributing.md, README-devel.md and README-testing.md
             process_readme(extra.parent, extra.name, role)
@@ -1311,7 +1309,12 @@ def role2collection():
                         TESTS,
                         transformer_args,
                         isrole=False,
-                        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__"],
+                        ignoreme=[
+                            "artifacts",
+                            "linux-system-roles.*",
+                            "__pycache__",
+                            ".git*",
+                        ],
                     )
                     # remove symlinks in the tests/role.
                     removeme = ["library", "modules", "module_utils", "roles"]
@@ -1342,12 +1345,9 @@ def role2collection():
         # Other extra files.
         else:
             if extra.name.endswith(".yml") and "playbook" in extra.name:
-                # some-playbook.yml is copied to playbooks/role dir.
-                dest = dest_path / "playbooks" / role
+                # some-playbook.yml is copied to docs/role dir.
+                dest = dest_path / "docs" / role
                 dest.mkdir(parents=True, exist_ok=True)
-            elif extra.name in TOX:
-                # If the file in the TOX tuple, it is copied to the collection dir as it is.
-                dest = dest_path / extra.name
             else:
                 # If the extra file 'filename' has no extension, it is copied to the collection dir as
                 # 'filename-ROLE'. If the extra file is 'filename.ext', it is copied to 'filename-ROLE.ext'.
@@ -1355,7 +1355,7 @@ def role2collection():
             logging.info(f"Copying extra {extra} to {dest}")
             copy2(extra, dest, follow_symlinks=False)
 
-    dest = dest_path / "playbooks" / role
+    dest = dest_path / "docs" / role
     if dest.is_dir():
         lsrxfrm = LSRTransformer(
             dest, transformer_args, False, role, LSRFileTransformer

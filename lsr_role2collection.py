@@ -364,6 +364,7 @@ DO_NOT_COPY = (
     "standard-inventory-qcow2",
     "Vagrantfile",
     "README.html",
+    "CHANGELOG",
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
@@ -1132,6 +1133,7 @@ def role2collection():
                 {0}
 
                 {1}
+
                 <!--ts-->
                   * [{2}](roles/{3})
                 <!--te-->
@@ -1151,6 +1153,7 @@ def role2collection():
                             """\
 
                         {2}
+
                         <!--ts-->
                           * {3}
                         <!--te-->
@@ -1158,7 +1161,7 @@ def role2collection():
                         ).format(namespace, collection, comment, role_link)
                     )
                 else:
-                    find = r"({0}\n<!--ts-->\n)(( |\*|\w|\[|\]|\(|\)|\.|/|-|\n|\r)+)".format(
+                    find = r"({0}\n\n<!--ts-->\n)(( |\*|\w|\[|\]|\(|\)|\.|/|-|\n|\r)+)".format(
                         comment
                     )
                     replace = r"\1\2  * {0}\n".format(role_link)

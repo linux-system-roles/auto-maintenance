@@ -364,6 +364,7 @@ DO_NOT_COPY = (
     "standard-inventory-qcow2",
     "Vagrantfile",
     "README.html",
+    "CHANGELOG",
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY

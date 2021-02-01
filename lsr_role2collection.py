@@ -1365,6 +1365,32 @@ def role2collection():
         )
         lsrxfrm.run()
 
+    # Generate doc files for the modules (ex-library), which are
+    # required in the sanity check at the automation-hub import:
+    #   ansible-test sanity --test validate-modules.
+    files = get_role_modules(src_path)
+    for _module_name in files:
+        _fqmn = "{0}.{1}.{2}".format(namespace, collection, _module_name)
+        _stars = "*" * len(_fqmn)
+        _doc_dest = "{0}/{1}.{2}.{3}_module.rst".format(
+            dest_path / "docs", namespace, collection, _module_name
+        )
+        s = textwrap.dedent(
+            """\
+            .. {0}.{1}.{2}_module:
+
+            {4}
+            {0}.{1}.{2}
+            {4}
+
+            {0}.{1}.{2} is a private module of {0}.{1}.{3}.
+
+            It is used only internally to the collection.
+            """
+        ).format(namespace, collection, _module_name, role, _stars)
+        with open(_doc_dest, "w") as f:
+            f.write(s)
+
     default_collections_paths = "~/.ansible/collections:/usr/share/ansible/collections"
     default_collections_paths_list = list(
         map(os.path.expanduser, default_collections_paths.split(":"))

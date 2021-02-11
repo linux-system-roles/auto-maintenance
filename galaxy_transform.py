@@ -11,7 +11,11 @@ filepath = "galaxy.yml"
 
 buf = open(filepath).read()
 
-yaml = YAML()
+yaml = YAML(typ="rt")
+yaml.default_flow_style = False
+yaml.preserve_quotes = True
+yaml.indent(mapping=2, sequence=4, offset=2)
+
 code = yaml.load(buf)
 
 code["namespace"] = sys.argv[1]

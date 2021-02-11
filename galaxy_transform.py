@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+# Changes namespace, name, and version in Galaxy metadata.
+# Useful for releasing to Automation Hub, where Collections live
+# in namespaces separated from Ansible Galaxy.
+
 import sys
 from ruamel.yaml import YAML
 

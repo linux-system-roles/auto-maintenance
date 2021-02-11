@@ -21,4 +21,9 @@ code = yaml.load(buf)
 code["namespace"] = sys.argv[1]
 code["name"] = sys.argv[2]
 code["version"] = sys.argv[3]
+if len(sys.argv) == 4:
+    if code["dependencies"] is None:
+        del code["dependencies"]
+else:
+    code["dependencies"] = sys.argv[4]
 yaml.dump(code, sys.stdout)

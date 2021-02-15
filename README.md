@@ -371,3 +371,125 @@ If the role does not use a semantic version for the tag, or it is otherwise
 unclear how to determine what sort of changes have occurred in the role, it is
 up to the collection maintainer to investigate the role to determine how to
 change `Xc`, `Yc`, or `Zc`.
+
+# local-repo-dev-sync.sh
+
+This script is useful for the linux-system-roles team to make changes to
+multiple roles.  For example, as a LSR admin you need to update the version of
+tox-lsr used in each repo.
+
+## Prerequisites
+
+This script uses `hub` for cli/api interactions with github, and `jq` for
+parsing and formatting the output of `hub`.  You can install these on Fedora
+like `dnf -y install jq hub`.  The `hub` command also requires the use of your
+github api token.  See `man hub` for instructions.
+
+## Usage
+
+Basic usage, with no arguments:
+```
+./local-repo-dev-sync.sh
+```
+This will clone all of the repos under https://github.com/linux-system-roles
+(except those listed in `$EXCLIST` - see the script for the default list e.g. it
+excludes repos such as `test-harness`, `auto-maintenance`, etc.).  These will be
+cloned to `$HOME/linux-system-roles` using the `hub clone` command (if the
+directory does not already exist).  Each repo will be forked under your github
+user using the `hub fork` command (if you do not already have a fork).  Each
+local clone will have a git remote named `origin` for the source repo, and a git
+remote named after your github user id for your fork.  It will also do a `git
+fetch` to pull the latest code from the remotes (but it will not merge that code
+with your local branches - you must do that if desired).
+
+## Options
+
+Options are passed as environment variables.
+
+`LSR_BASE_DIR` - local directory holding clones of repos - default is
+`$HOME/linux-system-roles`
+
+`LSR_GH_ORG` - the github org to use as the origin of the clones/forks e.g. the
+ORG used in `https://github.com/ORG` - default is `linux-system-roles`
+
+`DEBUG` - turns on `set -x`
+
+## Commands
+
+You can pass commands to perform in each repo in these ways:
+
+### command line arguments
+
+For each repo, checkout the main branch and make sure it is up-to-date:
+
+```
+LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh "git checkout main || git checkout master; git pull"
+```
+
+The arguments will be passed to `eval` to be evaulated in the context of each
+repo.  This is useful if you need to just refresh your local copy of the repo,
+or perform a very simple task in each repo.
+
+### stdin/here document
+
+You can do the same as above like this:
+
+```
+LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh <<EOF
+git checkout main || git checkout master
+git pull
+EOF
+```
+
+That is, you can pass in the commands to use in a `bash` `here` document.  This
+is useful when you have more complicated tasks to perform that takes multiple
+commands and/or involves shell logic/looping.  Whatever you specify in the here
+document will be passed to `eval` in each repo directory.
+
+### shell script
+
+For really complex repo administration, you may want to write a shell script to be
+executed in each repo:
+
+```
+./local-repo-dev-sync.sh /path/to/myscript.sh
+```
+
+### update tox-lsr version in each repo
+
+I need to update the version of tox-lsr in each repo, and submit a PR for that
+change.
+
+First, create a git commit file in the format expected by the `git commit -F`
+argument e.g.
+
+```
+update tox-lsr version to 2.2.1
+
+Update the version of tox-lsr used in CI to 2.2.1
+```
+
+This will be used for the git commit message and the hub pull-request message.
+Then
+
+```
+./local-repo-dev-sync.sh <<EOF
+set -euxo pipefail
+if git checkout main; then
+  mainbr=main
+elif git checkout master; then
+  mainbr=master
+else
+  echo ERROR: could not find branch main or master
+  exit 1
+fi
+git pull
+git checkout -b tox-lsr-2.2.1
+sed -i -e 's|TOX_LSR: "git+https://github.com/linux-system-roles/tox-lsr@2.2.0"|TOX_LSR: "git+https://github.com/linux-system-roles/tox-lsr@2.2.1"|' .github/workflows/tox.yml
+git commit -s -a -F /path/to/commit.txt
+git push $USER tox-lsr-2.2.1
+hub pull-request -F /path/to/commit.txt -b "\$mainbr"
+EOF
+```
+If your `$USER` is not the same as your github username, use your github
+username instead of `$USER`.

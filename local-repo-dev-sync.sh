@@ -25,6 +25,16 @@ if [ -n "$missingcmds" ]; then
     exit 1
 fi
 
+if [ -n "$GITHUB_TOKEN" ] || [ -f "$HOME/.config/hub" ]; then
+    : # ok
+else
+    echo ERROR: no github credentials specified for the hub command.
+    echo Please see the manpage for the hub command for how to specify
+    echo credentials in your \$HOME/.config/hub config file.
+    echo Alternately, you can use the GITHUB_TOKEN environment variable.
+    exit 1
+fi
+
 if [ ! -d "$LSR_BASE_DIR" ]; then
     mkdir -p "$LSR_BASE_DIR"
 fi

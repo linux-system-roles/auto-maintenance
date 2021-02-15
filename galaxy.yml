@@ -20,7 +20,7 @@ license:
     - MIT
     - BSD-3-Clause
 
-# dependencies: []
+dependencies: {}
 
 tags:
   - "system"

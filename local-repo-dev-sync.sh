@@ -25,7 +25,7 @@ if [ -n "$missingcmds" ]; then
     exit 1
 fi
 
-if [ -n "$GITHUB_TOKEN" ] || [ -f "$HOME/.config/hub" ]; then
+if [ -n "${GITHUB_TOKEN:-}" ] || [ -f "$HOME/.config/hub" ]; then
     : # ok
 else
     echo ERROR: no github credentials specified for the hub command.

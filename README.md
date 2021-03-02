@@ -252,11 +252,15 @@ This script is used to convert the roles to collection format using
 [lsr_role2collection.py](#lsr_role2collectionpy) and build the collection file
 for publishing.  It doesn't do the publishing, that must be done separately.
 
-The list of roles is specified by default in the file `collection_release.yml`.  The format of this file is a `dict` of
-role names.  Each role name is a dict which must specify the `ref` which
-is the git tag, branch, or commit hash specifying the commit in the role repo to use to build the collection from.  You can optionally specify the `org` (default: `linux-system-roles`) and the `repo` (default: role name).
+The list of roles is specified by default in the file `collection_release.yml`.
+The format of this file is a `dict` of role names.  Each role name is a dict
+which must specify the `ref` which is the git tag, branch, or commit hash
+specifying the commit in the role repo to use to build the collection from.
+You can optionally specify the `org` (default: `linux-system-roles`) and the
+`repo` (default: role name).
 
-The other collection metadata comes from `galaxy.yml` - namespace, collection name, version, etc.  The script reads this metadata.
+The other collection metadata comes from `galaxy.yml` - namespace, collection
+name, version, etc.  The script reads this metadata.
 
 The script reads the list of roles from `collection_release.yml`.  For each
 role, it will clone the repo from github to a local working directory (if there
@@ -266,6 +270,12 @@ each role to collection format using the galaxy namespace name and collection
 name.  After all of the roles have been converted, the script uses
 `ansible-galaxy collection build` to build the collection package file suitable
 for publishing.
+
+The script will then run `galaxy-importer` against the collection package file
+to check if it will import into galaxy cleanly.  If you get errors, you will
+probably need to go back and fix the role or add some suppressions to the
+`.sanity-ansible-ignore-2.9.txt` in the role.  Or, you can add them to
+`lsr_role2collection/extra-ignore-2.9.txt` if necessary.
 
 To publish, use something like
 ```
@@ -287,6 +297,9 @@ You will need to ensure that the information in `galaxy.yml` (particularly the
 the `ref:` fields), are correct and up-to-date for the collection you want to
 build and publish.
 
+You will need the `galaxy-importer` package - `pip install galaxy-importer --user`.
+You will need `docker` in order to use `galaxy-importer`.
+
 ## collection_release.yml format
 ```yaml
 ROLENAME:
@@ -294,7 +307,13 @@ ROLENAME:
   org: github-organization
   repo: github-repo
 ```
-Where `ROLENAME` is the name of the role as it will appear in the collection (under `NAMESPACE/COLLECTION_NAME/roles/`).  `ref` is the git tag (preferred), commit hash, or branch to use (in the format used as the argument to `git clone -b` or `git checkout`).  `org` is the github organization (default `linux-system-roles`).  The `repo` is the name of the repo under the github organization, and the default is the `ROLENAME`, so only use this if you need to specify a different name for the role in the collection.
+Where `ROLENAME` is the name of the role as it will appear in the collection
+(under `NAMESPACE/COLLECTION_NAME/roles/`).  `ref` is the git tag (preferred),
+commit hash, or branch to use (in the format used as the argument to `git clone
+-b` or `git checkout`).  `org` is the github organization (default
+`linux-system-roles`).  The `repo` is the name of the repo under the github
+organization, and the default is the `ROLENAME`, so only use this if you need to
+specify a different name for the role in the collection.
 
 Example:
 ```yaml
@@ -313,7 +332,13 @@ Basic usage:
 # cd auto-maintenance
 # python release_collection.py
 ```
-This will use the `galaxy.yml` and `collection_release.yml` files in the current directory, will create a temporary working directory to clone the roles into, will create a collection under `$HOME/.ansible/collections/ansible_collections/NAMESPACE/COLLECTION_NAME`, and will create the collection package file `$HOME/.ansible/collections/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz`, where `NAMESPACE`, `COLLECTION_NAME`, and `VERSION` are specified in `galaxy.yml`.
+This will use the `galaxy.yml` and `collection_release.yml` files in the current
+directory, will create a temporary working directory to clone the roles into,
+will create a collection under
+`$HOME/.ansible/collections/ansible_collections/NAMESPACE/COLLECTION_NAME`, and
+will create the collection package file
+`$HOME/.ansible/collections/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz`, where
+`NAMESPACE`, `COLLECTION_NAME`, and `VERSION` are specified in `galaxy.yml`.
 
 ## Options
 

@@ -38,17 +38,16 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
                 )
             )
     os.makedirs(coll_dir, exist_ok=True)
+    ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
+    ignore_file = os.path.join(ignore_file_dir, "ignore-2.9.txt")
+    collection_readme = os.path.join("lsr_role2collection", "collection_readme.md")
+    ignore_file_src = os.path.join("lsr_role2collection", "extra-ignore-2.9.txt")
     for rolename, roledata in coll_rel.items():
         if rolename.startswith("_"):
             continue
         roledir = os.path.join(src_path, rolename)
         if os.path.isdir(roledir):
             subprocess.check_call(["git", "fetch"], cwd=roledir)
-            subprocess.check_call(
-                ["git", "-c", "advice.detachedHead=false", "checkout", roledata["ref"]],
-                cwd=roledir,
-            )
-            subprocess.check_call(["git", "pull"], cwd=roledir)
         else:
             git_url = "{}/{}/{}".format(
                 DEFAULT_GIT_SITE,
@@ -61,15 +60,16 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
                     "-c",
                     "advice.detachedHead=false",
                     "clone",
-                    "--depth",
-                    "1",
                     "-q",
                     git_url,
-                    "-b",
-                    roledata["ref"],
                     roledir,
                 ]
             )
+        subprocess.check_call(
+            ["git", "-c", "advice.detachedHead=false", "checkout", roledata["ref"]],
+            cwd=roledir,
+        )
+        subrole_prefix = f"private_{rolename}_subrole_"
         subprocess.check_call(
             [
                 "python",
@@ -86,15 +86,42 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
                 galaxy["namespace"],
                 "--collection",
                 galaxy["name"],
+                "--subrole-prefix",
+                subrole_prefix,
+                "--readme",
+                collection_readme,
             ]
         )
+        role_ignore_file = os.path.join(roledir, ".sanity-ansible-ignore-2.9.txt")
+        if os.path.isfile(role_ignore_file):
+            if not os.path.isdir(ignore_file_dir):
+                os.mkdir(ignore_file_dir)
+            with open(ignore_file, "a") as ign_fd:
+                with open(role_ignore_file, "r") as role_ign_fd:
+                    ign_fd.write(role_ign_fd.read())
     shutil.copy(galaxy["_filename"], coll_dir)
     shutil.copy(coll_rel["_filename"], coll_dir)
+    shutil.copy(collection_readme, coll_dir)
+    with open(ignore_file, "a") as ign_fd:
+        with open(ignore_file_src, "r") as role_ign_fd:
+            ign_fd.write(role_ign_fd.read())
     build_args = ["ansible-galaxy", "collection", "build", "-v"]
     if force:
         build_args.append("-f")
     build_args.append(coll_dir)
     subprocess.check_call(build_args, cwd=dest_path)
+
+
+def check_collection(dest_path, galaxy):
+    coll_file = (
+        f"{dest_path}/{galaxy['namespace']}-{galaxy['name']}-{galaxy['version']}.tar.gz"
+    )
+    gi_config = "lsr_role2collection/galaxy-importer.cfg"
+    subprocess.check_call(
+        ["python", "-m", "galaxy_importer.main", coll_file],
+        cwd=dest_path,
+        env={"GALAXY_IMPORTER_CONFIG": gi_config},
+    )
 
 
 def main():
@@ -148,6 +175,7 @@ def main():
         args.src_path = workdir
     try:
         build_collection(args.src_path, args.dest_path, galaxy, coll_rel, args.force)
+        check_collection(args.dest_path, galaxy)
     finally:
         if workdir:
             shutil.rmtree(workdir)

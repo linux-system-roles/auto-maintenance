@@ -21,4 +21,5 @@ code = yaml.load(buf)
 code["namespace"] = sys.argv[1]
 code["name"] = sys.argv[2]
 code["version"] = sys.argv[3]
+code["description"] = sys.argv[4]
 yaml.dump(code, sys.stdout)

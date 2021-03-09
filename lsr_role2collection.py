@@ -927,7 +927,7 @@ def add_rolename(filename, rolename):
     """
     if filename.find(".", 1) > 0:
         with_rolename = re.sub(
-            r"([\w\d_\.]*)(\.)([\w\d]*)",
+            r"([\w\d_\.]+)(\.)([\w\d]*)",
             r"\1" + "-" + rolename + r"\2" + r"\3",
             filename,
         )

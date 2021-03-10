@@ -687,8 +687,12 @@ def cleanup_symlinks(path, role, rmlist):
             ):
                 node.rmdir()
         roles_dir = path / "roles"
-        if roles_dir.exists() and not any(roles_dir.iterdir()):
-            roles_dir.rmdir()
+        if roles_dir.exists():
+            for sr in roles_dir.iterdir():
+                if sr.is_symlink():
+                    sr.unlink()
+            if not any(roles_dir.iterdir()):
+                roles_dir.rmdir()
 
 
 def gather_module_utils_parts(module_utils_dir):

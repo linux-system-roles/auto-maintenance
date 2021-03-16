@@ -1,4 +1,4 @@
-﻿Linux System Roles Ansible Collection
+Linux System Roles Ansible Collection
 =====================================
 
 Linux System Roles is a set of roles for managing Linux system components.

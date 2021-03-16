@@ -1,30 +1,44 @@
 certificate:
-  ref: "1.0.1"
+  ref: "0376ceece57882ade8ffaf431b7866aae3e7fed1"
+crypto_policies:
+  ref: "ff335b87017954c0b47bfe818700e0f1600b04db"
+firewall:
+  ref: "bc10ee919ec4b594bcd1e1bcd45fc33932f162f1"
+ha_cluster:
+  ref: "d97f48a21002497e1ac1bd1385841f2939d7b840"
 kdump:
-  ref: "1.0.2"
+  ref: "4b753bd9a3e6964b524713edec3d1b2961f62418"
 kernel_settings:
-  ref: "1.0.1"
+  ref: "a8ab76f8076078763dacacf3384315c86b342d52"
 logging:
-  ref: "1.1.0"
+  ref: "07e08107e7ccba5822f8a7aaec1a2ff0a221bede"
 metrics:
-  ref: "1.1.0"
+  ref: "c9b2ee085ccc741b5a9fa8a4b2a7a2f8c8551579"
 nbde_client:
-  ref: "1.0.1"
+  ref: "19f06159582550c8463f7d8492669e26fbdf760b"
 nbde_server:
-  ref: "1.0.1"
+  ref: "4dfc5e2aca74cb82f2a50eec7e975a2b78ad9678"
 network:
-  ref: "1.2.0"
+  org: richm
+  repo: network
+  ref: ansible-test
 postfix:
   ref: "0.0.2"
 selinux:
-  ref: "1.2.0"
+  ref: "70eb73bbe1ab5bf7ad65e6e18ff3f9ff0ff9106c"
+ssh:
+  ref: "54bec0855966cc3eed65b26a7c90962eb103d66d"
 sshd:
   org: willshersystems
   repo: ansible-sshd
-  ref: v0.12.0
+  ref: 428d390668077f0baf5e88c5834ee810ae11113c
 storage:
-  ref: "1.2.2"
+  org: richm
+  repo: storage
+  ref: ansible-test
 timesync:
-  ref: "1.2.0"
+  ref: "8a95989e158519ce4bebe10091c47ef88b29261b"
 tlog:
-  ref: "1.1.0"
+  ref: "d14eb542077f337ae9286bbbac7fb13940e4be7a"
+vpn:
+  ref: "73e8f5e3b514a8e7a3637dc204d5c106adddeea7"

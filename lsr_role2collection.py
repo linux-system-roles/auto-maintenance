@@ -365,6 +365,8 @@ DO_NOT_COPY = (
     "Vagrantfile",
     "README.html",
     "CHANGELOG",
+    "contributing.md",
+    ".dev-tools",
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY

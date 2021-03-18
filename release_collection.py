@@ -42,6 +42,7 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
     ignore_file = os.path.join(ignore_file_dir, "ignore-2.9.txt")
     collection_readme = os.path.join("lsr_role2collection", "collection_readme.md")
     ignore_file_src = os.path.join("lsr_role2collection", "extra-ignore-2.9.txt")
+    ansible_lint = os.path.join("lsr_role2collection", ".ansible-lint")
     for rolename, roledata in coll_rel.items():
         if rolename.startswith("_"):
             continue
@@ -102,6 +103,7 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
     shutil.copy(galaxy["_filename"], coll_dir)
     shutil.copy(coll_rel["_filename"], coll_dir)
     shutil.copy(collection_readme, coll_dir)
+    shutil.copy(ansible_lint, coll_dir)
     with open(ignore_file, "a") as ign_fd:
         with open(ignore_file_src, "r") as role_ign_fd:
             ign_fd.write(role_ign_fd.read())

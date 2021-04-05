@@ -22,5 +22,6 @@ for file in "$@"; do
 	fi
 	touch -r "${file}" "${file%.md}.tmp.adoc"
 	TZ=UTC asciidoc -o "${file%.md}.html" -a footer-style=none -a toc2 -a source-highlighter=highlight "${file%.md}.tmp.adoc"
-	rm "${file%.md}.tmp.adoc"
+	tr -d '\r' < "${file%.md}.html" > "${file%.md}.tmp.adoc"
+	mv "${file%.md}.tmp.adoc" "${file%.md}.html"
 done

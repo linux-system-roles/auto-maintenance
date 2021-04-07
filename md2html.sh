@@ -16,7 +16,7 @@ while getopts "hl" opt; do
 done
 
 for file in "$@"; do
-	pandoc -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
+        kramdoc --format=GFM --output="${file%.md}.tmp.adoc" "${file}"
 	if [ "$convert_link" -ne 0 ]; then
 		sed -i -e "s/\.md\>/\.html/g" "${file%.md}.tmp.adoc"
 	fi

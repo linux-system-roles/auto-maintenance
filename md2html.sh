@@ -16,11 +16,12 @@ while getopts "hl" opt; do
 done
 
 for file in "$@"; do
-        if grep -qi 'Red Hat Enterprise Linux release 9' /etc/redhat-release; then
-          kramdoc --format=GFM --output="${file%.md}.tmp.adoc" "${file}"
+        if pandoc -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"; then
+          true
         else
-          pandoc -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
+          kramdoc --format=GFM --output="${file%.md}.tmp.adoc" "${file}"
         fi
+
 	if [ "$convert_link" -ne 0 ]; then
 		sed -i -e "s/\.md\>/\.html/g" "${file%.md}.tmp.adoc"
 	fi

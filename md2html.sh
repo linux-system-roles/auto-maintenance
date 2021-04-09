@@ -16,10 +16,11 @@ while getopts "hl" opt; do
 done
 
 for file in "$@"; do
-        if pandoc -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"; then
+        # RHEL 9 in brew cannot use pandoc, hence trying kramdoc first
+        if kramdoc --format=GFM --output="${file%.md}.tmp.adoc" "${file}"; then
           true
         else
-          kramdoc --format=GFM --output="${file%.md}.tmp.adoc" "${file}"
+          pandoc -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
         fi
 
 	if [ "$convert_link" -ne 0 ]; then

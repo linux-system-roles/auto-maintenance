@@ -16,11 +16,20 @@ while getopts "hl" opt; do
 done
 
 for file in "$@"; do
+        md2adoc_tool=""
         # RHEL 9 in brew cannot use pandoc, hence trying kramdoc first
-        if kramdoc --format=GFM --output="${file%.md}.tmp.adoc" "${file}"; then
-          true
-        else
+        if type -p kramdown >/dev/null; then
+          md2adoc_tool=kramdown
+        elif type -p pandoc >/dev/null; then
+          md2adoc_tool=pandoc
+        fi
+        if [ $md2adoc_tool == kramdown ]; then
+          kramdoc --format=GFM --output="${file%.md}.tmp.adoc" "${file}"
+        elif [ $md2adoc_tool == pandoc ]; then
           pandoc -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
+        else
+          echo Cannot find a tool to convert md to adoc
+          exit 1
         fi
 
 	if [ "$convert_link" -ne 0 ]; then

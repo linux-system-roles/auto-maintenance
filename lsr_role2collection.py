@@ -1139,16 +1139,16 @@ def role2collection():
                 {1}
 
                 <!--ts-->
-                  * [{2}](roles/{3})
+                  * {2}
                 <!--te-->
                 """
-            ).format(_s, comment, title, rolename + "/" + filename)
+            ).format(_s, comment, title)
             with open(main_doc, "w") as f:
                 f.write(s)
         else:
             with open(main_doc) as f:
                 s = f.read()
-            role_link = "[{0}](roles/{1}/{2})".format(title, rolename, filename)
+            role_link = "{0}".format(title)
             if role_link not in s:
                 if comment not in s:
                     text = (

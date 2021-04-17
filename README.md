@@ -10,6 +10,7 @@ linux-system-roles repos.
   * [sync-template.sh](#sync-templatesh)
   * [lsr_role2collection.py](#lsr_role2collectionpy)
   * [release_collection.py](#release_collectionpy)
+  * [check_rpmspec_collection.sh](#check_rpmspec_collectionsh)
 <!--te-->
 
 
@@ -451,7 +452,7 @@ For each repo, checkout the main branch and make sure it is up-to-date:
 LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh "git checkout main || git checkout master; git pull"
 ```
 
-The arguments will be passed to `eval` to be evaulated in the context of each
+The arguments will be passed to `eval` to be evaluated in the context of each
 repo.  This is useful if you need to just refresh your local copy of the repo,
 or perform a very simple task in each repo.
 
@@ -518,3 +519,12 @@ EOF
 ```
 If your `$USER` is not the same as your github username, use your github
 username instead of `$USER`.
+
+# check_rpmspec_collection.sh
+
+This script is to be executed in the dist-git directory.
+It locally builds rpm packages with various combination of `ansible` and `collection_artifact` options,
+and checks whether the built rpm count is correct or not.
+Then, it verifies that `README.html` files are only in /usr/share/doc/ area.
+
+Usage: ./check_rpmspec_collection.sh [ -h | --help ] | [ fedpkg | rhpkg [ branch_name ] ]

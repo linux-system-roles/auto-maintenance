@@ -141,6 +141,7 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                        [--src-path SRC_PATH] [--src-owner SRC_OWNER] [--role ROLE]
                        [--new-role NEW_ROLE] [--replace-dot REPLACE_DOT]
                        [--subrole-prefix SUBROLE_PREFIX] [--readme README]
+                       README] [--extra-mapping EXTRA_MAPPING]
 ```
 
 ### optional arguments
@@ -172,6 +173,18 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      If sub-role name does not start with the specified value, change
                      the name to start with the value; default to an empty string
 --readme README      Path to the readme file used in top README.md
+--extra-mapping EXTRA_MAPPING
+                     This is a comma delimited list of extra mappings to apply when converting the
+                     files - this converts the given name to collection format with the optional given
+                     namespace and collection.
+                     The format is
+                       "src_name:[[dest_namespace.]dest_collection.]dest_name,\
+                        src_name:[[dest_namespace.]dest_collection.]dest_name,...."
+                     The default for `dest_namespace` is the `--namespace` value,
+                     and the default for `dest_collection` is the `--collection` value.
+                     `src_name` is the name of a role, preferably in `namespace.rolename` format.
+                     If just using `rolename` for `src_name`, and `rolename` is used in places
+                     in the README that you do not want to change.
 ```
 
 ### environment variables

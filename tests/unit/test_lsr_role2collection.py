@@ -25,8 +25,12 @@ namespace = os.environ.get("COLLECTION_NAMESPACE", "fedora")
 collection_name = os.environ.get("COLLECTION_NAME", "system_roles")
 rolename = "systemrole"
 newrolename = "newsystemrole"
+otherroles = ["other0", "other1", "other2", "other3"]
+newotherroles = ["newother0", "newother1", "newother2", "newother3"]
 prefix = namespace + "." + collection_name
 prefixdot = prefix + "."
+otherprefix = "mynamespace.mycollection"
+otherprefixdot = "mynamespace.mycollection."
 
 test_yaml_str = textwrap.dedent(
     """\
@@ -292,6 +296,10 @@ class LSRRole2Collection(unittest.TestCase):
             "role_modules": set(),
             "src_owner": "linux-system-roles",
             "top_dir": dest_path,
+            "extra_mapping_src_owner": [],
+            "extra_mapping_src_role": [],
+            "extra_mapping_dest_prefix": [],
+            "extra_mapping_dest_role": [],
         }
         copy_tree_with_replace(
             role_path,
@@ -456,6 +464,117 @@ class LSRRole2Collection(unittest.TestCase):
             isrole=True,
         )
         test_path = coll_path / "roles" / newrolename / "tasks"
+        self.check_test_tree(
+            test_path, test_yaml_str, post_params, ".yml", is_vertical=False
+        )
+        shutil.rmtree(coll_path)
+
+    def test_copy_tree_with_replace_extra_mapping(self):
+        """test copy_tree_with_replace with extra_mapping"""
+
+        pre_params = [
+            {
+                "key": "roles",
+                "subkey": "-",
+                "value": "linux-system-roles",
+                "delim": ".",
+                "subvalue": otherroles[0],
+            },
+            {
+                "key": "roles",
+                "subkey": "- name:",
+                "value": "",
+                "delim": "",
+                "subvalue": otherroles[1],
+            },
+            {
+                "key": "import_role",
+                "subkey": "name:",
+                "value": "linux-system-roles",
+                "delim": ".",
+                "subvalue": otherroles[2],
+            },
+            {
+                "key": "include_role",
+                "subkey": "name:",
+                "value": "linux-system-roles",
+                "delim": ".",
+                "subvalue": otherroles[3],
+            },
+        ]
+        post_params = [
+            {
+                "key": "roles",
+                "subkey": "-",
+                "value": otherprefix,
+                "delim": ".",
+                "subvalue": newotherroles[0],
+            },
+            {
+                "key": "roles",
+                "subkey": "- name:",
+                "value": prefix,
+                "delim": ".",
+                "subvalue": newotherroles[1],
+            },
+            {
+                "key": "import_role",
+                "subkey": "name:",
+                "value": otherprefix,
+                "delim": ".",
+                "subvalue": newotherroles[2],
+            },
+            {
+                "key": "include_role",
+                "subkey": "name:",
+                "value": prefix,
+                "delim": ".",
+                "subvalue": newotherroles[3],
+            },
+        ]
+        MYTUPLE = ("tasks",)
+        tmpdir = tempfile.TemporaryDirectory()
+        role_path = Path(tmpdir.name) / "linux-system-roles" / rolename
+        coll_path = (
+            Path(dest_path) / "ansible_collections" / namespace / collection_name
+        )
+        self.create_test_tree(
+            role_path / "tasks", test_yaml_str, pre_params, ".yml", is_vertical=False
+        )
+        transformer_args = {
+            "namespace": namespace,
+            "collection": collection_name,
+            "prefix": prefixdot,
+            "subrole_prefix": "",
+            "replace_dot": "_",
+            "role_modules": set(),
+            "src_owner": "linux-system-roles",
+            "top_dir": dest_path,
+            "extra_mapping_src_owner": [
+                "linux-system-roles",
+                None,
+                "linux-system-roles",
+                None,
+            ],
+            "extra_mapping_src_role": [
+                otherroles[0],
+                otherroles[1],
+                otherroles[2],
+                otherroles[3],
+            ],
+            "extra_mapping_dest_prefix": [otherprefixdot, None, otherprefixdot, None],
+            "extra_mapping_dest_role": [
+                newotherroles[0],
+                newotherroles[1],
+                newotherroles[2],
+                newotherroles[3],
+            ],
+        }
+        copy_tree_with_replace(
+            role_path, coll_path, rolename, MYTUPLE, transformer_args, isrole=True
+        )
+        test_path = coll_path / "roles" / rolename / "tasks"
+        print(coll_path)
         self.check_test_tree(
             test_path, test_yaml_str, post_params, ".yml", is_vertical=False
         )

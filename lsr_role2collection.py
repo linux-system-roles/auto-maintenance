@@ -565,6 +565,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
                 if role[key].count(".") == 1:
                     _src_owner, _rolename_base = role[key].split(".")
                 else:
+                    _src_owner = None
                     _rolename_base = role[key]
                 if role[key] == lsr_rolename or self.comp_rolenames(
                     role[key], self.newrolename
@@ -573,30 +574,47 @@ class LSRFileTransformer(LSRFileTransformerBase):
                     changed = True
                 elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
                     _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
-                    role[key] = "{0}{1}".format(
-                        self.extra_mapping_dest_prefix[_src_role_index]
-                        if self.extra_mapping_dest_prefix[_src_role_index]
-                        else self.prefix,
-                        self.extra_mapping_dest_role[_src_role_index],
-                    )
-                    changed = True
+                    if (
+                        _src_owner is None
+                        or _src_owner
+                        and (
+                            _src_owner == self.extra_mapping_src_owner[_src_role_index]
+                            or _src_owner == self.src_owner
+                        )
+                    ):
+                        role[key] = "{0}{1}".format(
+                            self.extra_mapping_dest_prefix[_src_role_index]
+                            if self.extra_mapping_dest_prefix[_src_role_index]
+                            else self.prefix,
+                            self.extra_mapping_dest_role[_src_role_index],
+                        )
+                        changed = True
             else:
                 if role.count(".") == 1:
                     _src_owner, _rolename_base = role.split(".")
                 else:
+                    _src_owner = None
                     _rolename_base = role
                 if role == lsr_rolename or self.comp_rolenames(role, self.rolename):
                     role = self.prefix + self.newrolename
                     changed = True
                 elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
                     _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
-                    role = "{0}{1}".format(
-                        self.extra_mapping_dest_prefix[_src_role_index]
-                        if self.extra_mapping_dest_prefix[_src_role_index]
-                        else self.prefix,
-                        self.extra_mapping_dest_role[_src_role_index],
-                    )
-                    changed = True
+                    if (
+                        _src_owner is None
+                        or _src_owner
+                        and (
+                            _src_owner == self.extra_mapping_src_owner[_src_role_index]
+                            or _src_owner == self.src_owner
+                        )
+                    ):
+                        role = "{0}{1}".format(
+                            self.extra_mapping_dest_prefix[_src_role_index]
+                            if self.extra_mapping_dest_prefix[_src_role_index]
+                            else self.prefix,
+                            self.extra_mapping_dest_role[_src_role_index],
+                        )
+                        changed = True
             if changed:
                 item[roles_kw][idx] = role
 

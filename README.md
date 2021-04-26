@@ -184,7 +184,9 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      and the default for `dest_collection` is the `--collection` value.
                      `src_name` is the name of a role, preferably in `namespace.rolename` format.
                      If just using `rolename` for `src_name`, and `rolename` is used in places
-                     in the README that you do not want to change.
+                     in the README that you do not want to change, you may have to change the
+                     README in another way, not using this script, by using sed with a custom
+                     regexp..
 ```
 
 ### environment variables

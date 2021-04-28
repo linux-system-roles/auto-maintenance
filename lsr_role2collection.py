@@ -400,6 +400,49 @@ class LSRFileTransformer(LSRFileTransformerBase):
     """Do the role file transforms - fix role names, add FQCN
     to module names, etc."""
 
+    def convert_rolename(self, rolename, lsr_rolename=None):
+        """convert the given rolename to the new name"""
+        if rolename.count(".") == 1:
+            _src_owner, _rolename_base = rolename.split(".")
+        else:
+            _src_owner = None
+            _rolename_base = rolename
+        if not lsr_rolename:
+            lsr_rolename = self.src_owner + "." + self.rolename
+        logging.debug(f"\ttask role {rolename}")
+        new_name = None
+        if rolename == self.rolename or rolename == lsr_rolename:
+            new_name = self.prefix + self.newrolename
+        elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
+            _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
+            # --extra-mapping "SRC_OWNER0.SRC_ROLE0:DEST_PREFIX[.]DEST_ROLE1,
+            #                  SRC_ROLE1:DEST_PREFIX[.]DEST_ROLE1"
+            # current _rolename_base is SRC_ROLE0 and
+            #   _src_owner is None or _src_owner is SRC_OWNER0
+            # or current _rolename_base is SRC_ROLE1
+            if (
+                not _src_owner
+                or not self.extra_mapping_src_owner[_src_role_index]
+                or _src_owner == self.extra_mapping_src_owner[_src_role_index]
+            ):
+                new_name = "{0}{1}".format(
+                    self.extra_mapping_dest_prefix[_src_role_index]
+                    if self.extra_mapping_dest_prefix[_src_role_index]
+                    else self.prefix,
+                    self.extra_mapping_dest_role[_src_role_index],
+                )
+        elif rolename.startswith("{{ role_path }}"):
+            match = re.match(r"{{ role_path }}/roles/([\w\d\.]+)", rolename)
+            if match.group(1).startswith(self.subrole_prefix):
+                new_name = self.prefix + match.group(1).replace(".", self.replace_dot)
+            else:
+                new_name = (
+                    self.prefix
+                    + self.subrole_prefix
+                    + match.group(1).replace(".", self.replace_dot)
+                )
+        return new_name
+
     def task_cb(self, task):
         """do something with a task item"""
         module_name = None
@@ -417,46 +460,9 @@ class LSRFileTransformer(LSRFileTransformerBase):
                     role_module_name = rm
                     break
         if module_name == "include_role" or module_name == "import_role":
-            rolename = task[module_name]["name"]
-            if rolename.count(".") == 1:
-                _src_owner, _rolename_base = rolename.split(".")
-            else:
-                _src_owner = None
-                _rolename_base = rolename
-            lsr_rolename = self.src_owner + "." + self.rolename
-            logging.debug(f"\ttask role {rolename}")
-            if rolename == self.rolename or rolename == lsr_rolename:
-                task[module_name]["name"] = self.prefix + self.newrolename
-            elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
-                _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
-                # --extra-mapping "SRC_OWNER0.SRC_ROLE0:DEST_PREFIX[.]DEST_ROLE1,
-                #                  SRC_ROLE1:DEST_PREFIX[.]DEST_ROLE1"
-                # current _rolename_base is SRC_ROLE0 and
-                #   _src_owner is None or _src_owner is SRC_OWNER0
-                # or current _rolename_base is SRC_ROLE1
-                if (
-                    not _src_owner
-                    or not self.extra_mapping_src_owner[_src_role_index]
-                    or _src_owner == self.extra_mapping_src_owner[_src_role_index]
-                ):
-                    task[module_name]["name"] = "{0}{1}".format(
-                        self.extra_mapping_dest_prefix[_src_role_index]
-                        if self.extra_mapping_dest_prefix[_src_role_index]
-                        else self.prefix,
-                        self.extra_mapping_dest_role[_src_role_index],
-                    )
-            elif rolename.startswith("{{ role_path }}"):
-                match = re.match(r"{{ role_path }}/roles/([\w\d\.]+)", rolename)
-                if match.group(1).startswith(self.subrole_prefix):
-                    task[module_name]["name"] = self.prefix + match.group(1).replace(
-                        ".", self.replace_dot
-                    )
-                else:
-                    task[module_name]["name"] = (
-                        self.prefix
-                        + self.subrole_prefix
-                        + match.group(1).replace(".", self.replace_dot)
-                    )
+            new_rolename = self.convert_rolename(task[module_name]["name"])
+            if new_rolename:
+                task[module_name]["name"] = new_rolename
         elif module_name == "include_vars":
             """
             Convert include_vars in the test playbook.
@@ -562,59 +568,15 @@ class LSRFileTransformer(LSRFileTransformerBase):
                     key = "name"
                 else:
                     key = "role"
-                if role[key].count(".") == 1:
-                    _src_owner, _rolename_base = role[key].split(".")
-                else:
-                    _src_owner = None
-                    _rolename_base = role[key]
-                if role[key] == lsr_rolename or self.comp_rolenames(
-                    role[key], self.newrolename
-                ):
-                    role[key] = self.prefix + self.newrolename
+                new_rolename = self.convert_rolename(role[key], lsr_rolename)
+                if new_rolename:
+                    role[key] = new_rolename
                     changed = True
-                elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
-                    _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
-                    if (
-                        _src_owner is None
-                        or _src_owner
-                        and (
-                            _src_owner == self.extra_mapping_src_owner[_src_role_index]
-                            or _src_owner == self.src_owner
-                        )
-                    ):
-                        role[key] = "{0}{1}".format(
-                            self.extra_mapping_dest_prefix[_src_role_index]
-                            if self.extra_mapping_dest_prefix[_src_role_index]
-                            else self.prefix,
-                            self.extra_mapping_dest_role[_src_role_index],
-                        )
-                        changed = True
             else:
-                if role.count(".") == 1:
-                    _src_owner, _rolename_base = role.split(".")
-                else:
-                    _src_owner = None
-                    _rolename_base = role
-                if role == lsr_rolename or self.comp_rolenames(role, self.rolename):
-                    role = self.prefix + self.newrolename
+                new_rolename = self.convert_rolename(role, lsr_rolename)
+                if new_rolename:
+                    role = new_rolename
                     changed = True
-                elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
-                    _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
-                    if (
-                        _src_owner is None
-                        or _src_owner
-                        and (
-                            _src_owner == self.extra_mapping_src_owner[_src_role_index]
-                            or _src_owner == self.src_owner
-                        )
-                    ):
-                        role = "{0}{1}".format(
-                            self.extra_mapping_dest_prefix[_src_role_index]
-                            if self.extra_mapping_dest_prefix[_src_role_index]
-                            else self.prefix,
-                            self.extra_mapping_dest_role[_src_role_index],
-                        )
-                        changed = True
             if changed:
                 item[roles_kw][idx] = role
 

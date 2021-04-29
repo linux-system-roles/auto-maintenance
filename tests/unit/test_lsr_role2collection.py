@@ -24,6 +24,7 @@ dest_path = os.environ.get("COLLECTION_DEST_PATH", "/var/tmp/collections")
 namespace = os.environ.get("COLLECTION_NAMESPACE", "fedora")
 collection_name = os.environ.get("COLLECTION_NAME", "system_roles")
 rolename = "systemrole"
+newrolename = "newsystemrole"
 prefix = namespace + "." + collection_name
 prefixdot = prefix + "."
 
@@ -33,10 +34,9 @@ test_yaml_str = textwrap.dedent(
     ---
     - name: Ensure that the role runs with default parameters
       hosts: all
-      tasks:
-        - name: default task
-          {0}:
-            {1} {2}{3}{4}
+      {0}:
+        - {1}
+            {2} {3}{4}{5}
     """
 )
 
@@ -53,11 +53,12 @@ class LSRRole2Collection(unittest.TestCase):
             filename = "test" + str(n) + ext
             filepath = path / filename
             content = template.format(
-                params[n]["key"],
-                params[n]["subkey"],
-                params[n]["value"],
-                params[n]["delim"],
-                params[n]["subvalue"],
+                params[n]["keyword"],
+                params[n]["role_or_task_name"],
+                params[n]["task_subkey"],
+                params[n]["task_value"],
+                params[n]["task_delim"],
+                params[n]["task_subvalue"],
             )
             with open(filepath, "w") as f:
                 f.write(content)
@@ -70,15 +71,16 @@ class LSRRole2Collection(unittest.TestCase):
             filename = "test" + str(n) + ext
             filepath = path / filename
             content = template.format(
-                params[n]["key"],
-                params[n]["subkey"],
-                params[n]["value"],
-                params[n]["delim"],
-                params[n]["subvalue"],
+                params[n]["keyword"],
+                params[n]["role_or_task_name"],
+                params[n]["task_subkey"],
+                params[n]["task_value"],
+                params[n]["task_delim"],
+                params[n]["task_subvalue"],
             )
             with open(filepath) as f:
                 s = f.read()
-            self.assertEqual(content, s)
+            self.assertEqual(content.rstrip(), s.rstrip())
 
     def create_test_link(self, path, link, target, is_target):
         path.mkdir(parents=True, exist_ok=True)
@@ -93,55 +95,61 @@ class LSRRole2Collection(unittest.TestCase):
         tmpdir = tempfile.TemporaryDirectory()
         pre_params = [
             {
-                "key": "roles",
-                "subkey": "-",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "roles",
+                "role_or_task_name": "linux-system-roles." + rolename,
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
             },
             {
-                "key": "import_role",
-                "subkey": "name:",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
         ]
         post_params = [
             {
-                "key": "roles",
-                "subkey": "-",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "roles",
+                "role_or_task_name": prefix + "." + rolename,
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
             },
             {
-                "key": "import_role",
-                "subkey": "name:",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": prefix,
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": prefix,
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
         ]
         self.create_test_tree(Path(tmpdir.name), test_yaml_str, pre_params, ".yml")
         file_replace(
             Path(tmpdir.name),
-            pre_params[0]["value"] + "." + pre_params[0]["subvalue"],
-            prefixdot + pre_params[0]["subvalue"],
+            pre_params[1]["task_value"] + "." + pre_params[1]["task_subvalue"],
+            prefixdot + pre_params[1]["task_subvalue"],
             ["*.yml"],
         )
         self.check_test_tree(Path(tmpdir.name), test_yaml_str, post_params, ".yml")
@@ -151,104 +159,272 @@ class LSRRole2Collection(unittest.TestCase):
 
         pre_params = [
             {
-                "key": "roles",
-                "subkey": "-",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "roles",
+                "role_or_task_name": "linux-system-roles." + rolename,
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
             },
             {
-                "key": "import_role",
-                "subkey": "name:",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": '"{{ role_path }}/roles',
-                "delim": "/",
-                "subvalue": '__subrole_with__"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"{{ role_path }}/roles',
+                "task_delim": "/",
+                "task_subvalue": '__subrole_with__"',
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": '"{{ role_path }}/roles',
-                "delim": "/",
-                "subvalue": 'subrole_no__"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"{{ role_path }}/roles',
+                "task_delim": "/",
+                "task_subvalue": 'subrole_no__"',
             },
             {
-                "key": "include_tasks",
-                "subkey": "-",
-                "value": '"{{ role_path }}/roles/subrole/tasks',
-                "delim": "/",
-                "subvalue": 'mytask.yml"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_tasks:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/tasks',
+                "task_delim": "/",
+                "task_subvalue": 'mytask.yml"',
             },
             {
-                "key": "include_vars",
-                "subkey": "-",
-                "value": '"{{ role_path }}/roles/subrole/vars',
-                "delim": "/",
-                "subvalue": 'myvar.yml"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_vars:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/vars',
+                "task_delim": "/",
+                "task_subvalue": 'myvar.yml"',
             },
         ]
         post_params = [
             {
-                "key": "roles",
-                "subkey": "-",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "roles",
+                "role_or_task_name": prefix + "." + rolename,
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
             },
             {
-                "key": "import_role",
-                "subkey": "name:",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": prefix,
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": rolename,
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": prefix,
+                "task_delim": ".",
+                "task_subvalue": rolename,
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": '"' + prefix,
-                "delim": ".",
-                "subvalue": '__subrole_with__"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"' + prefix,
+                "task_delim": ".",
+                "task_subvalue": '__subrole_with__"',
             },
             {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": '"' + prefix,
-                "delim": ".",
-                "subvalue": 'subrole_no__"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"' + prefix,
+                "task_delim": ".",
+                "task_subvalue": 'subrole_no__"',
             },
             {
-                "key": "include_tasks",
-                "subkey": "-",
-                "value": '"{{ role_path }}/roles/subrole/tasks',
-                "delim": "/",
-                "subvalue": 'mytask.yml"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_tasks:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/tasks',
+                "task_delim": "/",
+                "task_subvalue": 'mytask.yml"',
             },
             {
-                "key": "include_vars",
-                "subkey": "-",
-                "value": '"{{ role_path }}/roles/subrole/vars',
-                "delim": "/",
-                "subvalue": 'myvar.yml"',
+                "keyword": "tasks",
+                "role_or_task_name": "include_vars:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/vars',
+                "task_delim": "/",
+                "task_subvalue": 'myvar.yml"',
+            },
+        ]
+        MYTUPLE = ("tasks",)
+        tmpdir = tempfile.TemporaryDirectory()
+        role_path = Path(tmpdir.name) / "linux-system-roles" / rolename
+        coll_path = (
+            Path(dest_path) / "ansible_collections" / namespace / collection_name
+        )
+        self.create_test_tree(
+            role_path / "tasks", test_yaml_str, pre_params, ".yml", is_vertical=False
+        )
+
+        transformer_args = {
+            "namespace": namespace,
+            "collection": collection_name,
+            "prefix": prefixdot,
+            "subrole_prefix": "",
+            "replace_dot": "_",
+            "role_modules": set(),
+            "src_owner": "linux-system-roles",
+            "top_dir": dest_path,
+        }
+        copy_tree_with_replace(
+            role_path,
+            coll_path,
+            rolename,
+            rolename,
+            MYTUPLE,
+            transformer_args,
+            isrole=True,
+        )
+        test_path = coll_path / "roles" / rolename / "tasks"
+        self.check_test_tree(
+            test_path, test_yaml_str, post_params, ".yml", is_vertical=False
+        )
+        shutil.rmtree(coll_path)
+
+    def test_copy_tree_with_replace_with_newrolename(self):
+        """test copy_tree_with_replace"""
+
+        pre_params = [
+            {
+                "keyword": "roles",
+                "role_or_task_name": "linux-system-roles." + rolename,
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": rolename,
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": rolename,
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"{{ role_path }}/roles',
+                "task_delim": "/",
+                "task_subvalue": '__subrole_with__"',
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"{{ role_path }}/roles',
+                "task_delim": "/",
+                "task_subvalue": 'subrole_no__"',
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_tasks:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/tasks',
+                "task_delim": "/",
+                "task_subvalue": 'mytask.yml"',
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_vars:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/vars',
+                "task_delim": "/",
+                "task_subvalue": 'myvar.yml"',
+            },
+        ]
+        post_params = [
+            {
+                "keyword": "roles",
+                "role_or_task_name": prefix + "." + newrolename,
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": prefix,
+                "task_delim": ".",
+                "task_subvalue": newrolename,
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": prefix,
+                "task_delim": ".",
+                "task_subvalue": newrolename,
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"' + prefix,
+                "task_delim": ".",
+                "task_subvalue": '__subrole_with__"',
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": '"' + prefix,
+                "task_delim": ".",
+                "task_subvalue": 'subrole_no__"',
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_tasks:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/tasks',
+                "task_delim": "/",
+                "task_subvalue": 'mytask.yml"',
+            },
+            {
+                "keyword": "tasks",
+                "role_or_task_name": "include_vars:",
+                "task_subkey": "-",
+                "task_value": '"{{ role_path }}/roles/subrole/vars',
+                "task_delim": "/",
+                "task_subvalue": 'myvar.yml"',
             },
         ]
         MYTUPLE = ("tasks",)
@@ -271,9 +447,15 @@ class LSRRole2Collection(unittest.TestCase):
             "top_dir": dest_path,
         }
         copy_tree_with_replace(
-            role_path, coll_path, rolename, MYTUPLE, transformer_args, isrole=True
+            role_path,
+            coll_path,
+            rolename,
+            newrolename,
+            MYTUPLE,
+            transformer_args,
+            isrole=True,
         )
-        test_path = coll_path / "roles" / rolename / "tasks"
+        test_path = coll_path / "roles" / newrolename / "tasks"
         self.check_test_tree(
             test_path, test_yaml_str, post_params, ".yml", is_vertical=False
         )

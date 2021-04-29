@@ -411,7 +411,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
             lsr_rolename = self.src_owner + "." + self.rolename
         logging.debug(f"\ttask role {rolename}")
         new_name = None
-        if rolename == self.rolename or rolename == lsr_rolename:
+        if rolename == lsr_rolename or self.comp_rolenames(rolename, self.rolename):
             new_name = self.prefix + self.newrolename
         elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
             _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
@@ -422,13 +422,9 @@ class LSRFileTransformer(LSRFileTransformerBase):
             # or current _rolename_base is SRC_ROLE1
             if (
                 not _src_owner
+                or (_src_owner == self.extra_mapping_src_owner[_src_role_index])
                 or (
-                    _src_owner
-                    and _src_owner == self.extra_mapping_src_owner[_src_role_index]
-                )
-                or (
-                    _src_owner
-                    and not self.extra_mapping_src_owner[_src_role_index]
+                    not self.extra_mapping_src_owner[_src_role_index]
                     and _src_owner == self.src_owner
                 )
             ):
@@ -554,10 +550,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
         else:
             core0 = re.sub("[_\\.]", "", name0)
             core1 = re.sub("[_\\.]", "", name1)
-            if core0 == core1:
-                return True
-            else:
-                return False
+            return core0 == core1
 
     def change_roles(self, item, roles_kw):
         """ru_item is an item which may contain a roles or dependencies

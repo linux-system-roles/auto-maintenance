@@ -422,8 +422,15 @@ class LSRFileTransformer(LSRFileTransformerBase):
             # or current _rolename_base is SRC_ROLE1
             if (
                 not _src_owner
-                or not self.extra_mapping_src_owner[_src_role_index]
-                or _src_owner == self.extra_mapping_src_owner[_src_role_index]
+                or (
+                    _src_owner
+                    and _src_owner == self.extra_mapping_src_owner[_src_role_index]
+                )
+                or (
+                    _src_owner
+                    and not self.extra_mapping_src_owner[_src_role_index]
+                    and _src_owner == self.src_owner
+                )
             ):
                 new_name = "{0}{1}".format(
                     self.extra_mapping_dest_prefix[_src_role_index]

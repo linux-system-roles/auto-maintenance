@@ -122,7 +122,7 @@ class LSRFileTransformerBase(object):
     HEADER_RE = re.compile(r"^(---\n|.*\n---\n)", flags=re.DOTALL)
     FOOTER_RE = re.compile(r"\n([.][.][.]|[.][.][.]\n.*)$", flags=re.DOTALL)
 
-    def __init__(self, filepath, rolename, args):
+    def __init__(self, filepath, rolename, newrolename, args):
         self.filepath = filepath
         self.namespace = args["namespace"]
         self.collection = args["collection"]
@@ -133,6 +133,7 @@ class LSRFileTransformerBase(object):
         self.src_owner = args["src_owner"]
         self.top_dir = args["top_dir"]
         self.rolename = rolename
+        self.newrolename = newrolename
         buf = open(filepath).read()
         self.ruamel_yaml = YAML(typ="rt")
         match = re.search(LSRFileTransformerBase.HEADER_RE, buf)
@@ -250,6 +251,7 @@ class LSRTransformer(object):
         transformer_args,
         is_role_dir=True,
         role_name=None,
+        new_role_name=None,
         file_xfrm_cls=LSRFileTransformerBase,
     ):
         """Create a role transformer.  The user can specify the specific class
@@ -258,6 +260,7 @@ class LSRTransformer(object):
         is_role_dir - if True, role_path is the role directory (with all of the usual role subdirs)
                       if False, just operate on the .yml files found in role_path"""
         self.role_name = role_name
+        self.new_role_name = new_role_name
         self.role_path = role_path
         self.is_role_dir = is_role_dir
         self.transformer_args = transformer_args
@@ -278,7 +281,10 @@ class LSRTransformer(object):
                 logging.debug(f"filepath {filepath}")
                 try:
                     lsrft = self.file_xfrm_cls(
-                        filepath, self.role_name, self.transformer_args
+                        filepath,
+                        self.role_name,
+                        self.new_role_name,
+                        self.transformer_args,
                     )
                     lsrft.run()
                     lsrft.write()
@@ -410,7 +416,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
             lsr_rolename = self.src_owner + "." + self.rolename
             logging.debug(f"\ttask role {rolename}")
             if rolename == self.rolename or rolename == lsr_rolename:
-                task[module_name]["name"] = self.prefix + self.rolename
+                task[module_name]["name"] = self.prefix + self.newrolename
             elif rolename.startswith("{{ role_path }}"):
                 match = re.match(r"{{ role_path }}/roles/([\w\d\.]+)", rolename)
                 if match.group(1).startswith(self.subrole_prefix):
@@ -494,7 +500,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
             if var == "roletoinclude":
                 lsr_rolename = self.src_owner + "." + self.rolename
                 if item["vars"][var] == lsr_rolename:
-                    item["vars"][var] = self.prefix + self.rolename
+                    item["vars"][var] = self.prefix + self.newrolename
         return
 
     def meta_cb(self, item):
@@ -525,12 +531,12 @@ class LSRFileTransformer(LSRFileTransformerBase):
                 else:
                     key = "role"
                 if role[key] == lsr_rolename or self.comp_rolenames(
-                    role[key], self.rolename
+                    role[key], self.newrolename
                 ):
-                    role[key] = self.prefix + self.rolename
+                    role[key] = self.prefix + self.newrolename
                     changed = True
             elif role == lsr_rolename or self.comp_rolenames(role, self.rolename):
-                role = self.prefix + self.rolename
+                role = self.prefix + self.newrolename
                 changed = True
             if changed:
                 item[roles_kw][idx] = role
@@ -631,6 +637,7 @@ def copy_tree_with_replace(
     src_path,
     dest_path,
     role,
+    new_role,
     TUPLE,
     transformer_args,
     isrole=True,
@@ -649,9 +656,9 @@ def copy_tree_with_replace(
         src = src_path / dirname
         if src.is_dir():
             if isrole:
-                dest = dest_path / "roles" / role / dirname
+                dest = dest_path / "roles" / new_role / dirname
             else:
-                dest = dest_path / dirname / role
+                dest = dest_path / dirname / new_role
             logging.info(f"Copying role {src} to {dest}")
             if ignoreme:
                 lsr_copytree(
@@ -664,7 +671,7 @@ def copy_tree_with_replace(
             else:
                 lsr_copytree(src, dest, symlinks=symlinks, dirs_exist_ok=True)
             lsrxfrm = LSRTransformer(
-                dest, transformer_args, False, role, LSRFileTransformer
+                dest, transformer_args, False, role, new_role, LSRFileTransformer
             )
             lsrxfrm.run()
 
@@ -974,7 +981,7 @@ def role2collection():
         "--src-path",
         type=Path,
         default=os.environ.get("COLLECTION_SRC_PATH", HOME + "/linux-system-roles"),
-        help="Path to the parent directory of the source role; default to default to ${HOME}/linux-system-roles",
+        help="Path to the parent directory of the source role; default to ${HOME}/linux-system-roles",
     )
     parser.add_argument(
         "--src-owner",
@@ -987,6 +994,12 @@ def role2collection():
         type=str,
         default=os.environ.get("COLLECTION_ROLE"),
         help="Role to convert to collection",
+    )
+    parser.add_argument(
+        "--new-role",
+        type=str,
+        default=os.environ.get("COLLECTION_NEW_ROLE"),
+        help="Role to convert to collection; specify if different from the original role; default to the value of '--role'.",  # noqa:E501
     )
     parser.add_argument(
         "--replace-dot",
@@ -1019,6 +1032,10 @@ def role2collection():
         parser.print_help()
         logging.error("Message: role is not specified.")
         os._exit(errno.EINVAL)
+
+    new_role = args.new_role
+    if not new_role:
+        new_role = role
 
     namespace = args.namespace
     collection = args.collection
@@ -1072,7 +1089,7 @@ def role2collection():
     config = {
         "namespace": namespace,
         "collection": collection,
-        "role": role,
+        "role": new_role,
         "src_path": src_path,
         "dest_path": dest_path,
         "module_utils_dir": module_utils_dir,
@@ -1092,7 +1109,9 @@ def role2collection():
 
     # Role - copy subdirectories, tasks, defaults, vars, etc., in the system role to
     # DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/roles/ROLE.
-    copy_tree_with_replace(src_path, dest_path, role, ROLE_DIRS, transformer_args)
+    copy_tree_with_replace(
+        src_path, dest_path, role, new_role, ROLE_DIRS, transformer_args
+    )
 
     # ==============================================================================
 
@@ -1100,6 +1119,7 @@ def role2collection():
         src_path,
         tests_dest_path,
         role,
+        new_role,
         TESTS,
         transformer_args,
         isrole=False,
@@ -1108,7 +1128,7 @@ def role2collection():
 
     # remove symlinks in the tests/role.
     removeme = ["library", "modules", "module_utils", "roles"]
-    cleanup_symlinks(tests_dir / role, role, removeme)
+    cleanup_symlinks(tests_dir / new_role, role, removeme)
 
     # ==============================================================================
 
@@ -1177,32 +1197,34 @@ def role2collection():
     # DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/docs/ROLE.
     # Copy README.md to DEST_PATH/ansible_collections/NAMESPACE/COLLECTION/roles/ROLE.
     # Generate a top level README.md which contains links to roles/ROLE/README.md.
-    def process_readme(src_path, filename, rolename, original=None, issubrole=False):
+    def process_readme(
+        src_path, filename, role, new_role, original=None, issubrole=False
+    ):
         """
-        Copy src_path/filename to dest_path/docs/rolename.
+        Copy src_path/filename to dest_path/docs/new_role.
         filename could be README.md, README-something.md, or something.md.
-        Create a primary README.md in dest_path, which points to dest_path/docs/rolename/filename
-        with the title rolename or rolename-something.
+        Create a primary README.md in dest_path, which points to dest_path/docs/new_role/filename
+        with the title new_role or new_role-something.
         """
         src = src_path / filename
-        dest = roles_dir / rolename / filename
+        dest = roles_dir / new_role / filename
         # copy
         logging.info(f"Copying doc {filename} to {dest}")
         copy2(src, dest, follow_symlinks=False)
-        dest = roles_dir / rolename
+        dest = roles_dir / new_role
         file_patterns = ["*.md"]
-        file_replace(dest, src_owner + "." + rolename, prefix + rolename, file_patterns)
+        file_replace(dest, src_owner + "." + role, prefix + new_role, file_patterns)
         if original:
-            file_replace(dest, original, prefix + rolename, file_patterns)
+            file_replace(dest, original, prefix + new_role, file_patterns)
         if filename == "README.md":
             if issubrole:
                 comment = "### Private Roles"
             else:
                 comment = "### Supported Roles"
-            update_readme(src_path, filename, rolename, comment, issubrole)
+            update_readme(src_path, filename, new_role, comment, issubrole)
 
     ignoreme = ["linux-system-roles.*"]
-    dest = docs_dir / role
+    dest = docs_dir / new_role
     for doc in DOCS:
         src = src_path / doc
         if src.is_dir():
@@ -1220,15 +1242,16 @@ def role2collection():
                     transformer_args,
                     False,
                     role,
+                    new_role,
                     LSRFileTransformer,
                 )
                 lsrxfrm.run()
         elif src.is_file():
-            process_readme(src_path, doc, role)
+            process_readme(src_path, doc, role, new_role)
 
     # Remove symlinks in the docs/role (e.g., in the examples).
     removeme = ["library", "modules", "module_utils", "roles"]
-    cleanup_symlinks(dest, role, removeme)
+    cleanup_symlinks(dest, new_role, removeme)
 
     # ==============================================================================
 
@@ -1252,7 +1275,7 @@ def role2collection():
                     lsr_copytree(sr, dest)
                 else:
                     # Otherwise, copy it to the plugins/plugin_name/ROLE
-                    dest = plugin_dir / plugin_name / role
+                    dest = plugin_dir / plugin_name / new_role
                     dest.mkdir(parents=True, exist_ok=True)
                     logging.info(f"Copying plugin {sr} to {dest}")
                     copy2(sr, dest, follow_symlinks=False)
@@ -1294,7 +1317,7 @@ def role2collection():
             continue
         if extra.name.endswith(".md"):
             # E.g., contributing.md, README-devel.md and README-testing.md
-            process_readme(extra.parent, extra.name, role)
+            process_readme(extra.parent, extra.name, role, new_role)
         elif extra.is_dir():
             # Copying sub-roles to the roles dir and its tests and README are also
             # handled in the same way as the parent role's are.
@@ -1306,12 +1329,13 @@ def role2collection():
                     if subrole_prefix and not dr.startswith(subrole_prefix):
                         dr = subrole_prefix + dr
                     copy_tree_with_replace(
-                        sr, dest_path, dr, ROLE_DIRS, transformer_args
+                        sr, dest_path, dr, dr, ROLE_DIRS, transformer_args
                     )
                     # copy tests dir to dest_path/"tests"
                     copy_tree_with_replace(
                         sr,
                         tests_dest_path,
+                        dr,
                         dr,
                         TESTS,
                         transformer_args,
@@ -1323,14 +1347,14 @@ def role2collection():
                             ".git*",
                         ],
                     )
-                    # remove symlinks in the tests/role.
+                    # remove symlinks in the tests/new_role.
                     removeme = ["library", "modules", "module_utils", "roles"]
                     cleanup_symlinks(tests_dir / dr, dr, removeme)
                     # copy README.md to dest_path/roles/sr.name
                     _readme = sr / "README.md"
                     if _readme.is_file():
                         process_readme(
-                            sr, "README.md", dr, original=sr.name, issubrole=True
+                            sr, "README.md", dr, dr, original=sr.name, issubrole=True
                         )
                     if sr.name != dr:
                         # replace "sr.name" with "dr" in role_dir
@@ -1353,19 +1377,19 @@ def role2collection():
         else:
             if extra.name.endswith(".yml") and "playbook" in extra.name:
                 # some-playbook.yml is copied to docs/role dir.
-                dest = dest_path / "docs" / role
+                dest = dest_path / "docs" / new_role
                 dest.mkdir(parents=True, exist_ok=True)
             else:
                 # If the extra file 'filename' has no extension, it is copied to the collection dir as
                 # 'filename-ROLE'. If the extra file is 'filename.ext', it is copied to 'filename-ROLE.ext'.
-                dest = dest_path / add_rolename(extra.name, role)
+                dest = dest_path / add_rolename(extra.name, new_role)
             logging.info(f"Copying extra {extra} to {dest}")
             copy2(extra, dest, follow_symlinks=False)
 
-    dest = dest_path / "docs" / role
+    dest = dest_path / "docs" / new_role
     if dest.is_dir():
         lsrxfrm = LSRTransformer(
-            dest, transformer_args, False, role, LSRFileTransformer
+            dest, transformer_args, False, role, new_role, LSRFileTransformer
         )
         lsrxfrm.run()
 

@@ -139,8 +139,8 @@ This is a tool to convert a linux-system-role style role to the collections form
 lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                        [--dest-path DEST_PATH] [--tests-dest-path TESTS_DEST_PATH]
                        [--src-path SRC_PATH] [--src-owner SRC_OWNER] [--role ROLE]
-                       [--replace-dot REPLACE_DOT] [--subrole-prefix SUBROLE_PREFIX]
-                       [--readme README]
+                       [--new-role NEW_ROLE] [--replace-dot REPLACE_DOT]
+                       [--subrole-prefix SUBROLE_PREFIX] [--readme README]
 ```
 
 ### optional arguments
@@ -164,6 +164,7 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      not the github owner, may need to set to it, e.g., "linux-system-roles";
                      default to the parent directory of SRC_PATH
 --role ROLE          Role to convert to collection
+--new-role NEW_ROLE  The new role name to convert to
 --replace-dot REPLACE_DOT
                      If sub-role name contains dots, replace them with the specified
                      value; default to '_'
@@ -182,6 +183,7 @@ Each option has corresponding environment variable to set.
   --src-path SRC_PATH              COLLECTION_SRC_PATH
   --dest-path DEST_PATH            COLLECTION_DEST_PATH
   --role ROLE                      COLLECTION_ROLE
+  --new-role NEW_ROLE              COLLECTION_NEW_ROLE
   --replace-dot REPLACE_DOT        COLLECTION_REPLACE_DOT
   --subrole-prefix SUBROLE_PREFIX  COLLECTION_SUBROLE_PREFIX
 ```
@@ -211,6 +213,8 @@ If a main role has sub-roles in the roles directory, the sub-roles are copied to
 #### [2]
 In the current implementation, if a module_utils program is a direct child of SRC_PATH/module_utils, a directory named "myrole" is created in COLLECTIONS_PATH and the module_utils program is copied to COLLECTIONS_PATH/plugins/module_utils/myrole. If a module_utils program is already in a sub-directory of SRC_PATH/module_utils, the program is copied to COLLECTIONS_PATH/plugins/module_utils/sub-directory.
 
+# Examples
+
 ## Example 1
 Convert a role myrole located in the default src-path to the default dest-path with default namespace fedora and default collection name system_roles.
 
@@ -226,16 +230,22 @@ Convert a role myrole located in the default src-path to the default dest-path w
 Source role path is /home/user/linux-system-roles/myrole.
 Destination collections path is /home/user/.ansible/collections.
 ```
-python lsr_role2collection.py --role myrole --namespace community --collection test
+python lsr_role2collection.py --role myrole \
+                              --namespace community \
+                              --collection test
 ```
 
 ## Example 3
-Convert a role myrole located in a custom src-path to a custom dest-path and a custom tests-dest-path
+Convert a role myrole located in a custom src-path to a custom dest-path and a custom tests-dest-path with a custom role name.
 
 Source role path is /path/to/role_group/myrole.
 Destination collections path is /path/to/collections.
 ```
-python lsr_role2collection.py --src-path /path/to/role_group --dest-path /path/to/collections --tests-dest-path /path/to/test_dir --role myrole
+python lsr_role2collection.py --role myrole \
+                              --src-path /path/to/role_group \
+                              --dest-path /path/to/collections \
+                              --tests-dest-path /path/to/test_dir \
+                              --new-role mynewrole
 ```
 
 ## Example 4
@@ -244,7 +254,11 @@ Convert a role myrole in a github owner "linux-system-roles" located in a custom
 Source role path is /path/to/role_group/myrole.
 Destination collections path is /path/to/collections.
 ```
-python lsr_role2collection.py --src-path /path/to/role_group --dest-path /path/to/collections --tests-dest-path /path/to/test_dir --role myrole --src-owner linux-system-roles
+python lsr_role2collection.py --role myrole \
+                              --src-owner linux-system-roles \
+                              --src-path /path/to/role_group \
+                              --dest-path /path/to/collections \
+                              --tests-dest-path /path/to/test_dir
 ```
 
 # release_collection.py

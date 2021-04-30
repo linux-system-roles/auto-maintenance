@@ -36,6 +36,7 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from shutil import copytree, copy2, copyfile, ignore_patterns, rmtree
 from six import string_types
+from operator import itemgetter
 
 ALL_ROLE_DIRS = [
     "defaults",
@@ -129,11 +130,16 @@ class LSRFileTransformerBase(object):
         self.prefix = args["prefix"]
         self.subrole_prefix = args["subrole_prefix"]
         self.replace_dot = args["replace_dot"]
+        self.rolename_regex = "[{0}.]".format(self.replace_dot)
         self.role_modules = args["role_modules"]
         self.src_owner = args["src_owner"]
         self.top_dir = args["top_dir"]
         self.rolename = rolename
         self.newrolename = newrolename
+        self.extra_mapping_src_owner = args["extra_mapping_src_owner"]
+        self.extra_mapping_src_role = args["extra_mapping_src_role"]
+        self.extra_mapping_dest_prefix = args["extra_mapping_dest_prefix"]
+        self.extra_mapping_dest_role = args["extra_mapping_dest_role"]
         buf = open(filepath).read()
         self.ruamel_yaml = YAML(typ="rt")
         match = re.search(LSRFileTransformerBase.HEADER_RE, buf)
@@ -395,6 +401,52 @@ class LSRFileTransformer(LSRFileTransformerBase):
     """Do the role file transforms - fix role names, add FQCN
     to module names, etc."""
 
+    def convert_rolename(self, rolename, lsr_rolename=None):
+        """convert the given rolename to the new name"""
+        if rolename.count(".") == 1:
+            _src_owner, _rolename_base = rolename.split(".")
+        else:
+            _src_owner = None
+            _rolename_base = rolename
+        if not lsr_rolename:
+            lsr_rolename = self.src_owner + "." + self.rolename
+        logging.debug(f"\ttask role {rolename}")
+        new_name = None
+        if rolename == lsr_rolename or self.comp_rolenames(rolename, self.rolename):
+            new_name = self.prefix + self.newrolename
+        elif _rolename_base and _rolename_base in self.extra_mapping_src_role:
+            _src_role_index = self.extra_mapping_src_role.index(_rolename_base)
+            # --extra-mapping "SRC_OWNER0.SRC_ROLE0:DEST_PREFIX[.]DEST_ROLE1,
+            #                  SRC_ROLE1:DEST_PREFIX[.]DEST_ROLE1"
+            # current _rolename_base is SRC_ROLE0 and
+            #   _src_owner is None or _src_owner is SRC_OWNER0
+            # or current _rolename_base is SRC_ROLE1
+            if (
+                not _src_owner
+                or (_src_owner == self.extra_mapping_src_owner[_src_role_index])
+                or (
+                    not self.extra_mapping_src_owner[_src_role_index]
+                    and _src_owner == self.src_owner
+                )
+            ):
+                new_name = "{0}{1}".format(
+                    self.extra_mapping_dest_prefix[_src_role_index]
+                    if self.extra_mapping_dest_prefix[_src_role_index]
+                    else self.prefix,
+                    self.extra_mapping_dest_role[_src_role_index],
+                )
+        elif rolename.startswith("{{ role_path }}"):
+            match = re.match(r"{{ role_path }}/roles/([\w\d.]+)", rolename)
+            if match.group(1).startswith(self.subrole_prefix):
+                new_name = self.prefix + match.group(1).replace(".", self.replace_dot)
+            else:
+                new_name = (
+                    self.prefix
+                    + self.subrole_prefix
+                    + match.group(1).replace(".", self.replace_dot)
+                )
+        return new_name
+
     def task_cb(self, task):
         """do something with a task item"""
         module_name = None
@@ -412,23 +464,9 @@ class LSRFileTransformer(LSRFileTransformerBase):
                     role_module_name = rm
                     break
         if module_name == "include_role" or module_name == "import_role":
-            rolename = task[module_name]["name"]
-            lsr_rolename = self.src_owner + "." + self.rolename
-            logging.debug(f"\ttask role {rolename}")
-            if rolename == self.rolename or rolename == lsr_rolename:
-                task[module_name]["name"] = self.prefix + self.newrolename
-            elif rolename.startswith("{{ role_path }}"):
-                match = re.match(r"{{ role_path }}/roles/([\w\d\.]+)", rolename)
-                if match.group(1).startswith(self.subrole_prefix):
-                    task[module_name]["name"] = self.prefix + match.group(1).replace(
-                        ".", self.replace_dot
-                    )
-                else:
-                    task[module_name]["name"] = (
-                        self.prefix
-                        + self.subrole_prefix
-                        + match.group(1).replace(".", self.replace_dot)
-                    )
+            new_rolename = self.convert_rolename(task[module_name]["name"])
+            if new_rolename:
+                task[module_name]["name"] = new_rolename
         elif module_name == "include_vars":
             """
             Convert include_vars in the test playbook.
@@ -441,7 +479,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
             To solve it, the relative path is converted to the absolute path.
             """
             _src_owner_match = "/" + self.src_owner + "."
-            _src_owner_pattern = r".*/{0}[.](\w+)/([\w\d\./]+)".format(self.src_owner)
+            _src_owner_pattern = r".*/{0}[.](\w+)/([\w\d./]+)".format(self.src_owner)
             if isinstance(task[module_name], dict):
                 _key = None
                 if (
@@ -511,12 +549,10 @@ class LSRFileTransformer(LSRFileTransformerBase):
         if name0 == name1:
             return True
         else:
-            core0 = re.sub("[_\\.]", "", name0)
-            core1 = re.sub("[_\\.]", "", name1)
-            if core0 == core1:
-                return True
-            else:
-                return False
+            # self.rolename_regex is default to "[_.]".
+            core0 = re.sub(self.rolename_regex, "", name0)
+            core1 = re.sub(self.rolename_regex, "", name1)
+            return core0 == core1
 
     def change_roles(self, item, roles_kw):
         """ru_item is an item which may contain a roles or dependencies
@@ -525,19 +561,24 @@ class LSRFileTransformer(LSRFileTransformerBase):
         lsr_rolename = self.src_owner + "." + self.rolename
         for idx, role in enumerate(item.get(roles_kw, [])):
             changed = False
+            # role could be
+            #   ordereddict([('name', 'linux-system-roles.ROLENAME')])
+            # or
+            #   'linux-system-roles.ROLENAME'
             if isinstance(role, dict):
                 if "name" in role:
                     key = "name"
                 else:
                     key = "role"
-                if role[key] == lsr_rolename or self.comp_rolenames(
-                    role[key], self.newrolename
-                ):
-                    role[key] = self.prefix + self.newrolename
+                new_rolename = self.convert_rolename(role[key], lsr_rolename)
+                if new_rolename:
+                    role[key] = new_rolename
                     changed = True
-            elif role == lsr_rolename or self.comp_rolenames(role, self.rolename):
-                role = self.prefix + self.newrolename
-                changed = True
+            else:
+                new_rolename = self.convert_rolename(role, lsr_rolename)
+                if new_rolename:
+                    role = new_rolename
+                    changed = True
             if changed:
                 item[roles_kw][idx] = role
 
@@ -1025,6 +1066,16 @@ def role2collection():
         default=os.environ.get("COLLECTION_README", None),
         help="Path to the readme file used in top README.md",
     )
+    parser.add_argument(
+        "--extra-mapping",
+        type=str,
+        default=os.environ.get("COLLECTION_EXTRA_MAPPING", ""),
+        help=(
+            "This is a comma delimited list of extra mappings to apply when "
+            "converting the files - this converts the given name to collection "
+            "format with the optional given namespace and collection."
+        ),
+    )
     args, unknown = parser.parse_known_args()
 
     role = args.role
@@ -1045,6 +1096,78 @@ def role2collection():
     replace_dot = args.replace_dot
     subrole_prefix = args.subrole_prefix
     readme_path = args.readme
+
+    # Input: "linux-system-roles.role0:newrole0,\
+    #         linux-system-roles.role1:fedora.linux_system_roles.role1"
+    # Output:
+    # [
+    #   {'src_name': {'src_owner': 'linux-system-roles', 'role': 'sap-base-settings'},
+    #    'dest_name': {'dest_prefix': None, 'role': ['base_settings']}},
+    #   {'src_name': {'src_owner': 'linux-system-roles', 'role': 'timesync'},
+    #    'dest_name': {'dest_prefix': 'fedora.linux_system_roles', 'role': 'timesync'}}
+    # ]
+    # Note: skip if src role is the role to be converted.
+    def parse_extra_mapping(mapping_str, namespace, role):
+        _mapping_list = mapping_str.split(",")
+        _mapping_dict_list = []
+        for _map in _mapping_list:
+            _item = _map.split(":")
+            if len(_item) == 2:
+                _src = _item[0].split(".")
+                if len(_src) == 1 or len(_src) == 2:
+                    _src_name = {}
+                    if len(_src) == 1:
+                        # "rolename"
+                        _src_name["src_owner"] = None
+                        _src_name["role"] = _src[0]
+                    elif len(_src) == 2:
+                        # "linux-system-roles.rolename"
+                        _src_name["src_owner"] = _src[0]
+                        _src_name["role"] = _src[1]
+                    # Note: skip if src role is the role to be converted.
+                    if _src_name["role"] == role:
+                        continue
+                    _dest = _item[1].split(".")
+                    if len(_dest) > 0 and len(_dest) <= 3:
+                        _dest_name = {}
+                        if len(_dest) == 1:
+                            # "rolename"
+                            _dest_name["dest_prefix"] = None
+                            _dest_name["role"] = _dest[0]
+                        elif len(_dest) == 2:
+                            # "collection.rolename"
+                            _dest_name["dest_prefix"] = "{0}.{1}.".format(
+                                namespace, _dest[0]
+                            )
+                            _dest_name["role"] = _dest[1]
+                        elif len(_dest) == 3:
+                            # "namespace.collection.rolename"
+                            _dest_name["dest_prefix"] = "{0}.{1}.".format(
+                                _dest[0], _dest[1]
+                            )
+                            _dest_name["role"] = _dest[2]
+
+                        _mapping_dict = {}
+                        _mapping_dict["src_name"] = _src_name
+                        _mapping_dict["dest_name"] = _dest_name
+                        _mapping_dict_list.append(_mapping_dict)
+        return _mapping_dict_list
+
+    extra_mapping = parse_extra_mapping(args.extra_mapping, namespace, role)
+    extra_mapping_src_owner = list(
+        map(itemgetter("src_owner"), list(map(itemgetter("src_name"), extra_mapping)))
+    )
+    extra_mapping_src_role = list(
+        map(itemgetter("role"), list(map(itemgetter("src_name"), extra_mapping)))
+    )
+    extra_mapping_dest_prefix = list(
+        map(
+            itemgetter("dest_prefix"), list(map(itemgetter("dest_name"), extra_mapping))
+        )
+    )
+    extra_mapping_dest_role = list(
+        map(itemgetter("role"), list(map(itemgetter("dest_name"), extra_mapping)))
+    )
 
     dest_path = Path.joinpath(
         top_dest_path, "ansible_collections/" + namespace + "/" + collection
@@ -1105,6 +1228,10 @@ def role2collection():
         "role_modules": get_role_modules(src_path),
         "src_owner": src_owner,
         "top_dir": current_dest,
+        "extra_mapping_src_owner": extra_mapping_src_owner,
+        "extra_mapping_src_role": extra_mapping_src_role,
+        "extra_mapping_dest_prefix": extra_mapping_dest_prefix,
+        "extra_mapping_dest_role": extra_mapping_dest_role,
     }
 
     # Role - copy subdirectories, tasks, defaults, vars, etc., in the system role to
@@ -1214,6 +1341,21 @@ def role2collection():
         dest = roles_dir / new_role
         file_patterns = ["*.md"]
         file_replace(dest, src_owner + "." + role, prefix + new_role, file_patterns)
+        # --extra-mapping SRCROLENAME:DESTROLENAME(or FQCN)
+        for _emap in extra_mapping:
+            _from = "{0}.{1}".format(
+                _emap["src_name"]["src_owner"]
+                if _emap["src_name"]["src_owner"]
+                else src_owner,
+                _emap["src_name"]["role"],
+            )
+            _to = "{0}{1}".format(
+                _emap["dest_name"]["dest_prefix"]
+                if _emap["dest_name"]["dest_prefix"]
+                else prefix,
+                _emap["dest_name"]["role"],
+            )
+            file_replace(dest, _from, _to, file_patterns)
         if original:
             file_replace(dest, original, prefix + new_role, file_patterns)
         if filename == "README.md":

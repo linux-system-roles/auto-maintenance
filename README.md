@@ -141,7 +141,7 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                        [--src-path SRC_PATH] [--src-owner SRC_OWNER] [--role ROLE]
                        [--new-role NEW_ROLE] [--replace-dot REPLACE_DOT]
                        [--subrole-prefix SUBROLE_PREFIX] [--readme README]
-                       README] [--extra-mapping EXTRA_MAPPING]
+                       [--extra-mapping EXTRA_MAPPING]
 ```
 
 ### optional arguments

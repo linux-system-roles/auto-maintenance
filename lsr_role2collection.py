@@ -130,7 +130,7 @@ class LSRFileTransformerBase(object):
         self.prefix = args["prefix"]
         self.subrole_prefix = args["subrole_prefix"]
         self.replace_dot = args["replace_dot"]
-        self.rolename_regex = "[{0}\\.]".format(self.replace_dot)
+        self.rolename_regex = "[{0}.]".format(self.replace_dot)
         self.role_modules = args["role_modules"]
         self.src_owner = args["src_owner"]
         self.top_dir = args["top_dir"]
@@ -436,7 +436,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
                     self.extra_mapping_dest_role[_src_role_index],
                 )
         elif rolename.startswith("{{ role_path }}"):
-            match = re.match(r"{{ role_path }}/roles/([\w\d\.]+)", rolename)
+            match = re.match(r"{{ role_path }}/roles/([\w\d.]+)", rolename)
             if match.group(1).startswith(self.subrole_prefix):
                 new_name = self.prefix + match.group(1).replace(".", self.replace_dot)
             else:
@@ -479,7 +479,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
             To solve it, the relative path is converted to the absolute path.
             """
             _src_owner_match = "/" + self.src_owner + "."
-            _src_owner_pattern = r".*/{0}[.](\w+)/([\w\d\./]+)".format(self.src_owner)
+            _src_owner_pattern = r".*/{0}[.](\w+)/([\w\d./]+)".format(self.src_owner)
             if isinstance(task[module_name], dict):
                 _key = None
                 if (
@@ -549,7 +549,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
         if name0 == name1:
             return True
         else:
-            # self.rolename_regex is default to "[_\\.]".
+            # self.rolename_regex is default to "[_.]".
             core0 = re.sub(self.rolename_regex, "", name0)
             core1 = re.sub(self.rolename_regex, "", name1)
             return core0 == core1

@@ -130,6 +130,7 @@ class LSRFileTransformerBase(object):
         self.prefix = args["prefix"]
         self.subrole_prefix = args["subrole_prefix"]
         self.replace_dot = args["replace_dot"]
+        self.rolename_regex = "[{0}\\.]".format(self.replace_dot)
         self.role_modules = args["role_modules"]
         self.src_owner = args["src_owner"]
         self.top_dir = args["top_dir"]
@@ -548,8 +549,9 @@ class LSRFileTransformer(LSRFileTransformerBase):
         if name0 == name1:
             return True
         else:
-            core0 = re.sub("[_\\.]", "", name0)
-            core1 = re.sub("[_\\.]", "", name1)
+            # self.rolename_regex is default to "[_\\.]".
+            core0 = re.sub(self.rolename_regex, "", name0)
+            core1 = re.sub(self.rolename_regex, "", name1)
             return core0 == core1
 
     def change_roles(self, item, roles_kw):

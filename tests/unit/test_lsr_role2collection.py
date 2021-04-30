@@ -25,8 +25,8 @@ namespace = os.environ.get("COLLECTION_NAMESPACE", "fedora")
 collection_name = os.environ.get("COLLECTION_NAME", "system_roles")
 rolename = "systemrole"
 newrolename = "newsystemrole"
-otherroles = ["other0", "other1", "other2", "other3"]
-newotherroles = ["newother0", "newother1", "newother2", "newother3"]
+otherroles = ["other0", "other1", "other2"]
+newotherroles = ["newother0", "newother1", "newother2"]
 prefix = namespace + "." + collection_name
 prefixdot = prefix + "."
 otherprefix = "mynamespace.mycollection"
@@ -453,6 +453,10 @@ class LSRRole2Collection(unittest.TestCase):
             "role_modules": set(),
             "src_owner": "linux-system-roles",
             "top_dir": dest_path,
+            "extra_mapping_src_owner": [],
+            "extra_mapping_src_role": [],
+            "extra_mapping_dest_prefix": [],
+            "extra_mapping_dest_role": [],
         }
         copy_tree_with_replace(
             role_path,
@@ -474,62 +478,54 @@ class LSRRole2Collection(unittest.TestCase):
 
         pre_params = [
             {
-                "key": "roles",
-                "subkey": "-",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": otherroles[0],
+                "keyword": "roles",
+                "role_or_task_name": "linux-system-roles." + otherroles[0],
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
             },
             {
-                "key": "roles",
-                "subkey": "- name:",
-                "value": "",
-                "delim": "",
-                "subvalue": otherroles[1],
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": otherroles[1],
             },
             {
-                "key": "import_role",
-                "subkey": "name:",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": otherroles[2],
-            },
-            {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": "linux-system-roles",
-                "delim": ".",
-                "subvalue": otherroles[3],
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": "linux-system-roles",
+                "task_delim": ".",
+                "task_subvalue": otherroles[2],
             },
         ]
         post_params = [
             {
-                "key": "roles",
-                "subkey": "-",
-                "value": otherprefix,
-                "delim": ".",
-                "subvalue": newotherroles[0],
+                "keyword": "roles",
+                "role_or_task_name": otherprefix + "." + newotherroles[0],
+                "task_subkey": "",
+                "task_value": "",
+                "task_delim": "",
+                "task_subvalue": "",
             },
             {
-                "key": "roles",
-                "subkey": "- name:",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": newotherroles[1],
+                "keyword": "tasks",
+                "role_or_task_name": "import_role:",
+                "task_subkey": "name:",
+                "task_value": otherprefix,
+                "task_delim": ".",
+                "task_subvalue": newotherroles[1],
             },
             {
-                "key": "import_role",
-                "subkey": "name:",
-                "value": otherprefix,
-                "delim": ".",
-                "subvalue": newotherroles[2],
-            },
-            {
-                "key": "include_role",
-                "subkey": "name:",
-                "value": prefix,
-                "delim": ".",
-                "subvalue": newotherroles[3],
+                "keyword": "tasks",
+                "role_or_task_name": "include_role:",
+                "task_subkey": "name:",
+                "task_value": prefix,
+                "task_delim": ".",
+                "task_subvalue": newotherroles[2],
             },
         ]
         MYTUPLE = ("tasks",)
@@ -552,7 +548,6 @@ class LSRRole2Collection(unittest.TestCase):
             "top_dir": dest_path,
             "extra_mapping_src_owner": [
                 "linux-system-roles",
-                None,
                 "linux-system-roles",
                 None,
             ],
@@ -560,18 +555,22 @@ class LSRRole2Collection(unittest.TestCase):
                 otherroles[0],
                 otherroles[1],
                 otherroles[2],
-                otherroles[3],
             ],
-            "extra_mapping_dest_prefix": [otherprefixdot, None, otherprefixdot, None],
+            "extra_mapping_dest_prefix": [otherprefixdot, otherprefixdot, None],
             "extra_mapping_dest_role": [
                 newotherroles[0],
                 newotherroles[1],
                 newotherroles[2],
-                newotherroles[3],
             ],
         }
         copy_tree_with_replace(
-            role_path, coll_path, rolename, MYTUPLE, transformer_args, isrole=True
+            role_path,
+            coll_path,
+            rolename,
+            rolename,
+            MYTUPLE,
+            transformer_args,
+            isrole=True,
         )
         test_path = coll_path / "roles" / rolename / "tasks"
         print(coll_path)

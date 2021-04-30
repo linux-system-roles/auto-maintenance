@@ -1341,7 +1341,7 @@ def role2collection():
         dest = roles_dir / new_role
         file_patterns = ["*.md"]
         file_replace(dest, src_owner + "." + role, prefix + new_role, file_patterns)
-        # --extra-mapping SRCROLENAME:DESTROLENAME(or FQDN)
+        # --extra-mapping SRCROLENAME:DESTROLENAME(or FQCN)
         for _emap in extra_mapping:
             _from = "{0}.{1}".format(
                 _emap["src_name"]["src_owner"]

@@ -41,6 +41,12 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
     ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
     ignore_file = os.path.join(ignore_file_dir, "ignore-2.9.txt")
     collection_readme = os.path.join("lsr_role2collection", "collection_readme.md")
+    collection_requirements = os.path.join(
+        "lsr_role2collection", "collection_requirements.txt"
+    )
+    collection_requirements_dest = os.path.join(coll_dir, "requirements.txt")
+    collection_bindep = os.path.join("lsr_role2collection", "collection_bindep.txt")
+    collection_bindep_dest = os.path.join(coll_dir, "bindep.txt")
     ignore_file_src = os.path.join("lsr_role2collection", "extra-ignore-2.9.txt")
     ansible_lint = os.path.join("lsr_role2collection", ".ansible-lint")
     for rolename, roledata in coll_rel.items():
@@ -102,7 +108,10 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
                     ign_fd.write(role_ign_fd.read())
     shutil.copy(galaxy["_filename"], coll_dir)
     shutil.copy(coll_rel["_filename"], coll_dir)
-    shutil.copy(collection_readme, coll_dir)
+    if os.path.exists(collection_requirements):
+        shutil.copy(collection_requirements, collection_requirements_dest)
+    if os.path.exists(collection_bindep):
+        shutil.copy(collection_bindep, collection_bindep_dest)
     shutil.copy(ansible_lint, coll_dir)
     with open(ignore_file, "a") as ign_fd:
         with open(ignore_file_src, "r") as role_ign_fd:

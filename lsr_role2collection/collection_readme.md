@@ -13,8 +13,8 @@ NOTE: Some roles are not supported in RHEL6 and RHEL7. For more details about th
 
 ## Dependencies
 
-The following dependency is required for the Ansible Controller:
-* jmespath
+If installing from RPM, the dependencies will be installed with the package.
+Otherwise, the dependencies are listed in `requirements.txt` and/or `bindep.txt`.
 
 ## Installation
 

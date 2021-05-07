@@ -26,6 +26,7 @@ for file in "$@"; do
 
         # With kramdown, convert directly to HTML
         if [ $md2html_tool == kramdown ]; then
+          file -i "${file}"
           $md2html_tool --extension parser-gfm --input GFM --output html "${file}" > "${file%.md}.html"
           if [ "$convert_link" -ne 0 ]; then
                   sed -i -e "s/\.md\>/\.html/g" "${file%.md}.html"

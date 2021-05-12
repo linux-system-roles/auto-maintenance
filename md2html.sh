@@ -20,7 +20,7 @@ done
 for file in "$@"; do
         md2html_tool=""
         # RHEL 9 in brew cannot use pandoc, hence trying kramown first
-        if type -p kramdown >/dev/null && LC_ALL=en_US.UTF-8 kramdown -i GFM "${file}">/dev/null; then
+        if type -p kramdown >/dev/null && LANG=en_US.UTF-8 kramdown -i GFM "${file}">/dev/null; then
           md2html_tool=kramdown
         elif type -p pandoc >/dev/null; then
           md2html_tool=pandoc
@@ -29,7 +29,7 @@ for file in "$@"; do
         # With kramdown, convert directly to HTML
         if [ $md2html_tool == kramdown ]; then
           # Set locale to UTF-8 because by default it is set to US-ASCII
-          LC_ALL=en_US.UTF-8 $md2html_tool --extension parser-gfm --input GFM \
+          LANG=en_US.UTF-8 $md2html_tool --extension parser-gfm --input GFM \
           --output html "${file}" > "${file%.md}.html"
         # With pandoc, convert to adoc, then to HTML
         elif [ $md2html_tool == pandoc ]; then

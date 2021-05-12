@@ -20,18 +20,17 @@ done
 for file in "$@"; do
         md2html_tool=""
         # RHEL 9 in brew cannot use pandoc, hence trying kramown first
-        if rpm -q rubygem-kramdown-parser-gfm > /dev/null; then
+        if type -p kramdown >/dev/null && kramdown -i GFM "${file}">/dev/null; then
           md2html_tool=kramdown
-        elif rpm -q pandoc >/dev/null; then
+        elif type -p pandoc >/dev/null; then
           md2html_tool=pandoc
         fi
 
         # With kramdown, convert directly to HTML
         if [ $md2html_tool == kramdown ]; then
-          # Run kramdown with `ruby` to specify the encoding as ruby uses US-ASCII by default
-          ruby --encoding=UTF-8 -S $md2html_tool --extension parser-gfm \
-          --input GFM --output html "${file}" > "${file%.md}.html"
-
+          # Set locale to UTF-8 because by default it is set to US-ASCII
+          LC_ALL=en_US.UTF-8 $md2html_tool --extension parser-gfm --input GFM \
+          --output html "${file}" > "${file%.md}.html"
         # With pandoc, convert to adoc, then to HTML
         elif [ $md2html_tool == pandoc ]; then
           $md2html_tool -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"

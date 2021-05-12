@@ -29,7 +29,7 @@ for file in "$@"; do
         # With kramdown, convert directly to HTML
         if [ $md2html_tool == kramdown ]; then
           # Set locale to UTF-8 because by default it is set to US-ASCII
-          LANG=en_US.UTF-8 $md2html_tool --extension parser-gfm --input GFM \
+          LC_ALL=en_US.UTF-8 $md2html_tool --extension parser-gfm --input GFM \
           --output html "${file}" > "${file%.md}.html"
         # With pandoc, convert to adoc, then to HTML
         elif [ $md2html_tool == pandoc ]; then

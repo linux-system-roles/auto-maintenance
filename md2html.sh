@@ -20,7 +20,7 @@ done
 for file in "$@"; do
         md2html_tool=""
         # RHEL 9 in brew cannot use pandoc, hence trying kramown first
-        if type -p kramdown >/dev/null && LANG=en_US.UTF-8 kramdown -i GFM "${file}">/dev/null; then
+        if type -p kramdown >/dev/null && kramdown -i GFM < /dev/null > /dev/null; then
           md2html_tool=kramdown
         elif type -p pandoc >/dev/null; then
           md2html_tool=pandoc

@@ -25,7 +25,6 @@ for file in "$@"; do
 	elif type -p pandoc >/dev/null; then
 	    md2html_tool=pandoc
 	fi
-
 	# With kramdown, convert directly to HTML
 	if [ $md2html_tool == kramdown ]; then
 	    # Set locale to UTF-8 because by default it is set to US-ASCII
@@ -38,13 +37,11 @@ for file in "$@"; do
 	    TZ=UTC asciidoc -o "${file%.md}.html" -a footer-style=none -a toc2 -a source-highlighter=highlight "${file%.md}.tmp.adoc"
 	    tr -d '\r' < "${file%.md}.html" > "${file%.md}.tmp.adoc"
 	    mv "${file%.md}.tmp.adoc" "${file%.md}.html"
-
 	else
 	    echo "Cannot find a tool to convert md to adoc"
 	    echo "You must install rubygem-kramdown-parser-gfm or pandoc"
 	    exit 1
 	fi
-
 	# Convert links
 	if [ "$convert_link" -ne 0 ]; then
 	    sed -i -e "s/\.md\>/\.html/g" "${file%.md}.html"

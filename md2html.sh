@@ -28,12 +28,12 @@ for file in "$@"; do
     md2html_tool=pandoc
   fi
   # With kramdown, convert directly to HTML
-  if [ $md2html_tool == kramdown ]; then
+  if [ "$md2html_tool" == kramdown ]; then
     # Set locale to UTF-8 because by default it is set to US-ASCII
     LC_ALL=C.UTF-8 $md2html_tool --extension parser-gfm --input GFM \
     --output html "${file}" > "${file%.md}.html"
   # With pandoc, convert to adoc, then to HTML
-  elif [ $md2html_tool == pandoc ]; then
+  elif [ "$md2html_tool" == pandoc ]; then
     $md2html_tool -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
     touch -r "${file}" "${file%.md}.tmp.adoc"
     TZ=UTC asciidoc -o "${file%.md}.html" -a footer-style=none -a toc2 -a source-highlighter=highlight "${file%.md}.tmp.adoc"

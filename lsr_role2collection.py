@@ -1124,9 +1124,6 @@ def role2collection():
                         # "linux-system-roles.rolename"
                         _src_name["src_owner"] = _src[0]
                         _src_name["role"] = _src[1]
-                    # Note: skip if src role is the role to be converted.
-                    if _src_name["role"] == role:
-                        continue
                     _dest = _item[1].split(".")
                     if len(_dest) > 0 and len(_dest) <= 3:
                         _dest_name = {}
@@ -1343,6 +1340,7 @@ def role2collection():
         file_replace(dest, src_owner + "." + role, prefix + new_role, file_patterns)
         # --extra-mapping SRCROLENAME:DESTROLENAME(or FQCN)
         for _emap in extra_mapping:
+            # Replacing SRC_OWNER.ROLE with FQCN
             _from = "{0}.{1}".format(
                 _emap["src_name"]["src_owner"]
                 if _emap["src_name"]["src_owner"]
@@ -1350,6 +1348,15 @@ def role2collection():
                 _emap["src_name"]["role"],
             )
             _to = "{0}{1}".format(
+                _emap["dest_name"]["dest_prefix"]
+                if _emap["dest_name"]["dest_prefix"]
+                else prefix,
+                _emap["dest_name"]["role"],
+            )
+            file_replace(dest, _from, _to, file_patterns)
+            # Replacing unprefixed ROLE with FQCN
+            _from = " {0}".format(_emap["src_name"]["role"])
+            _to = " {0}{1}".format(
                 _emap["dest_name"]["dest_prefix"]
                 if _emap["dest_name"]["dest_prefix"]
                 else prefix,

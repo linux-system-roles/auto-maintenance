@@ -24,7 +24,7 @@ for file in "$@"; do
   # RHEL 9 in brew cannot use pandoc, hence trying kramown first
   if type -p kramdown >/dev/null && kramdown -i GFM < /dev/null > /dev/null; then
     md2html_tool=kramdown
-  elif type -p pandoc >/dev/null; then
+  elif type -p pandoc >/dev/null && type -p asciidoctor>/dev/null; then
     md2html_tool=pandoc
   fi
   # With kramdown, convert directly to HTML
@@ -36,12 +36,12 @@ for file in "$@"; do
   elif [ "$md2html_tool" == pandoc ]; then
     $md2html_tool -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
     touch -r "${file}" "${file%.md}.tmp.adoc"
-    TZ=UTC asciidoc -o "${file%.md}.html" -a footer-style=none -a toc2 -a source-highlighter=highlight "${file%.md}.tmp.adoc"
+    TZ=UTC asciidoctor -o "${file%.md}.html" -a footer-style=none -a toc2 -a source-highlighter=highlight "${file%.md}.tmp.adoc"
     tr -d '\r' < "${file%.md}.html" > "${file%.md}.tmp.adoc"
     mv "${file%.md}.tmp.adoc" "${file%.md}.html"
   else
     echo "Cannot find a tool to convert md to adoc"
-    echo "You must install rubygem-kramdown-parser-gfm or pandoc"
+    echo "You must install rubygem-kramdown-parser-gfm, or pandoc and asciidoctor"
     exit 1
   fi
 

@@ -49,13 +49,16 @@ def update_collection(src_path, coll_rel, use_commit_hash):
                 ]
             )
         branch_output = subprocess.run(
-            ["git", "branch", "-r"], cwd=roledir, encoding="utf-8", stdout=subprocess.PIPE
+            ["git", "branch", "-r"],
+            cwd=roledir,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
         )
         if branch_output.returncode != 0:
-            raise subprocess.CalledProcessError(
-                f"git branch -r failed - {branch_output.stdout} {branch_output.stderr}"
+            print(
+                f"ERROR: git branch -r failed - {branch_output.stdout} {branch_output.stderr}"
             )
-        mmatch = re.search(r'origin/HEAD -> origin/(\w+)', branch_output.stdout)
+        mmatch = re.search(r"origin/HEAD -> origin/(\w+)", branch_output.stdout)
         main_branch = mmatch.group(1)
         subprocess.check_call(
             ["bash", "-c", f"git checkout {main_branch}; git pull"],
@@ -66,8 +69,8 @@ def update_collection(src_path, coll_rel, use_commit_hash):
             describe_cmd, cwd=roledir, encoding="utf-8", stdout=subprocess.PIPE
         )
         if describe_output.returncode != 0:
-            raise subprocess.CalledProcessError(
-                f"{describe_cmd} failed - {describe_output.stdout} {describe_output.stderr}"
+            print(
+                f"ERROR: {describe_cmd} failed - {describe_output.stdout} {describe_output.stderr}"
             )
         describe_ary = describe_output.stdout.strip().split("-")
         if len(describe_ary) == 1 or not use_commit_hash:

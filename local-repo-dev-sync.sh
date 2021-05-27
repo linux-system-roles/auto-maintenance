@@ -62,7 +62,7 @@ repos=${REPOS:-$(gh_get_all orgs/linux-system-roles/repos '.[].name')}
 EXCLIST=${EXCLIST:-"test-harness linux-system-roles.github.io sap-base-settings \
                      sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
                      auto-maintenance image_builder sap-netweaver-preconfigure ci-testing \
-                     meta_test tox-lsr tuned postfix"}
+                     meta_test tox-lsr tuned"}
 declare -A EXARRAY
 for repo in $EXCLIST; do
     # EXARRAY is a "set" of excluded repos
@@ -109,8 +109,14 @@ for repo in $repos; do
         if [ -n "${stdincmds:-}" ] && ! eval "$stdincmds"; then
             echo ERROR: commands read from stdin failed in "$(pwd)"
         fi
-        if [ -n "${1:-}" ] && ! eval "$@"; then
-            echo ERROR: command in "$(pwd)" failed
+        if [ -n "${1:-}" ]; then
+            if [ -f "$1" ]; then
+                if ! source "$@"; then
+                    echo ERROR: command "$1" in "$(pwd)" failed
+                fi
+            elif ! eval "$@"; then
+                echo ERROR: command in "$(pwd)" failed
+            fi
         fi
     fi
     popd > /dev/null

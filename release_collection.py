@@ -112,10 +112,14 @@ def build_collection(src_path, dest_path, galaxy, coll_rel, force):
         shutil.copy(collection_requirements, collection_requirements_dest)
     if os.path.exists(collection_bindep):
         shutil.copy(collection_bindep, collection_bindep_dest)
+    # removing dot files/dirs
+    subprocess.check_call(["bash", "-c", f"rm -r {coll_dir}/.[A-Za-z]*"])
+    # copy required dot files like .ansible-lint here
     shutil.copy(ansible_lint, coll_dir)
     with open(ignore_file, "a") as ign_fd:
         with open(ignore_file_src, "r") as role_ign_fd:
             ign_fd.write(role_ign_fd.read())
+
     build_args = ["ansible-galaxy", "collection", "build", "-v"]
     if force:
         build_args.append("-f")

@@ -354,7 +354,13 @@ kdump:
 kernel_settings:
   ref: "1.0.0"
 ```
-This will use e.g. `git clone https://github.com/linux-system-roles/certificate -b 1.0.0`, etc.
+This will use e.g. `git clone https://github.com/linux-system-roles/certificate
+-b 1.0.0`, etc.
+
+Use `roles-tag-and-release.sh` to create new tags/versions in each role.
+
+Use `update_collection.py` to update the refs in `collection_release.yml` to the
+latest tags.
 
 ## Usage
 Basic usage:
@@ -557,3 +563,42 @@ and checks whether the built rpm count is correct or not.
 Then, it verifies that `README.html` files are only in /usr/share/doc/ area.
 
 Usage: ./check_rpmspec_collection.sh [ -h | --help ] | [ fedpkg | rhpkg [ branch_name ] ]
+
+# roles-tag-and-release.sh
+
+This script is used in conjunction with `local-repo-dev-sync.sh` to examine the
+changes, tag, release to github, and import each role to Galaxy.  Use it like
+this:
+
+```
+LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh `pwd`/roles-tag-and-release.sh
+```
+
+This script is highly interactive.  Since we are using semantic versioning,
+there must be some sort of human interaction to decide which X, Y, or Z version
+number to update.  The script will show you the commits since the last tag, and
+will optionally show you the detailed changes.  It will then prompt for the new
+tag.  If you hit Enter/Return here, it will skip tagging, so hit Enter/Return if
+you do not want to make a new tag/release.  If you do want to make a new
+release, enter a tag/version in the form of `X.Y.Z`, based on the semantic
+changes to the role.  You will then be prompted to edit the release notes for
+the release.  You will need to create some sort of meaningful title for the
+release.  The body of the release will be filled in by the commit messages from
+the commits since the last tag - you will almost certainly need to edit these.
+When you are done, it will ask if you want to create a new GitHub release.  If
+you do, it will create the release, then ask if you want to publish the role to
+Galaxy.  If you do, it will perform a role import into Galaxy.
+
+Use this script before `update_collection.py` and `release_collection.py`.
+
+# update_collection.py
+
+This script should be used after you have tagged the roles e.g. by using
+`roles-tag-and-release.sh` as described above.  It will update the
+`collection_release.yml` file with the latest tags.  Use `--src-path
+~/working-lsr` if you already have a local git clone of the role repos,
+otherwise, it will create a tempdir.  By default it will use the latest tag, but
+you can use `--use-commit-hash` if you want to use the latest commit that is not
+tagged.  You will need to update `galaxy.yml` with a new version number if any
+of the roles have been updated (and remember - it is a semantic version).  Once
+you do this, you are ready to use `release_collection.py`.

@@ -36,7 +36,9 @@ for file in "$@"; do
   elif [ "$md2html_tool" == pandoc ]; then
     $md2html_tool -f markdown_github "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
     # Fix formatting issue with redundant plus signes
-    sed -r -i -e "s/\`\+([^\`]*)\+\`/\`\1\`/g" "${file%.md}.tmp.adoc"
+    # Disable shellcheck because single quotes are used intentionally
+    # shellcheck disable=SC2016
+    sed -i -e 's/`+\([^`]*\)+`/`\1`/g' "${file%.md}.tmp.adoc"
 
     touch -r "${file}" "${file%.md}.tmp.adoc"
     TZ=UTC asciidoc -o "${file%.md}.html" -a footer-style=none -a toc2 -a source-highlighter=highlight "${file%.md}.tmp.adoc"

@@ -11,6 +11,9 @@ linux-system-roles repos.
   * [lsr_role2collection.py](#lsr_role2collectionpy)
   * [release_collection.py](#release_collectionpy)
   * [check_rpmspec_collection.sh](#check_rpmspec_collectionsh)
+  * [roles-tag-and-release.sh](#roles-tag-and-releasesh)
+  * [update_collection.py](#update_collectionpy)
+  * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
 <!--te-->
 
 
@@ -323,9 +326,15 @@ Or, figure out some way to download the correct versions of
 `collection_release.yml`, and `release_collection.py` from this repo.
 
 You will need to ensure that the information in `galaxy.yml` (particularly the
-`version:` field), and the information in `collection_release.yml` (particularly
-the `ref:` fields), are correct and up-to-date for the collection you want to
-build and publish.
+`version:` field), and the information in `collection_release.yml`
+(particularly the `ref:` fields), are correct and up-to-date for the collection
+you want to build and publish.  You are strongly encouraged to use
+[roles-tag-and-release.sh](#roles-tag-and-releasesh) to tag, release, and
+publish the individual roles first, then use
+[update_collection.py](#update_collectionpy) to update
+`collection_release.yml`.  You will have to manually update the version in
+`galaxy.yml` after visually inspecting the version changes in the individual
+roles.
 
 You will need the `galaxy-importer` package - `pip install galaxy-importer --user`.
 You will need `docker` in order to use `galaxy-importer`.
@@ -365,8 +374,9 @@ latest tags.
 ## Usage
 Basic usage:
 ```
-# cd auto-maintenance
-# python release_collection.py
+cd auto-maintenance
+python release_collection.py
+ansible-galaxy collection publish -v $DEST_PATH/fedora-linux_system_roles-$VERSION.tar.gz 
 ```
 This will use the `galaxy.yml` and `collection_release.yml` files in the current
 directory, will create a temporary working directory to clone the roles into,
@@ -602,3 +612,11 @@ you can use `--use-commit-hash` if you want to use the latest commit that is not
 tagged.  You will need to update `galaxy.yml` with a new version number if any
 of the roles have been updated (and remember - it is a semantic version).  Once
 you do this, you are ready to use `release_collection.py`.
+
+# list-pr-statuses-ghapi.py
+
+Allows you to query the set of all PRs open across all repos.  By default, it
+will print out all open PRs, along with their statuses and checks, along with
+some other metadata.  There are a number of command line options to look for
+specific repos, platform status, ansible version status, staging vs.
+production, and many more.  See the help for the command for more information.

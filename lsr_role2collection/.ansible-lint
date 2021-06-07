@@ -1,20 +1,6 @@
 ---
-# many roles have lines that hit 204
-# roles/kdump/tasks/main.yml [E208] File permissions unset or incorrect
 # roles/storage/tasks/main-blivet.yml [E502] All tasks should be named
-# roles/postfix/tasks/main.yml [E403] Package installs should not use latest
-# roles/postfix/tasks/main.yml [E305] Use shell only when shell functionality is required
-# roles/postfix/tasks/main.yml [E301] Commands should not change things if nothing needs doing
-# roles/timesync/tasks/main.yml [E602] Don't compare to empty string
-# roles/vpn/tasks/mesh_conf.yml [E306] Shells that use pipes should set the pipefail option
 # and other files with the above errors
 skip_list:
-- '204' # Lines should be no longer than 160 chars
-- '208' # File permissions unset or incorrect
-- '301' # Commands should not change things if nothing needs doing
-- '305' # Use shell only when shell functionality is required
-- '306' # Shells that use pipes should set the pipefail option
-- '403' # Package installs should not use latest
-- '502' # All tasks should be named
-- '503' # Tasks that run when changed should likely be handlers
-- '602' # Don't compare to empty string
+  - '502' # All tasks should be named
+  - '503' # Tasks that run when changed should likely be handlers

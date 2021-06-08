@@ -140,7 +140,7 @@ class LSRFileTransformerBase(object):
         self.extra_mapping_src_role = args["extra_mapping_src_role"]
         self.extra_mapping_dest_prefix = args["extra_mapping_dest_prefix"]
         self.extra_mapping_dest_role = args["extra_mapping_dest_role"]
-        buf = open(filepath).read()
+        buf = open(filepath, encoding="utf-8").read()
         self.ruamel_yaml = YAML(typ="rt")
         match = re.search(LSRFileTransformerBase.HEADER_RE, buf)
         if match:
@@ -182,7 +182,7 @@ class LSRFileTransformerBase(object):
             return thing
 
         if self.outputfile:
-            outstrm = open(self.outputfile, "w")
+            outstrm = open(self.outputfile, "w", encoding="utf-8")
         else:
             outstrm = self.outputstream
         self.ruamel_yaml.dump(self.ruamel_data, outstrm, transform=xform)
@@ -667,10 +667,10 @@ def file_replace(path, find, replace, file_patterns):
         for file_pattern in file_patterns:
             for filename in fnmatch.filter(files, file_pattern):
                 filepath = os.path.join(root, filename)
-                with open(filepath) as f:
+                with open(filepath, encoding="utf-8") as f:
                     s = f.read()
                 s = re.sub(find, replace, s)
-                with open(filepath, "w") as f:
+                with open(filepath, "w", encoding="utf-8") as f:
                     f.write(s)
 
 
@@ -1267,7 +1267,7 @@ def role2collection():
         main_doc = dest_path / "README.md"
         if not main_doc.exists():
             if readme_path and Path(readme_path).exists():
-                with open(readme_path) as f:
+                with open(readme_path, encoding="utf-8") as f:
                     _s = f.read()
             else:
                 _s = textwrap.dedent(
@@ -1287,10 +1287,10 @@ def role2collection():
                 <!--te-->
                 """
             ).format(_s, comment, title)
-            with open(main_doc, "w") as f:
+            with open(main_doc, "w", encoding="utf-8") as f:
                 f.write(s)
         else:
-            with open(main_doc) as f:
+            with open(main_doc, encoding="utf-8") as f:
                 s = f.read()
             role_link = "{0}".format(title)
             if role_link not in s:
@@ -1314,7 +1314,7 @@ def role2collection():
                     )
                     replace = r"\1\2  * {0}\n".format(role_link)
                     text = re.sub(find, replace, s, flags=re.M)
-                with open(main_doc, "w") as f:
+                with open(main_doc, "w", encoding="utf-8") as f:
                     f.write(text)
 
     # Copy docs, design_docs, and examples to

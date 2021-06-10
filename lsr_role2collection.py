@@ -35,7 +35,6 @@ import textwrap
 from pathlib import Path
 from ruamel.yaml import YAML
 from shutil import copytree, copy2, copyfile, ignore_patterns, rmtree
-from six import string_types
 from operator import itemgetter
 
 ALL_ROLE_DIRS = [
@@ -505,7 +504,7 @@ class LSRFileTransformer(LSRFileTransformerBase):
                         _match.group(2),
                     )
             elif (
-                isinstance(task[module_name], string_types)
+                isinstance(task[module_name], str)
                 and _src_owner_match in task[module_name]
             ):
                 _path = task[module_name]

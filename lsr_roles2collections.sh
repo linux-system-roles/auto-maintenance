@@ -6,7 +6,7 @@ COLLECTION_SRC_OWNER=${COLLECTION_SRC_OWNER:-"linux-system-roles"}
 COLLECTION_NAMESPACE=${COLLECTION_NAMESPACE:-"fedora"}
 COLLECTION_NAME=${COLLECTION_NAME:-"linux_system_roles"}
 
-ROLES=${ROLES:-"certificate cockpit crypto_policies firewall ha_cluster kdump kernel_settings logging metrics nbde_client nbde_server network postfix selinux sshd storage timesync tlog"}
+ROLES=${ROLES:-"certificate cockpit crypto_policies firewall ha_cluster kdump kernel_settings logging metrics nbde_client nbde_server network postfix selinux sshd storage timesync tlog vpn"}
 CWD=$(pwd)
 
 export COLLECTION_SRC_PATH COLLECTION_DEST_PATH

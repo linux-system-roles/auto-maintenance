@@ -1,0 +1,9 @@
+---
+version: 1
+
+build_arg_defaults:
+  EE_BASE_IMAGE: 'quay.io/ansible/ansible-runner:stable-2.11-devel'
+
+dependencies:
+  galaxy: lsr-aee-2.11-requirements.yml
+  system: lsr-aee-2.11-bindep.txt

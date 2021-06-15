@@ -620,3 +620,47 @@ will print out all open PRs, along with their statuses and checks, along with
 some other metadata.  There are a number of command line options to look for
 specific repos, platform status, ansible version status, staging vs.
 production, and many more.  See the help for the command for more information.
+
+# Ansible Execution Environments
+
+Ansible supports a new feature for bundling collections and their runtime
+environments, including the Ansible executable and dependencies, together in an
+executable container.  This is called an Ansible Execution Environment.  This is
+a [good introduction](https://www.ansible.com/blog/introduction-to-ansible-builder).
+
+Linux System Roles is publishing an execution environment which contains the
+`fedora.linux_system_roles` collection along with its dependencies.
+
+There is a sub-directory of the form `lsr-aee-VERSION` for each version of the
+ansible-runner image published at
+[quay.io ansible-runner repo](https://quay.io/repository/ansible/ansible-runner?tab=tags).
+Currently this is 2.9, 2.10, and 2.11.
+
+Note that the following uses `docker` but you can also use `podman`.
+
+The LSR AEE uses the latest collection published in Galaxy, so if you want to
+build an updated LSR AEE, you may have to first publish the latest content in
+the `fedora.linux_system_roles` collection.  To build:
+```
+cd lsr-aee-2.10
+ansible-builder build -v 3 --container-runtime=docker \
+  --file=lsr-aee-2.10.yml --tag=lsr-aee:2.10
+docker images | grep lsr-aee:2.10
+```
+To publish to quay, you must have an auth token for your `~/.docker/config.json`.  To obtain this token,
+login to your quay.io account, go to `Account Settings`, go to `CLI Password: ` and click on `Generate Encrypted Password`.
+Then use this with `docker login quay.io`.
+```
+docker tag lsr-aee:2.10 quay.io/linux-system-roles/lsr-aee:2.10 
+docker push quay.io/linux-system-roles/lsr-aee:2.10
+```
+To publish a testing image, use the `-testing` suffix:
+```
+docker tag lsr-aee:2.10 quay.io/linux-system-roles/lsr-aee:2.10-testing
+docker push quay.io/linux-system-roles/lsr-aee:2.10-testing
+```
+Once you use `ansible-builder`, be sure to push the files in the
+`lsr-aee-VERSION/context` directory as well.  These are the files that can be
+used by `podman build`, `docker build`, or by the `quay.io` builder. If you just
+want to update the context files, you can use `ansible-builder create` instead
+of `ansible-builder build`, then submit a PR for the updated files.

@@ -7,7 +7,7 @@ firewall:
 ha_cluster:
   ref: 1.1.1
 kdump:
-  ref: 1.0.4
+  ref: 1.0.5
 kernel_settings:
   ref: 1.0.3
 logging:
@@ -15,27 +15,23 @@ logging:
 metrics:
   ref: 1.2.3
 nbde_client:
-  ref: 1.0.3
+  ref: 1.0.4
 nbde_server:
   ref: 1.0.3
 network:
-  org: richm
   ref: a6c98bd
-  repo: network
 postfix:
   ref: 1.0.0
 selinux:
   ref: 1.2.3
 ssh:
-  ref: 1.0.1
+  ref: 1.0.2
 sshd:
   org: willshersystems
-  ref: ad39934
+  ref: v0.13.0
   repo: ansible-sshd
 storage:
-  org: richm
   ref: 1.3.1
-  repo: storage
 timesync:
   ref: 1.5.0
 tlog:

@@ -1075,12 +1075,28 @@ def role2collection():
             "format with the optional given namespace and collection."
         ),
     )
+    default_meta_runtime = Path(__file__).parent / "lsr_role2collection" / "runtime.yml"
+    parser.add_argument(
+        "--meta-runtime",
+        type=str,
+        default=os.environ.get("COLLECTION_META_RUNTIME", default_meta_runtime),
+        help=(
+            "This is the path to the collection meta/runtime.yml - the default "
+            f"is {default_meta_runtime}."
+        ),
+    )
     args, unknown = parser.parse_known_args()
 
     role = args.role
     if not role:
         parser.print_help()
         logging.error("Message: role is not specified.")
+        os._exit(errno.EINVAL)
+
+    src_meta_runtime = Path(args.meta_runtime)
+    if not src_meta_runtime.exists():
+        parser.print_help()
+        logging.error("There is no source file specified for the meta/runtime.yml")
         os._exit(errno.EINVAL)
 
     new_role = args.new_role
@@ -1182,6 +1198,7 @@ def role2collection():
     modules_dir = plugin_dir / "modules"
     module_utils_dir = plugin_dir / "module_utils"
     docs_dir = dest_path / "docs"
+    meta_dir = dest_path / "meta"
 
     src_path = args.src_path.resolve()
     src_owner = args.src_owner
@@ -1541,6 +1558,9 @@ def role2collection():
         )
         lsrxfrm.run()
 
+    if not meta_dir.exists():
+        meta_dir.mkdir()
+    copyfile(src_meta_runtime, meta_dir / "runtime.yml")
     default_collections_paths = "~/.ansible/collections:/usr/share/ansible/collections"
     default_collections_paths_list = list(
         map(os.path.expanduser, default_collections_paths.split(":"))

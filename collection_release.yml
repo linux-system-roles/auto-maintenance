@@ -21,7 +21,7 @@ nbde_client:
 nbde_server:
   ref: 1.0.3
 network:
-  ref: 4b7f5d5
+  ref: b08a0b3
 postfix:
   ref: 1.0.0
 selinux:
@@ -33,7 +33,7 @@ sshd:
   ref: v0.13.0
   repo: ansible-sshd
 storage:
-  ref: 1.5.0
+  ref: 1.5.1
 timesync:
   ref: 1.5.0
 tlog:

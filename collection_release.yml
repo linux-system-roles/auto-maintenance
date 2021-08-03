@@ -30,7 +30,7 @@ ssh:
   ref: 1.0.2
 sshd:
   org: willshersystems
-  ref: v0.13.0
+  ref: v0.13.1
   repo: ansible-sshd
 storage:
   ref: 1.5.1

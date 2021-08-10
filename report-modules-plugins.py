@@ -839,10 +839,15 @@ class SearchCtx(object):
             return other_lineno
 
 
+def collection_match(coll1, coll2):
+    return coll1 == coll2 or coll2.startswith(coll1 + ".")
+
+
 def is_builtin_collection(collection):
-    return collection in COLLECTION_BUILTINS or collection == "jinja2" or \
-        collection.startswith(ANSIBLE_BUILTIN + ".") or \
-        collection.startswith(JINJA2_BUILTIN + ".")
+    for coll in COLLECTION_BUILTINS:
+        if collection_match(coll, collection):
+            return True
+    return False
 
 
 def usage():
@@ -932,7 +937,7 @@ def main():
                 thelist = [
                     xx["name"]
                     for xx in hsh.values()
-                    if is_builtin_collection(xx["collection"])
+                    if collection_match(collection, xx["collection"])
                     and xx["type"] == plugintype
                 ]
                 if thelist:

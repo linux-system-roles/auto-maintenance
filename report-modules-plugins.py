@@ -75,6 +75,7 @@ TASK_LIST_KWS = [
 # need to process
 SKIP_COLLECTION_TEST_DIRS = ["unit", "pytests"]
 
+
 def get_role_dir(role_path, dirpath):
     """role_path is the path to a directory containing a role i.e. a directory
     containing a tasks/main.yml and one or more directories in ROLE_DIRS."""

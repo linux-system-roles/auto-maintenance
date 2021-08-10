@@ -33,7 +33,7 @@ DEFAULT_EXCLUDES = [
     "tuned",
 ]
 
-DEFAULT_ANSIBLES = ["ansible-2.8", "ansible-2.9"]
+DEFAULT_ANSIBLES = ["ansible-2.9"]
 
 DEFAULT_PLATFORMS = [
     "centos-6",
@@ -309,7 +309,7 @@ def main():
             for platform, ansible, env in itertools.product(
                 args.platform, args.ansible, status_env
             )
-            if not (platform.startswith("fedora-") and ansible.endswith("-2.8"))
+            if not (platform.startswith("fedora-") and ansible.endswith("-2.9"))
         ]
     )
 

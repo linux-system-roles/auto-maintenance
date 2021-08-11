@@ -411,17 +411,19 @@ def handle_item(item, filectx):
 
 
 def os_walk(from_path):
-    for (dirpath, _, filenames) in os.walk(from_path):
-        for filename in filenames:
-            filepath = os.path.join(dirpath, filename)
-            yield filepath
+    if os.path.isdir(from_path) and not os.path.islink(from_path):
+        for (dirpath, _, filenames) in os.walk(from_path):
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                yield filepath
 
 
 def os_listdir(from_path):
-    for dirent in os.scandir(from_path):
-        if dirent.is_symlink():
-            continue
-        yield dirent.name, dirent.path
+    if os.path.isdir(from_path) and not os.path.islink(from_path):
+        for dirent in os.scandir(from_path):
+            if dirent.is_symlink():
+                continue
+            yield dirent.name, dirent.path
 
 
 def process_yml_file(filepath, ctx):

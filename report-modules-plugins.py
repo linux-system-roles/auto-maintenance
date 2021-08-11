@@ -292,7 +292,11 @@ def find_plugins(args, filectx):
     if isinstance(args, bytes):
         args = args.decode()
     if isinstance(args, str):
-        tmpl = filectx.templar.environment.parse(source=args)
+        try:
+            tmpl = filectx.templar.environment.parse(source=args)
+        except jinja2.exceptions.TemplateSyntaxError:
+            logging.warning(f"the string [{args}] could not be processed as a Jinja2 template at {filectx.filename}:{filectx.get_lineno(1)}")
+            return
         node_types = (
             jinja2.nodes.Call,
             jinja2.nodes.Filter,
@@ -308,9 +312,8 @@ def find_plugins(args, filectx):
                 logging.debug(f"\tskipping getattr call {item}")
                 continue
             else:
-                raise Exception(
-                    f"unknown item {item} at {filectx.pathname}:{item.lineno}"
-                )
+                logging.warning(f"unknown item {item} at {filectx.filename}:{item.lineno}")
+                continue
             if isinstance(item, jinja2.nodes.Macro):
                 global jinja2_macros
                 jinja2_macros.add(item_name)

@@ -426,7 +426,7 @@ def process_yml_file(filepath, ctx):
         return
     file_type = get_file_type(ans_data)
     if file_type == "vars":
-        handle_vars(ans_data, ctx)
+        __do_handle_vars(ans_data, ctx)
     elif file_type == "meta":
         handle_meta(ans_data, ctx)
     else:

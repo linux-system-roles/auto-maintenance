@@ -14,6 +14,7 @@ linux-system-roles repos.
   * [roles-tag-and-release.sh](#roles-tag-and-releasesh)
   * [update_collection.py](#update_collectionpy)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
+  * [configure_squid](#configure_squid)
 <!--te-->
 
 
@@ -620,3 +621,21 @@ will print out all open PRs, along with their statuses and checks, along with
 some other metadata.  There are a number of command line options to look for
 specific repos, platform status, ansible version status, staging vs.
 production, and many more.  See the help for the command for more information.
+
+# configure_squid
+
+The `configure_squid` directory stores the playbook that you can use to
+configure a Squid caching proxy server for caching RPM packages. The playbook
+copies the `squid.conf` file to the managed node. The `squid.conf` file 
+onfigures Squid to use SSL Bump to cache RPM packages over HTTPS and does some
+further configurations required for RPM packages caching. You can compare
+`squid.conf` with `squid.conf.default` to see what `squid.conf` adds.
+
+After you configure a squid proxy using this playbook, you must point dnf or yum
+to use this proxy. To do that, append the following strings to /etc/yum.conf on
+EL 6 or to /etc/dnf/dnf.conf on EL > 6 and Fedora:
+
+```
+proxy=http://<squid_server_ip>:3128
+sslverify=False
+```

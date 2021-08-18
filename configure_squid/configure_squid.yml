@@ -1,0 +1,61 @@
+- name: Set up a Squid proxy server
+  hosts: all
+  tasks:
+    - name: Ensure that squid and openssl packages are installed
+      package:
+        name:
+          - squid
+          - openssl
+        state: present
+
+    - name: Generate a self-signed SSL certificate
+      command: >-
+        openssl req -new -newkey rsa:2048 -days 365 -nodes -x509
+        -subj "/C=US/ST=NRW/L=Earth/O=CompanyName/OU=IT/CN=localhost/emailAddress=email@example.com"
+        -keyout /etc/squid/bump.key -out /etc/squid/bump.crt
+
+    - name: Generate the settings file for the Diffie-Hellman algorithm
+      command: openssl dhparam -outform PEM -out /etc/squid/bump_dhparam.pem 2048
+
+    - name: Configure certificates permissions
+      file:
+        path: "{{ item }}"
+        owner: squid
+        group: squid
+        mode: 400
+      loop:
+        - /etc/squid/bump.crt
+        - /etc/squid/bump_dhparam.pem
+        - /etc/squid/bump.key
+
+    - name: Copy the squid configuration file to the host
+      copy:
+        src: squid.conf
+        dest: /etc/squid/squid.conf
+        owner: root
+        group: root
+        mode: 644
+
+    - name: Create a directory for the certificate database
+      file:
+        path: /var/lib/squid
+        state: directory
+        owner: squid
+        group: squid
+        mode: 755
+
+    - name: Ensure that the /var/lib/squid/ssl_db directory does not exist
+      file:
+        path: /var/lib/squid/ssl_db
+        state: absent
+     
+    - name: Initialize the database
+      command: >-
+        /usr/lib64/squid/security_file_certgen -c -s /var/lib/squid/ssl_db
+        -M 20MB
+
+    - name: Ensure that the squid service is restarted and enabled
+      service:
+        name: squid
+        state: restarted
+        enabled: yes

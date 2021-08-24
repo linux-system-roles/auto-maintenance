@@ -12,7 +12,6 @@ linux-system-roles repos.
   * [release_collection.py](#release_collectionpy)
   * [check_rpmspec_collection.sh](#check_rpmspec_collectionsh)
   * [roles-tag-and-release.sh](#roles-tag-and-releasesh)
-  * [update_collection.py](#update_collectionpy)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
   * [configure_squid](#configure_squid)
 <!--te-->
@@ -282,28 +281,54 @@ python lsr_role2collection.py --role myrole \
 
 # release_collection.py
 
-This script is used to convert the roles to collection format using
-[lsr_role2collection.py](#lsr_role2collectionpy) and build the collection file
-for publishing.  It doesn't do the publishing, that must be done separately.
+This script is used to:
+* Check all of the roles for new versions, and update `collection_release.yml`
+  with the updated `ref` fields.
+* Convert the roles to collection using [lsr_role2collection.py](#lsr_role2collectionpy)
+* Update the version in `galaxy.yml`
+* Build the collection file using `ansible-galaxy collection build`
+* Check the collection using `galaxy-importer`
+* Publish the collection using `ansible-galaxy collection publish`
 
 The list of roles is specified by default in the file `collection_release.yml`.
-The format of this file is a `dict` of role names.  Each role name is a dict
-which must specify the `ref` which is the git tag, branch, or commit hash
-specifying the commit in the role repo to use to build the collection from.
-You can optionally specify the `org` (default: `linux-system-roles`) and the
-`repo` (default: role name).
+You can use the `--include` and `--exclude` options (described below) to control
+which roles you want to update and release in the collection. The format of this
+file is a `dict` of role names.  Each role name is a dict which must specify the
+`ref` which is the git tag, branch, or commit hash specifying the commit in the
+role repo to use to build the collection from. You can optionally specify the
+`org` (default: `linux-system-roles`) and the `repo` (default: role name).  The
+use of the tag in semantic version format is strongly encouraged, as the script
+can automatically update the collection version in `galaxy.yml` if all of the
+tags are semantically versioned (see `--no-auto-version`, `--new-version`).
 
 The other collection metadata comes from `galaxy.yml` - namespace, collection
-name, version, etc.  The script reads this metadata.
+name, version, etc.  The script can update the `version` field automatically if
+all updated roles are using semantic versioning (see `--no-auto-version`,
+`--new-version`).
 
-The script reads the list of roles from `collection_release.yml`.  For each
-role, it will clone the repo from github to a local working directory (if there
-is no local clone) and update the local clone to the commit specified by `ref`.
+The script reads the list of roles from `collection_release.yml` and modifies
+the list depending on `--include` and `--exclude`.  For each role, it will clone
+the repo from github to a local working directory (if there is no local clone).
+By default, the script will attempt to determine if there are any updates to the
+role by comparing the `ref` in the file with the latest commit.  If both refs
+are tags in the format of a semantic version, the script will attempt to
+automatically determine what the new semantic version of the collection should
+be.  See the `Version` section below for details.  If using the `--no-update`
+flag, then the script will assume the user has already updated
+`collection_release.yml` to the correct ref and will checkout that ref.  If you
+have a local working copy of the roles, you can specify it with the `--src-path`
+argument, or the script will use a tmp directory.
+
 The script calls [lsr_role2collection.py](#lsr_role2collectionpy) to convert
 each role to collection format using the galaxy namespace name and collection
-name.  After all of the roles have been converted, the script uses
-`ansible-galaxy collection build` to build the collection package file suitable
-for publishing.
+name specified in `galaxy.yml`.  The script will use
+`~/.ansible/collections/ansible_collections/$NAMESPACE/$NAME` to convert the
+files into and assemble the other metadata (such as the ignore files).  If you
+want to use a different directory, use `--dest-path`.  After all of the roles
+have been converted, the script uses `ansible-galaxy collection build` to build
+the collection package file suitable for publishing.  The file will be placed in
+the `~/.ansible/collections` directory.  If the `--dest-path` exists, and you
+want to replace it, use the `--force` argument.
 
 The script will then run `galaxy-importer` against the collection package file
 to check if it will import into galaxy cleanly.  If you get errors, you will
@@ -311,10 +336,20 @@ probably need to go back and fix the role or add some suppressions to the
 `.sanity-ansible-ignore-2.9.txt` in the role.  Or, you can add them to
 `lsr_role2collection/extra-ignore-2.9.txt` if necessary.
 
-To publish, use something like
+By default, the script will not publish the collection to Galaxy.  Specify the
+`--publish` argument to publish the collection to Galaxy.  The script will then
+do something like this:
 ```
-ansible-galaxy collection publish /path/to/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz
+ansible-galaxy collection publish -vv ~/.ansible/collections/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz
 ```
+and will wait until the publish is completed.  If you do not want to wait,
+specify the `--no-wait` argument which will do something like this:
+```
+ansible-galaxy collection publish --no-wait ~/.ansible/collections/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz
+```
+If the script is unable to calculate the new version for `galaxy.yml` you will
+need to figure out what the new semantic version will be, and use the
+`--new-version` argument.
 
 ## Pre-requisites
 
@@ -326,16 +361,16 @@ Or, figure out some way to download the correct versions of
 [lsr_role2collection.py](#lsr_role2collectionpy), `galaxy.yml`,
 `collection_release.yml`, and `release_collection.py` from this repo.
 
-You will need to ensure that the information in `galaxy.yml` (particularly the
-`version:` field), and the information in `collection_release.yml`
-(particularly the `ref:` fields), are correct and up-to-date for the collection
-you want to build and publish.  You are strongly encouraged to use
+You should ensure that the roles have been appropriately tagged with semantic
+versions.  You are strongly encouraged to use
 [roles-tag-and-release.sh](#roles-tag-and-releasesh) to tag, release, and
-publish the individual roles first, then use
-[update_collection.py](#update_collectionpy) to update
-`collection_release.yml`.  You will have to manually update the version in
-`galaxy.yml` after visually inspecting the version changes in the individual
-roles.
+publish the individual roles.  If you do this, then you can usually let the
+script automatically update the versions in `collection_release.yml` and
+`galaxy.yml`.  Otherwise, you will need to ensure that the information in
+`galaxy.yml` (particularly the `version:` field), and the information in
+`collection_release.yml` (particularly the `ref:` fields), are correct and
+up-to-date for the collection you want to build and publish, then use the
+`--no-update` argument.
 
 You will need the `galaxy-importer` package - `pip install galaxy-importer --user`.
 You will need `docker` in order to use `galaxy-importer`.
@@ -348,36 +383,37 @@ ROLENAME:
   repo: github-repo
 ```
 Where `ROLENAME` is the name of the role as it will appear in the collection
-(under `NAMESPACE/COLLECTION_NAME/roles/`).  `ref` is the git tag (preferred),
-commit hash, or branch to use (in the format used as the argument to `git clone
--b` or `git checkout`).  `org` is the github organization (default
-`linux-system-roles`).  The `repo` is the name of the repo under the github
-organization, and the default is the `ROLENAME`, so only use this if you need to
-specify a different name for the role in the collection.
+(under `NAMESPACE/COLLECTION_NAME/roles/`).  `ref` is the git tag in semantic
+version format (preferred), commit hash, or branch to use (in the format used as
+the argument to `git clone -b` or `git checkout`).  `org` is the github
+organization (default `linux-system-roles`).  The `repo` is the name of the repo
+under the github organization, and the default is the `ROLENAME`, so only use
+this if you need to specify a different name for the role in the collection.
+The `sshd` role currently uses both `org` and `repo`.
 
 Example:
 ```yaml
 certificate:
-  ref: "1.0.0"
+  ref: 1.0.0
 kdump:
-  ref: "1.0.1"
+  ref: 1.0.1
 kernel_settings:
-  ref: "1.0.0"
+  ref: 1.0.0
 ```
-This will use e.g. `git clone https://github.com/linux-system-roles/certificate
--b 1.0.0`, etc.
+This will use e.g.
+`git clone https://github.com/linux-system-roles/certificate -b 1.0.0`, etc.
 
-Use `roles-tag-and-release.sh` to create new tags/versions in each role.
-
-Use `update_collection.py` to update the refs in `collection_release.yml` to the
-latest tags.
+Use [roles-tag-and-release.sh](#roles-tag-and-releasesh) to create new
+tags/versions in each role.  If you use strict semantic versioning everywhere,
+in your github tags and in the `collection_release.yml` file, you can use the
+automatic versioning feature of the script to automatically update the version
+in `galaxy.yml`.
 
 ## Usage
 Basic usage:
 ```
 cd auto-maintenance
-python release_collection.py
-ansible-galaxy collection publish -v $DEST_PATH/fedora-linux_system_roles-$VERSION.tar.gz 
+python release_collection.py --publish
 ```
 This will use the `galaxy.yml` and `collection_release.yml` files in the current
 directory, will create a temporary working directory to clone the roles into,
@@ -385,7 +421,8 @@ will create a collection under
 `$HOME/.ansible/collections/ansible_collections/NAMESPACE/COLLECTION_NAME`, and
 will create the collection package file
 `$HOME/.ansible/collections/NAMESPACE-COLLECTION_NAME-VERSION.tar.gz`, where
-`NAMESPACE`, `COLLECTION_NAME`, and `VERSION` are specified in `galaxy.yml`.
+`NAMESPACE`, `COLLECTION_NAME`, and `VERSION` are specified in `galaxy.yml`, and
+will publish the collection, waiting until it is completed.
 
 ## Options
 
@@ -404,6 +441,36 @@ will create the collection package file
 * `--force` - boolean - default `False` - if specified, the collection directory
   will be removed first if it exists, and the package file, if any, will be
   overwritten
+* `--include` - list - default empty - by default, the script will operate on
+  all roles in the `collection_release.yml`.  Use `--include` to specify only
+  those roles you want to update in the new collection.  If you specify both
+  `--exclude` and `--include` then `--exclude` takes precedence.
+* `--exclude` - list - default empty - by default, the script will operate on
+  all roles in the `collection_release.yml`.  Use `--exclude` to remove the
+  specified roles from that list.  If you specify both `--exclude` and
+  `--include` then `--exclude` takes precedence.
+* `--new-version` - string - The new semantic version to use for the collection.
+  The script will update this
+* `--use-commit-hash` - boolean - By default, only tags in semantic version
+  format will be used for the `ref` field in `collection_release.yml`. If
+  instead you want to use the latest commit hash for a role that has not been
+  tagged, use this flag. However, this means you will not be able to use
+  automatic versioning, and you will need to use `--new-version`, or manually
+  edit the `collection_release.yml` and `galaxy.yml` and use `--no-update`.
+* `--no-auto-version` - boolean - By default, the script will attempt to
+  update the collection version in `galaxy.yml`.  Use this flag if you do
+  not want to do that.
+* `--no-update` - boolean - By default, the script will attempt to update the
+  `ref` fields for each role in `collection_release.yml` and the version in
+  `galaxy.yml`.  Use this flag if you do not want to do that.
+* `--publish` - boolean - By default, the script will just create the collection
+  tarball in `~/.ansible/collections`.  You must specify `--publish` if you want
+  to publish the collection.
+* `--no-wait` - boolean - By default, when publishing, the script will wait
+  until the publishing is completed.  Use `--no-wait` if you do not want to
+  wait, and instead will check the import status in Galaxy.
+* `--debug` - boolean - By default, the script will only output informational
+  messages.  Use `--debug` to see the details.
 
 ## Version
 
@@ -413,10 +480,13 @@ collection stabilizes, then we should start at `1.0.0`.  During this
 stabilization period, we should just increase the `Z` number when we do a new
 release.
 
-After stabilization, when we want to do a new release, we assume that each role
-will be doing regular tagged releases where the tag is the semantic version.  If
-not, then it will be difficult to determine what sort of change the role has
-made, and how it should affect the collection version.
+We assume that each role will be doing regular tagged releases where the tag is
+the semantic version.  If not, then it will be difficult to determine what sort
+of change the role has made, and how it should affect the collection version.
+The [roles-tag-and-release.sh](#roles-tag-and-releasesh) script is useful to
+identify what sort of changes were made in each role, update the semantic
+version tag, do github releases, and publish individual roles to Galaxy.  You
+are strongly encouraged to use that script.
 
 The collection version will be derived from all of the role versions, and will
 be semantic versioned.
@@ -600,19 +670,7 @@ When you are done, it will ask if you want to create a new GitHub release.  If
 you do, it will create the release, then ask if you want to publish the role to
 Galaxy.  If you do, it will perform a role import into Galaxy.
 
-Use this script before `update_collection.py` and `release_collection.py`.
-
-# update_collection.py
-
-This script should be used after you have tagged the roles e.g. by using
-`roles-tag-and-release.sh` as described above.  It will update the
-`collection_release.yml` file with the latest tags.  Use `--src-path
-~/working-lsr` if you already have a local git clone of the role repos,
-otherwise, it will create a tempdir.  By default it will use the latest tag, but
-you can use `--use-commit-hash` if you want to use the latest commit that is not
-tagged.  You will need to update `galaxy.yml` with a new version number if any
-of the roles have been updated (and remember - it is a semantic version).  Once
-you do this, you are ready to use `release_collection.py`.
+Use this script before [release_collection.py](#release_collectionpy).
 
 # list-pr-statuses-ghapi.py
 

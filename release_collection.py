@@ -22,6 +22,7 @@ import sys
 import tempfile
 
 import yaml
+import json
 
 from packaging.version import Version, InvalidVersion
 
@@ -212,21 +213,23 @@ def build_collection(args, coll_dir, ignore_file):
     collection_bindep_dest = os.path.join(coll_dir, "bindep.txt")
     ignore_file_src = os.path.join("lsr_role2collection", "extra-ignore-2.9.txt")
     ansible_lint = os.path.join("lsr_role2collection", ".ansible-lint")
-    shutil.copy(args.galaxy_yml.name, coll_dir)
-    shutil.copy(args.collection_release_yml.name, coll_dir)
-    if os.path.exists(collection_requirements):
-        shutil.copy(collection_requirements, collection_requirements_dest)
-    if os.path.exists(collection_bindep):
-        shutil.copy(collection_bindep, collection_bindep_dest)
+    # If --rpm, files such as galaxy.yml in coll_dir are being used.
+    if not args.rpm:
+        shutil.copy(args.galaxy_yml.name, coll_dir)
+        shutil.copy(args.collection_release_yml.name, coll_dir)
+        if os.path.exists(collection_requirements):
+            shutil.copy(collection_requirements, collection_requirements_dest)
+        if os.path.exists(collection_bindep):
+            shutil.copy(collection_bindep, collection_bindep_dest)
+        # copy required dot files like .ansible-lint here
+        if os.path.exists(ansible_lint):
+            shutil.copy(ansible_lint, coll_dir)
+        if os.path.exists(ignore_file):
+            with open(ignore_file, "a") as ign_fd:
+                with open(ignore_file_src, "r") as role_ign_fd:
+                    ign_fd.write(role_ign_fd.read())
     # removing dot files/dirs
     _ = run_cmd(["bash", "-c", f"rm -rf {coll_dir}/.[A-Za-z]*"])
-    # copy required dot files like .ansible-lint here
-    if os.path.exists(ansible_lint):
-        shutil.copy(ansible_lint, coll_dir)
-    if os.path.exists(ignore_file):
-        with open(ignore_file, "a") as ign_fd:
-            with open(ignore_file_src, "r") as role_ign_fd:
-                ign_fd.write(role_ign_fd.read())
 
     build_args = ["ansible-galaxy", "collection", "build", "-v"]
     if args.force:
@@ -302,6 +305,87 @@ def update_collection(args, galaxy, coll_rel):
                 yaml.safe_dump(coll_rel, crf, sort_keys=True)
 
     build_collection(args, coll_dir, ignore_file)
+
+
+def find(path, name):
+    """Find a file 'name' in or under the directory 'path'."""
+    for root, dirs, files in os.walk(path):
+        if name in files:
+            return os.path.join(root, name)
+
+
+def process_rpm(args, default_galaxy, coll_rel):
+    """
+    Extract the contents of rpm.
+    If the rpm contains galaxy.yml, use the file.
+    Else if MANIFEST.json is found, use the info.
+    Otherwise, it fails.
+    Generate the collection artifact from the collection part
+    of the extracted files.
+    """
+    workdir = tempfile.mkdtemp(suffix=".lsr", prefix="collection")
+    cmdlist0 = ["rpm2cpio", args.rpm]
+    p0 = subprocess.Popen(cmdlist0, cwd=workdir, stdout=subprocess.PIPE)
+    cmdlist1 = ["cpio", "-id"]
+    p1 = subprocess.Popen(cmdlist1, cwd=workdir, stdin=p0.stdout)
+    p1.communicate()
+    p0.communicate()
+    logging.debug(f"{' '.join(cmdlist0)} returned {p0.returncode}")
+    logging.debug(f"{' '.join(cmdlist1)} returned {p1.returncode}")
+    if p0.returncode != 0:
+        raise subprocess.CalledProcessError(
+            p0.returncode, cmdlist0, p0.stdout, p0.stderr
+        )
+    if p1.returncode != 0:
+        raise subprocess.CalledProcessError(
+            p1.returncode, cmdlist1, p1.stdout, p1.stderr
+        )
+
+    tmp_coll = "{}/usr/share/ansible/collections/ansible_collections".format(workdir)
+    if not os.path.exists(tmp_coll):
+        raise Exception("Failed to extract {} from {}".format(tmp_coll, args.rpmC))
+    shutil.move(tmp_coll, workdir)
+    shutil.rmtree("{}/usr".format(workdir))
+
+    # If exists, use galaxy.yml in rpm
+    galaxy_yml = find(workdir, "galaxy.yml")
+    if galaxy_yml:
+        args.galaxy_yml.close()
+        args.galaxy_yml = open(galaxy_yml, "r")
+        coll_dir = os.path.dirname(galaxy_yml)
+        # override galaxy with the one in rpm
+        galaxy = yaml.safe_load(args.galaxy_yml)
+    # Otherwise, use the values in MANIFEST.json, if any.
+    else:
+        manifest_json = find(workdir, "MANIFEST.json")
+        if manifest_json:
+            with open(manifest_json) as mj:
+                mj_contents = json.load(mj)
+            galaxy = default_galaxy
+            galaxy["namespace"] = mj_contents["collection_info"]["namespace"]
+            galaxy["name"] = mj_contents["collection_info"]["name"]
+            galaxy["version"] = mj_contents["collection_info"]["version"]
+            galaxy["authors"] = mj_contents["collection_info"]["authors"]
+            galaxy["description"] = mj_contents["collection_info"]["description"]
+            coll_dir = os.path.dirname(manifest_json)
+            new_galaxy_yml = "{}/galaxy.yml".format(coll_dir)
+            args.galaxy_yml.close()
+            args.galaxy_yml = open(new_galaxy_yml, "w")
+            yaml.dump(galaxy, args.galaxy_yml)
+            os.remove(manifest_json)
+            files_json = "{}/FILES.json".format(coll_dir)
+            if os.path.exists(files_json):
+                os.remove(files_json)
+        else:
+            raise Exception("No galaxy.yml nor MANIFEST.json in {}".format(args.rpm))
+
+    ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
+    ignore_file = os.path.join(ignore_file_dir, "ignore-2.9.txt")
+
+    build_collection(args, coll_dir, ignore_file)
+    shutil.rmtree(workdir)
+
+    return galaxy
 
 
 def check_collection(args, galaxy):
@@ -438,6 +522,12 @@ def main():
         action="append",
         help="Roles to include",
     )
+    parser.add_argument(
+        "--rpm",
+        default=None,
+        type=str,
+        help="Path to the rpm file for the input.",
+    )
     args = parser.parse_args()
 
     if args.debug:
@@ -453,12 +543,27 @@ def main():
         args.include = sorted(list(coll_rel.keys()))
     for item in args.exclude:
         del args.include[item]
+
+    # --rpm rpm_file is given.
+    if args.rpm:
+        # Check rpm_file exists.
+        if not os.path.exists(args.rpm):
+            logging.error("{}: No such file given with --rpm".format(args.rpm))
+            return
+        # If rpm_file is relative path, convert it to absolute path.
+        if not os.path.isabs(args.rpm):
+            rpm_dir = os.path.abspath(os.getcwd())
+            args.rpm = "{0}/{1}".format(rpm_dir, args.rpm)
+
     workdir = None
-    if not args.src_path:
+    if not args.rpm and not args.src_path:
         workdir = tempfile.mkdtemp(suffix=".lsr", prefix="collection")
         args.src_path = workdir
     try:
-        update_collection(args, galaxy, coll_rel)
+        if args.rpm:
+            galaxy = process_rpm(args, galaxy, coll_rel)
+        else:
+            update_collection(args, galaxy, coll_rel)
         check_collection(args, galaxy)
         if args.publish:
             publish_collection(args, galaxy)

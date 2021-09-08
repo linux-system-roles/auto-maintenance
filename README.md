@@ -289,6 +289,10 @@ This script is used to:
 * Build the collection file using `ansible-galaxy collection build`
 * Check the collection using `galaxy-importer`
 * Publish the collection using `ansible-galaxy collection publish`
+* Additionally, instead of the upstream sources, the rpm file could be used as
+  an input. If the option is selected, it skips the first 3 items and builds the
+  collection file using `ansible-galaxy collection build` with `galaxy.yml` or
+  `MANIFEST.json` in the rpm file.
 
 The list of roles is specified by default in the file `collection_release.yml`.
 You can use the `--include` and `--exclude` options (described below) to control
@@ -471,6 +475,12 @@ will publish the collection, waiting until it is completed.
   wait, and instead will check the import status in Galaxy.
 * `--debug` - boolean - By default, the script will only output informational
   messages.  Use `--debug` to see the details.
+* `--rpm` - string - Specifies the rpm file for the input collection. When --rpm
+  is set, other input options such as `--galaxy-yml`, `--include`, `--exclude`,
+  `--new-version`, `--use-commit-hash`, and `--no-auto-version` are ignored.
+  Note: if the rpm file does not contain `galaxy.yml` or `MANIFEST.json` in
+  `/path/to/ansible_collections/namespace/collection`, `release_collection.py`
+  fails.  No default value.
 
 ## Version
 

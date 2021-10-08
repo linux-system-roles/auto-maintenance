@@ -22,4 +22,9 @@ code["namespace"] = sys.argv[1]
 code["name"] = sys.argv[2]
 code["version"] = sys.argv[3]
 code["description"] = sys.argv[4]
+if len(sys.argv) > 5:
+    code["repository"] = sys.argv[5]
+    code["documentation"] = sys.argv[6]
+    code["homepage"] = sys.argv[7]
+    code["issues"] = sys.argv[8]
 yaml.dump(code, sys.stdout)

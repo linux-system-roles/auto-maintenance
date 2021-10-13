@@ -121,16 +121,54 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
     return (tag, g_hash[1:], n_commits == "0")
 
 
+def process_ignore_and_lint_files(coll_dir, args):
+    """Create collection ignore-VER.txt and .ansible-lint files from roles."""
+    ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
+    ansible_lint = {}
+    for role_name in os.listdir(args.src_path):
+        roledir = os.path.join(args.src_path, role_name)
+        if (
+            os.path.isdir(roledir)
+            and os.path.isfile(os.path.join(roledir, "tasks", "main.yml"))
+            and role_name in args.include
+        ):
+            for file_name in os.listdir(roledir):
+                if file_name.startswith(".sanity-ansible-ignore-"):
+                    if not os.path.isdir(ignore_file_dir):
+                        os.mkdir(ignore_file_dir)
+                    match = re.match(
+                        r"^[.]sanity-ansible-ignore-(\d[\d.]+)[.]txt$", file_name
+                    )
+                    if match and match.groups() and match.group(1):
+                        ver = match.group(1)
+                        ignore_file = os.path.join(ignore_file_dir, f"ignore-{ver}.txt")
+                        role_ignore_file = os.path.join(roledir, file_name)
+                        with open(ignore_file, "a") as ign_fd:
+                            with open(role_ignore_file, "r") as role_ign_fd:
+                                ign_fd.write(role_ign_fd.read())
+                elif file_name == ".ansible-lint":
+                    role_ansible_lint = yaml.safe_load(
+                        open(os.path.join(roledir, file_name))
+                    )
+                    for key, items in role_ansible_lint.items():
+                        if key not in ansible_lint:
+                            ansible_lint[key] = role_ansible_lint[key]
+                            continue
+                        for item in items:
+                            if item not in ansible_lint[key]:
+                                ansible_lint[key].append(item)
+    if ansible_lint:
+        yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
+
+
 def role_to_collection(
     args,
     rolename,
     namespace,
     collection_name,
     collection_readme,
-    ignore_file_dir,
-    ignore_file,
 ):
-    roledir = os.path.join(args.src_path, rolename)
+    """Convert the role to collection format."""
     subrole_prefix = f"private_{rolename}_subrole_"
     _ = run_cmd(
         [
@@ -154,13 +192,6 @@ def role_to_collection(
             collection_readme,
         ]
     )
-    role_ignore_file = os.path.join(roledir, ".sanity-ansible-ignore-2.9.txt")
-    if os.path.isfile(role_ignore_file):
-        if not os.path.isdir(ignore_file_dir):
-            os.mkdir(ignore_file_dir)
-        with open(ignore_file, "a") as ign_fd:
-            with open(role_ignore_file, "r") as role_ign_fd:
-                ign_fd.write(role_ign_fd.read())
 
 
 def update_galaxy_version(args, galaxy, versions_updated):
@@ -204,32 +235,39 @@ def update_galaxy_version(args, galaxy, versions_updated):
         gf.write(galaxy_str)
 
 
-def build_collection(args, coll_dir, ignore_file):
+def build_collection(args, coll_dir, galaxy=None):
     collection_requirements = os.path.join(
         "lsr_role2collection", "collection_requirements.txt"
     )
     collection_requirements_dest = os.path.join(coll_dir, "requirements.txt")
     collection_bindep = os.path.join("lsr_role2collection", "collection_bindep.txt")
     collection_bindep_dest = os.path.join(coll_dir, "bindep.txt")
-    ignore_file_src = os.path.join("lsr_role2collection", "extra-ignore-2.9.txt")
-    ansible_lint = os.path.join("lsr_role2collection", ".ansible-lint")
     # If --rpm, files such as galaxy.yml in coll_dir are being used.
     if not args.rpm:
-        shutil.copy(args.galaxy_yml.name, coll_dir)
+        process_ignore_and_lint_files(coll_dir, args)
+        if galaxy:
+            with open(os.path.join(coll_dir, "galaxy.yml"), "w") as galaxy_fd:
+                yaml.safe_dump(galaxy, galaxy_fd)
+        else:
+            shutil.copy(args.galaxy_yml.name, coll_dir)
         shutil.copy(args.collection_release_yml.name, coll_dir)
         if os.path.exists(collection_requirements):
             shutil.copy(collection_requirements, collection_requirements_dest)
         if os.path.exists(collection_bindep):
             shutil.copy(collection_bindep, collection_bindep_dest)
-        # copy required dot files like .ansible-lint here
-        if os.path.exists(ansible_lint):
-            shutil.copy(ansible_lint, coll_dir)
-        if os.path.exists(ignore_file):
-            with open(ignore_file, "a") as ign_fd:
-                with open(ignore_file_src, "r") as role_ign_fd:
-                    ign_fd.write(role_ign_fd.read())
+        # copy required dot files here, if any, before we remove them below
+
     # removing dot files/dirs
-    _ = run_cmd(["bash", "-c", f"rm -rf {coll_dir}/.[A-Za-z]*"])
+    keep_files = set([".ansible-lint"])
+    for file_name in os.listdir(coll_dir):
+        if file_name in keep_files:
+            continue
+        if re.match(r"^[.][a-zA-Z]+", file_name):
+            full_name = os.path.join(coll_dir, file_name)
+            if os.path.isdir(full_name):
+                shutil.rmtree(full_name)
+            else:
+                os.unlink(full_name)
 
     build_args = ["ansible-galaxy", "collection", "build", "-v"]
     if args.force:
@@ -259,8 +297,6 @@ def update_collection(args, galaxy, coll_rel):
                 )
             )
     os.makedirs(coll_dir, exist_ok=True)
-    ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
-    ignore_file = os.path.join(ignore_file_dir, "ignore-2.9.txt")
     collection_readme = os.path.join("lsr_role2collection", "collection_readme.md")
     # major, minor, micro, hash
     versions_updated = [False, False, False, False]
@@ -290,9 +326,19 @@ def update_collection(args, galaxy, coll_rel):
             galaxy["namespace"],
             galaxy["name"],
             collection_readme,
-            ignore_file_dir,
-            ignore_file,
         )
+        req_yml = os.path.join(args.src_path, rolename, "meta", "requirements.yml")
+        if os.path.isfile(req_yml):
+            req_yml_hsh = yaml.safe_load(open(req_yml))
+            for coll in req_yml_hsh.get("collections", []):
+                if isinstance(coll, dict):
+                    coll_name = coll["name"]
+                    coll_ver = coll.get("version", "*")
+                else:
+                    coll_name = coll
+                    coll_ver = "*"
+                galaxy_deps = galaxy.setdefault("dependencies", {})
+                galaxy_deps[coll_name] = coll_ver
     if not args.no_update:
         if not any(versions_updated):
             logging.info(
@@ -304,7 +350,7 @@ def update_collection(args, galaxy, coll_rel):
             with open(args.collection_release_yml.name, "w") as crf:
                 yaml.safe_dump(coll_rel, crf, sort_keys=True)
 
-    build_collection(args, coll_dir, ignore_file)
+    build_collection(args, coll_dir, galaxy)
 
 
 def find(path, name):
@@ -343,7 +389,7 @@ def process_rpm(args, default_galaxy, coll_rel):
 
     tmp_coll = "{}/usr/share/ansible/collections/ansible_collections".format(workdir)
     if not os.path.exists(tmp_coll):
-        raise Exception("Failed to extract {} from {}".format(tmp_coll, args.rpmC))
+        raise Exception("Failed to extract {} from {}".format(tmp_coll, args.rpm))
     shutil.move(tmp_coll, workdir)
     shutil.rmtree("{}/usr".format(workdir))
 
@@ -379,10 +425,7 @@ def process_rpm(args, default_galaxy, coll_rel):
         else:
             raise Exception("No galaxy.yml nor MANIFEST.json in {}".format(args.rpm))
 
-    ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
-    ignore_file = os.path.join(ignore_file_dir, "ignore-2.9.txt")
-
-    build_collection(args, coll_dir, ignore_file)
+    build_collection(args, coll_dir)
     shutil.rmtree(workdir)
 
     return galaxy

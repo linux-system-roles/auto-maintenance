@@ -337,8 +337,8 @@ want to replace it, use the `--force` argument.
 The script will then run `galaxy-importer` against the collection package file
 to check if it will import into galaxy cleanly.  If you get errors, you will
 probably need to go back and fix the role or add some suppressions to the
-`.sanity-ansible-ignore-2.9.txt` in the role.  Or, you can add them to
-`lsr_role2collection/extra-ignore-2.9.txt` if necessary.
+`.sanity-ansible-ignore-x.y.txt` in the role, where `x.y` is the version of
+ansible that `galaxy-importer` is using.
 
 By default, the script will not publish the collection to Galaxy.  Specify the
 `--publish` argument to publish the collection to Galaxy.  The script will then

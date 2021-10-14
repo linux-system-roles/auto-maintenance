@@ -1,6 +1,0 @@
----
-# roles/storage/tasks/main-blivet.yml [E502] All tasks should be named
-# and other files with the above errors
-skip_list:
-  - '502' # All tasks should be named
-  - '503' # Tasks that run when changed should likely be handlers

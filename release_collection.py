@@ -269,11 +269,14 @@ def build_collection(args, coll_dir, galaxy=None):
             else:
                 os.unlink(full_name)
 
-    build_args = ["ansible-galaxy", "collection", "build", "-v"]
-    if args.force:
-        build_args.append("-f")
-    build_args.append(coll_dir)
-    _ = run_cmd(build_args, args.dest_path)
+    if shutil.which("ansible-galaxy"):
+        build_args = ["ansible-galaxy", "collection", "build", "-v"]
+        if args.force:
+            build_args.append("-f")
+        build_args.append(coll_dir)
+        _ = run_cmd(build_args, args.dest_path)
+    else:
+        logging.info("ansible-galaxy is skipped since it is not available.")
 
 
 def update_collection(args, galaxy, coll_rel):
@@ -301,25 +304,28 @@ def update_collection(args, galaxy, coll_rel):
     # major, minor, micro, hash
     versions_updated = [False, False, False, False]
     for rolename in args.include:
-        cur_ref = coll_rel[rolename]["ref"]
-        tag, cm_hash, tag_is_latest = get_latest_tag_hash(
-            args,
-            rolename,
-            coll_rel[rolename]["ref"],
-            coll_rel[rolename].get("org", DEFAULT_GIT_ORG),
-            coll_rel[rolename].get("repo", rolename),
-        )
-        if tag or cm_hash:
-            if tag_is_latest or not args.use_commit_hash:
-                coll_rel[rolename]["ref"] = tag
-            else:
-                coll_rel[rolename]["ref"] = cm_hash
-            if not tag_is_latest and not args.no_auto_version:
-                logging.info(
-                    f"role {rolename} tag {tag} is not the latest commit {cm_hash} "
-                    "- cannot use auto version"
+        if not args.skip_git:
+            cur_ref = coll_rel[rolename]["ref"]
+            tag, cm_hash, tag_is_latest = get_latest_tag_hash(
+                args,
+                rolename,
+                coll_rel[rolename]["ref"],
+                coll_rel[rolename].get("org", DEFAULT_GIT_ORG),
+                coll_rel[rolename].get("repo", rolename),
+            )
+            if tag or cm_hash:
+                if tag_is_latest or not args.use_commit_hash:
+                    coll_rel[rolename]["ref"] = tag
+                else:
+                    coll_rel[rolename]["ref"] = cm_hash
+                if not tag_is_latest and not args.no_auto_version:
+                    logging.info(
+                        f"role {rolename} tag {tag} is not the latest commit {cm_hash} "
+                        "- cannot use auto version"
+                    )
+                check_versions_updated(
+                    cur_ref, coll_rel[rolename]["ref"], versions_updated
                 )
-            check_versions_updated(cur_ref, coll_rel[rolename]["ref"], versions_updated)
         role_to_collection(
             args,
             rolename,
@@ -571,6 +577,12 @@ def main():
         default=None,
         type=str,
         help="Path to the rpm file for the input.",
+    )
+    parser.add_argument(
+        "--skip-git",
+        default=False,
+        action="store_true",
+        help="True when work with local src.",
     )
     args = parser.parse_args()
 

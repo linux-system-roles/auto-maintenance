@@ -473,6 +473,7 @@ will publish the collection, waiting until it is completed.
 * `--no-wait` - boolean - By default, when publishing, the script will wait
   until the publishing is completed.  Use `--no-wait` if you do not want to
   wait, and instead will check the import status in Galaxy.
+* `--skip-git` - boolean - If set to `true`, use local source. By default, `false`.
 * `--debug` - boolean - By default, the script will only output informational
   messages.  Use `--debug` to see the details.
 * `--rpm` - string - Specifies the rpm file for the input collection. When --rpm

@@ -474,6 +474,9 @@ will publish the collection, waiting until it is completed.
   until the publishing is completed.  Use `--no-wait` if you do not want to
   wait, and instead will check the import status in Galaxy.
 * `--skip-git` - boolean - If set to `true`, use local source. By default, `false`.
+* `--skip-check` - boolean - If set to `true`, check using galaxy-importer is
+  skipped. By default, `false`.
+rue when skip check with galaxy-importer
 * `--debug` - boolean - By default, the script will only output informational
   messages.  Use `--debug` to see the details.
 * `--rpm` - string - Specifies the rpm file for the input collection. When --rpm

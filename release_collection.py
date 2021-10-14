@@ -584,6 +584,12 @@ def main():
         action="store_true",
         help="True when work with local src.",
     )
+    parser.add_argument(
+        "--skip-check",
+        default=False,
+        action="store_true",
+        help="True when skip check with galaxy-importer.",
+    )
     args = parser.parse_args()
 
     if args.debug:
@@ -620,7 +626,10 @@ def main():
             galaxy = process_rpm(args, galaxy, coll_rel)
         else:
             update_collection(args, galaxy, coll_rel)
-        check_collection(args, galaxy)
+        if not args.skip_check:
+            check_collection(args, galaxy)
+        else:
+            logging.debug("check_collection is skipped.")
         if args.publish:
             publish_collection(args, galaxy)
         logging.info("Done.")

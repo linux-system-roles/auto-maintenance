@@ -172,7 +172,7 @@ def role_to_collection(
     subrole_prefix = f"private_{rolename}_subrole_"
     _ = run_cmd(
         [
-            "python",
+            sys.executable,
             "lsr_role2collection.py",
             "--src-owner",
             DEFAULT_GIT_ORG,
@@ -446,7 +446,7 @@ def check_collection(args, galaxy):
     gi_config = "lsr_role2collection/galaxy-importer.cfg"
     if os.path.exists(coll_file) and os.path.exists(gi_config):
         _ = run_cmd(
-            ["python", "-m", "galaxy_importer.main", coll_file],
+            [sys.executable, "-m", "galaxy_importer.main", coll_file],
             args.dest_path,
             {"GALAXY_IMPORTER_CONFIG": gi_config},
         )

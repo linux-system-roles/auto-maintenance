@@ -121,7 +121,7 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
     return (tag, g_hash[1:], n_commits == "0")
 
 
-def process_ignore_and_lint_files(coll_dir, args):
+def process_ignore_and_lint_files(args, coll_dir):
     """Create collection ignore-VER.txt and .ansible-lint files from roles."""
     ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
     ansible_lint = {}
@@ -243,8 +243,8 @@ def build_collection(args, coll_dir, galaxy=None):
     collection_bindep = os.path.join("lsr_role2collection", "collection_bindep.txt")
     collection_bindep_dest = os.path.join(coll_dir, "bindep.txt")
     # If --rpm, files such as galaxy.yml in coll_dir are being used.
+    process_ignore_and_lint_files(args, coll_dir)
     if not args.rpm:
-        process_ignore_and_lint_files(coll_dir, args)
         if galaxy:
             with open(os.path.join(coll_dir, "galaxy.yml"), "w") as galaxy_fd:
                 yaml.safe_dump(galaxy, galaxy_fd)
@@ -425,6 +425,7 @@ def process_rpm(args, default_galaxy, coll_rel):
         else:
             raise Exception("No galaxy.yml nor MANIFEST.json in {}".format(args.rpm))
 
+    args.src_path = coll_dir
     build_collection(args, coll_dir)
     shutil.rmtree(workdir)
 

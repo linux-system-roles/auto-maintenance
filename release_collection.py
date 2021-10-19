@@ -21,10 +21,14 @@ import subprocess
 import sys
 import tempfile
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    import ruamel.yaml as yaml
+
 import json
 
-from packaging.version import Version, InvalidVersion
+from distutils.version import StrictVersion
 
 DEFAULT_GIT_SITE = "https://github.com"
 DEFAULT_GIT_ORG = "linux-system-roles"
@@ -34,11 +38,17 @@ def run_cmd(cmdlist, cwd=None, env=None):
     """Run the given cmdlist using subprocess.  Debug log the output.
     If check is true, this function will work like check_call.
     The return value is like subprocess.run"""
-    kwargs = {}
+    kwargs = {"env": os.environ}
     if env:
-        kwargs["env"] = env
+        kwargs["env"].update(env)
     rc = subprocess.run(
-        cmdlist, cwd=cwd, encoding="utf-8", check=False, capture_output=True, **kwargs
+        cmdlist,
+        cwd=cwd,
+        encoding="utf-8",
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        **kwargs,
     )
     logging.debug(
         f"{' '.join(cmdlist)} returned {rc.returncode} stdout {rc.stdout} stderr {rc.stderr}"
@@ -58,15 +68,12 @@ def check_versions_updated(cur_ref, new_ref, versions_updated):
     minor, and/or micro versions were updated."""
 
     try:
-        cur_v = Version(cur_ref)
-        new_v = Version(new_ref)
-        if cur_v.major != new_v.major:
-            versions_updated[0] = True
-        if cur_v.minor != new_v.minor:
-            versions_updated[1] = True
-        if cur_v.micro != new_v.micro:
-            versions_updated[2] = True
-    except InvalidVersion as exc:
+        cur_v = StrictVersion(cur_ref)
+        new_v = StrictVersion(new_ref)
+        for idx in range(0, 3):
+            if cur_v.version[idx] != new_v.version[idx]:
+                versions_updated[idx] = True
+    except ValueError as exc:
         logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
         if cur_ref != new_ref:
             versions_updated[3] = True
@@ -202,8 +209,8 @@ def update_galaxy_version(args, galaxy, versions_updated):
         and any(versions_updated[0:3])
         and not args.no_auto_version
     ):
-        galaxy_ver = Version(galaxy["version"])
-        major, minor, micro = galaxy_ver.release
+        galaxy_ver = StrictVersion(galaxy["version"])
+        major, minor, micro = galaxy_ver.version
         if versions_updated[0]:
             major = major + 1
             minor = 0

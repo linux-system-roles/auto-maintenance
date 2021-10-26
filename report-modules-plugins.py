@@ -34,12 +34,12 @@ JINJA2_BUILTIN = "jinja2"
 COLLECTION_BUILTINS = {ANSIBLE_BUILTIN, JINJA2_BUILTIN}
 
 ROLE_DIRS = [
+    "meta",
     "defaults",
     "examples",
     "files",
     "handlers",
     "library",
-    "meta",
     "module_utils",
     "playbooks",
     "roles",
@@ -154,7 +154,7 @@ def handle_meta(item, filectx):
 PLUGIN_BUILTINS = set(["lookup", "q", "query"])
 
 
-def is_builtin(plugin, filectx):
+def is_builtin(plugin):
     return plugin in PLUGIN_BUILTINS
 
 
@@ -198,92 +198,6 @@ class PluginItem(object):
             elif ary[0] == "community.general.system":
                 ary[0] = "community.general"
         return ary
-
-
-def get_plugin_collection(plugin, plugintype, filectx):
-    """Find the collection that the plugin comes from.  Some plugins
-    may come from jinja2 e.g. builtin filters and tests.  The plugintype
-    field specifies the plugin type - "module" means an Ansible module,
-    or one of the jinja2 types like jinja2.nodes.Filter.  If the plugintype
-    is an ambiguous type like jinja2.nodes.Call, this function will first
-    look for filters, then tests, then lookups."""
-    collection = None
-    convert_it = False
-    if plugintype == "module":
-        ctx = module_loader.find_plugin_with_context(plugin)
-        collection = ctx.plugin_resolved_collection
-        if not collection:
-            logging.warning(
-                f"{filectx.filename}:{filectx.lineno}:module plugin named {plugin} not found"
-            )
-            collection = "UNKNOWN"
-        return (collection, "module")
-    else:
-        if plugintype in [jinja2.nodes.Filter, jinja2.nodes.Call]:
-            if plugin in jinja2.defaults.DEFAULT_NAMESPACE:
-                collection = "jinja2.defaults"
-            elif plugin in jinja2.filters.FILTERS:
-                collection = "jinja2.filters"
-            else:
-                ctx = filter_loader.find_plugin_with_context(plugin)
-                collection = ctx.plugin_resolved_collection
-                if not collection and plugin in filectx.templar.environment.filters:
-                    collection = filectx.templar.environment.filters[plugin].__module__
-                    convert_it = True
-                if not collection and plugintype == jinja2.nodes.Filter:
-                    logging.warning(
-                        f"{filectx.filename}:{filectx.lineno}:filter plugin named {plugin} not found"
-                    )
-                    collection = "UNKNOWN"
-            if collection:
-                returntype = "filter"
-        if not collection and plugintype in [jinja2.nodes.Test, jinja2.nodes.Call]:
-            if plugin in jinja2.tests.TESTS:
-                collection = "jinja2.tests"
-            else:
-                ctx = test_loader.find_plugin_with_context(plugin)
-                collection = ctx.plugin_resolved_collection
-                if not collection and plugin in filectx.templar.environment.tests:
-                    collection = filectx.templar.environment.tests[plugin].__module__
-                    convert_it = True
-                if not collection and plugintype == jinja2.nodes.Test:
-                    logging.warning(
-                        f"{filectx.filename}:{filectx.lineno}:test plugin named {plugin} not found"
-                    )
-                    return ("UNKNOWN", "test")
-            if collection:
-                returntype = "test"
-        if not collection and plugintype == jinja2.nodes.Call:
-            ctx = lookup_loader.find_plugin_with_context(plugin)
-            if ctx.plugin_resolved_collection:
-                collection = ctx.plugin_resolved_collection
-                returntype = "lookup"
-            elif is_builtin(plugin, filectx):
-                collection = ANSIBLE_BUILTIN
-                returntype = "lookup"
-        if not collection and plugin in jinja2_macros:
-            collection = "macro"
-            returntype = "macro"
-    if not collection:
-        logging.warning(
-            f"{filectx.filename}:{filectx.lineno}:plugin named {plugin} not found"
-        )
-        collection = "UNKNOWN"
-    # convert collection to namespace.name format if in python module format
-    if convert_it:
-        if collection == "genericpath":
-            collection = ANSIBLE_BUILTIN
-        elif collection == "json":
-            collection = ANSIBLE_BUILTIN
-        elif collection == "ansible.template":
-            collection = ANSIBLE_BUILTIN
-        elif collection == "itertools":
-            collection = ANSIBLE_BUILTIN
-        elif collection.startswith("ansible_collections.ansible.builtin"):
-            collection = ANSIBLE_BUILTIN
-        elif collection.startswith("ansible.plugins."):
-            collection = ANSIBLE_BUILTIN
-    return (collection, returntype)
 
 
 def find_plugins(args, filectx):
@@ -475,6 +389,10 @@ def process_ansible_yml_path(yml_path, ctx):
 
 
 def process_role_meta_path(meta_path, ctx):
+    reqs_file = os.path.join(meta_path, "requirements.yml")
+    if os.path.isfile(reqs_file):
+        ctx.role_reqs = yaml.safe_load(open(reqs_file))
+        ctx.add_dependencies()
     meta_main = os.path.join(meta_path, "main.yml")
     if os.path.isfile(meta_main) and not os.path.islink(meta_main):
         process_yml_file(meta_main, ctx)
@@ -589,6 +507,7 @@ def process_collection(pathname, ctx):
     if ctx.found_collection_name is None:
         ctx.found_collection_name = ".".join(collection_pth.parts[-2:])
     ctx.enter_collection(ctx.found_collection_name, pathname)
+    ctx.add_dependencies()
     get_collection_plugins(pathname, ctx)
     process_collection_roles(str(collection_pth / "roles"), ctx)
     process_collection_tests(str(collection_pth / "tests"), ctx)
@@ -622,6 +541,17 @@ def process_path(pathname, ctx):
         logging.warning(f"{pathname} is not a recognized path - skipping")
 
 
+def collection_match(coll1, coll2):
+    return coll1 == coll2 or coll2.startswith(coll1 + ".")
+
+
+def is_builtin_collection(collection):
+    for coll in COLLECTION_BUILTINS:
+        if collection_match(coll, collection):
+            return True
+    return False
+
+
 class SearchCtx(object):
     def __init__(self):
         self.reset()
@@ -639,6 +569,11 @@ class SearchCtx(object):
         self.role_pathname = None
         self.lineno = 0
         self.in_collection_integration_tests = False
+        self.errors = 0
+        self.dependencies = []  # collection and/or role dependencies
+        self.role_reqs = {}  # role meta/requirements.yml, if any
+        self.manifest_json = {}
+        self.galaxy_yml = {}
 
     def enter_collection(self, collection_name, pathname):
         if len(self.collection_name) > 0:
@@ -647,6 +582,7 @@ class SearchCtx(object):
             )
         self.collection_name.append(collection_name)
         self.local_plugins.insert(0, set())
+        self.dependencies.insert(0, set())
         self.pathname = pathname
 
     def exit_collection(self):
@@ -656,7 +592,11 @@ class SearchCtx(object):
         self.found_collection_name = None
         if len(self.local_plugins) > 0:
             del self.local_plugins[0]
+        if len(self.dependencies) > 0:
+            del self.dependencies[0]
         self.pathname = None
+        self.manifest_json = {}
+        self.galaxy_yml = {}
 
     def enter_role(self, role_name, pathname):
         if self.in_tests():
@@ -665,6 +605,7 @@ class SearchCtx(object):
             self.role_pathname = pathname
         self.role_name.append(role_name)
         self.local_plugins.insert(0, set())
+        self.dependencies.insert(0, set())
 
     def exit_role(self):
         if len(self.role_name) < 1:
@@ -675,8 +616,11 @@ class SearchCtx(object):
         self.found_role_name = None
         if len(self.local_plugins) > 0:
             del self.local_plugins[0]
+        if len(self.dependencies) > 0:
+            del self.dependencies[0]
         if len(self.role_name) == 0:
             self.role_pathname = None
+        self.role_reqs = {}
 
     def enter_tests(self):
         self.tests_stack.append(True)
@@ -716,14 +660,18 @@ class SearchCtx(object):
                     + "."
                     + hsh["collection_info"]["name"]
                 )
+                self.manifest_json = hsh
             return True
         galaxy_yml = Path(os.path.join(pathname, "galaxy.yml"))
         if galaxy_yml.is_file():
             with open(galaxy_yml) as gyf:
                 hsh = yaml.safe_load(gyf)
                 self.found_collection_name = hsh["namespace"] + "." + hsh["name"]
+                self.galaxy_yml = hsh
             return True
         self.found_collection_name = None
+        self.manifest_json = {}
+        self.galaxy_yml = {}
         return False
 
     def is_role(self, pathname):
@@ -812,22 +760,29 @@ class SearchCtx(object):
             plugin_type = "module"
         elif self.is_local_plugin(plugin_name):
             logging.debug(
-                f"\tplugin {plugin_name}:{plugin_type} at {pathname}:{lineno} is local to the collection/role"
+                f"\tplugin {plugin_name}:{plugin_type} at {relpth}:{lineno} is local to the collection/role"
             )
             return
         elif self.templar.is_template(plugin_name):
             logging.warning(
-                f"Unable to find plugin from template [{plugin_name}] at {pathname}:{lineno}"
+                f"Unable to find plugin from template [{plugin_name}] at {relpth}:{lineno}"
             )
             return
         else:
-            collection, plugin_type = get_plugin_collection(
-                plugin_name, plugin_type, self
+            collection, plugin_type = self.get_plugin_collection(
+                plugin_name,
+                plugin_type,
             )
-        if not collection:
-            raise Exception(
-                f"Unable to determine collection name for plugin {plugin_name}:{plugin_type} at {pathname}:{lineno}"
+        if (
+            collection != "UNKNOWN"
+            and collection != "macro"
+            and not is_builtin_collection(collection)
+            and not self.is_dependency(collection)
+        ):
+            logging.error(
+                f"collection {collection} is not declared as a dependency for plugin {plugin_name} at {relpth}:{lineno}"
             )
+            self.errors += 1
         if plugin_name.startswith("ansible.builtin."):
             plugin_name = plugin_name.replace("ansible.builtin.", "")
         self.plugins.append(
@@ -849,16 +804,113 @@ class SearchCtx(object):
         else:
             return other_lineno
 
+    def get_plugin_collection(self, plugin, plugintype):
+        """Find the collection that the plugin comes from.  Some plugins
+        may come from jinja2 e.g. builtin filters and tests.  The plugintype
+        field specifies the plugin type - "module" means an Ansible module,
+        or one of the jinja2 types like jinja2.nodes.Filter.  If the plugintype
+        is an ambiguous type like jinja2.nodes.Call, this function will first
+        look for filters, then tests, then lookups."""
+        collection = None
+        convert_it = False
+        if plugintype == "module":
+            ctx = module_loader.find_plugin_with_context(plugin)
+            collection = ctx.plugin_resolved_collection
+            if not collection:
+                logging.error(
+                    f"{self.filename}:{self.lineno}:module plugin named {plugin} not found"
+                )
+                collection = "UNKNOWN"
+                self.errors += 1
 
-def collection_match(coll1, coll2):
-    return coll1 == coll2 or coll2.startswith(coll1 + ".")
+            return (collection, "module")
+        else:
+            if plugintype in [jinja2.nodes.Filter, jinja2.nodes.Call]:
+                if plugin in jinja2.defaults.DEFAULT_NAMESPACE:
+                    collection = "jinja2.defaults"
+                elif plugin in jinja2.filters.FILTERS:
+                    collection = "jinja2.filters"
+                else:
+                    ctx = filter_loader.find_plugin_with_context(plugin)
+                    collection = ctx.plugin_resolved_collection
+                    if not collection and plugin in self.templar.environment.filters:
+                        collection = self.templar.environment.filters[plugin].__module__
+                        convert_it = True
+                    if not collection and plugintype == jinja2.nodes.Filter:
+                        logging.error(
+                            f"{self.filename}:{self.lineno}:filter plugin named {plugin} not found"
+                        )
+                        collection = "UNKNOWN"
+                        self.errors += 1
+                if collection:
+                    returntype = "filter"
+            if not collection and plugintype in [jinja2.nodes.Test, jinja2.nodes.Call]:
+                if plugin in jinja2.tests.TESTS:
+                    collection = "jinja2.tests"
+                else:
+                    ctx = test_loader.find_plugin_with_context(plugin)
+                    collection = ctx.plugin_resolved_collection
+                    if not collection and plugin in self.templar.environment.tests:
+                        collection = self.templar.environment.tests[plugin].__module__
+                        convert_it = True
+                    if not collection and plugintype == jinja2.nodes.Test:
+                        logging.error(
+                            f"{self.filename}:{self.lineno}:test plugin named {plugin} not found"
+                        )
+                        self.errors += 1
+                        return ("UNKNOWN", "test")
+                if collection:
+                    returntype = "test"
+            if not collection and plugintype == jinja2.nodes.Call:
+                ctx = lookup_loader.find_plugin_with_context(plugin)
+                if ctx.plugin_resolved_collection:
+                    collection = ctx.plugin_resolved_collection
+                    returntype = "lookup"
+                elif is_builtin(plugin):
+                    collection = ANSIBLE_BUILTIN
+                    returntype = "lookup"
+            if not collection and plugin in jinja2_macros:
+                collection = "macro"
+                returntype = "macro"
+        if not collection:
+            logging.error(
+                f"{self.filename}:{self.lineno}:plugin named {plugin} not found"
+            )
+            collection = "UNKNOWN"
+            returntype = "UNKNOWN"
+            self.errors += 1
+        # convert collection to namespace.name format if in python module format
+        if convert_it:
+            if collection == "genericpath":
+                collection = ANSIBLE_BUILTIN
+            elif collection == "json":
+                collection = ANSIBLE_BUILTIN
+            elif collection == "ansible.template":
+                collection = ANSIBLE_BUILTIN
+            elif collection == "itertools":
+                collection = ANSIBLE_BUILTIN
+            elif collection.startswith("ansible_collections.ansible.builtin"):
+                collection = ANSIBLE_BUILTIN
+            elif collection.startswith("ansible.plugins."):
+                collection = ANSIBLE_BUILTIN
+        return (collection, returntype)
 
+    def add_dependencies(self):
+        for dep in self.manifest_json.get("dependencies", {}):
+            self.dependencies[0].add(dep)
+        for dep in self.galaxy_yml.get("dependencies", {}):
+            self.dependencies[0].add(dep)
+        for dep in self.role_reqs.get("collections", []):
+            if isinstance(dep, dict):
+                self.dependencies[0].add(dep["name"])
+            else:
+                self.dependencies[0].add(dep)
 
-def is_builtin_collection(collection):
-    for coll in COLLECTION_BUILTINS:
-        if collection_match(coll, collection):
-            return True
-    return False
+    def is_dependency(self, coll_name):
+        for dep_set in self.dependencies:
+            if coll_name in dep_set:
+                return True
+        return False
 
 
 def usage():
@@ -909,9 +961,11 @@ def main():
     testing_plugins = {}
     runtime_plugins = {}
     ctx = SearchCtx()
+    errors = 0
     for pth in args.paths:
         process_path(pth, ctx)
         all_plugins.extend(ctx.plugins)
+        errors += ctx.errors
         ctx.reset()
     for item in all_plugins:
         if item.type == "macro":
@@ -979,6 +1033,8 @@ def main():
                     else:
                         print(f"\t\tfile: {relpth} lines: {len(location_item[relpth])}")
         print("\n")
+        print(f"Found {errors} errors")
+        return errors
 
 
 if __name__ == "__main__":

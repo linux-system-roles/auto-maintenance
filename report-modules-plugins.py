@@ -31,6 +31,8 @@ ANSIBLE_BUILTIN = "ansible.builtin"
 
 JINJA2_BUILTIN = "jinja2"
 
+LOCAL = "local"
+
 COLLECTION_BUILTINS = {ANSIBLE_BUILTIN, JINJA2_BUILTIN}
 
 ROLE_DIRS = [
@@ -177,7 +179,7 @@ class PluginItem(object):
         ary = self.split_fqcn(name)
         self.name = ary[-1]
         self.collection = collection
-        if len(ary) > 1 and not ary[0] == collection:
+        if collection != LOCAL and len(ary) > 1 and not ary[0] == collection:
             raise Exception(
                 f"Given collection name {collection} does not match the plugin FQCN {name}"
             )
@@ -198,6 +200,17 @@ class PluginItem(object):
             elif ary[0] == "community.general.system":
                 ary[0] = "community.general"
         return ary
+
+
+def node2plugin_type(nodetype):
+    if nodetype == jinja2.nodes.Filter:
+        return "filter"
+    elif nodetype == jinja2.nodes.Test:
+        return "test"
+    elif nodetype == jinja2.nodes.Macro:
+        return "macro"
+    else:
+        return "module"
 
 
 def find_plugins(args, filectx):
@@ -766,10 +779,11 @@ class SearchCtx(object):
                         self._load_plugins_from_file(
                             plugin_subdir, plugin_file, plugins
                         )
-                    except:
+                    except Exception as exc:
                         logging.error(
                             "Could not parse plugins from {plugin_file} - skipping"
                         )
+                        logging.debug("Exception %s", exc)
                         continue
                 if (
                     not plugins
@@ -804,10 +818,11 @@ class SearchCtx(object):
             collection = ANSIBLE_BUILTIN
             plugin_type = "module"
         elif self.is_local_plugin(plugin_name):
+            collection = LOCAL
+            plugin_type = node2plugin_type(plugin_type)
             logging.debug(
                 f"\tplugin {plugin_name}:{plugin_type} at {relpth}:{lineno} is local to the collection/role"
             )
-            return
         elif self.templar.is_template(plugin_name):
             logging.warning(
                 f"Unable to find plugin from template [{plugin_name}] at {relpth}:{lineno}"
@@ -821,6 +836,7 @@ class SearchCtx(object):
         if (
             collection != "UNKNOWN"
             and collection != "macro"
+            and collection != LOCAL
             and not is_builtin_collection(collection)
             and not self.is_dependency(collection)
         ):
@@ -1037,12 +1053,14 @@ def main():
             location_item = subitem["collections"].setdefault(location, {})
         location_item.setdefault(item.relpth, []).append(item.lineno)
 
+    builtin_collections = COLLECTION_BUILTINS
+    builtin_collections.add(LOCAL)
     for hsh in [runtime_plugins, testing_plugins]:
         if hsh == runtime_plugins:
             desc = "at runtime"
         else:
             desc = "in testing"
-        for collection in COLLECTION_BUILTINS:
+        for collection in builtin_collections:
             for plugintype in ["module", "filter", "test", "lookup"]:
                 thelist = [
                     xx["name"]

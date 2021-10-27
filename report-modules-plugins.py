@@ -105,7 +105,7 @@ def get_file_type(item):
     elif isinstance(item, AnsibleSequence):
         return "tasks"
     else:
-        raise Exception(f"Error: unknown type of file: {item}")
+        return "unknown"
 
 
 def get_item_type(item):
@@ -268,7 +268,13 @@ def find_plugins(args, filectx):
     elif isinstance(args, (bool, int, float)):
         pass
     else:
-        raise Exception(f"ERROR: I don't know how to handle {args.__class__}")
+        logging.error(
+            "Ignoring module argument %s of type %s at %s:%s",
+            args,
+            args.__class__,
+            filectx.filename,
+            filectx.get_lineno(1),
+        )
     return
 
 
@@ -292,7 +298,8 @@ def handle_task(task, filectx):
     try:
         action, args, _ = mod_arg_parser.parse(skip_action_validation=True)
     except AnsibleParserError as e:
-        raise SystemExit("Couldn't parse task at %s (%s)\n%s" % (task, e.message, task))
+        logging.warning("Couldn't parse task at %s (%s)\n%s" % (task, e.message, task))
+        return
     filectx.lineno = task.ansible_pos[1]
     if filectx.templar.is_template(args):
         logging.debug(f"\tmodule {action} has template {args}")
@@ -353,6 +360,10 @@ def process_yml_file(filepath, ctx):
         __do_handle_vars(ans_data, ctx)
     elif file_type == "meta":
         handle_meta(ans_data, ctx)
+    elif ctx.in_tests() and filepath.endswith("requirements.yml"):
+        handle_meta(ans_data, ctx)
+    elif file_type == "unknown":
+        logging.warning("Skipping file of unknown type: %s", filepath)
     else:
         for item in ans_data:
             handle_item(item, ctx)
@@ -689,22 +700,48 @@ class SearchCtx(object):
         file_str = open(filename).read()
         match = re.search(r"\n(class FilterModule.*?)(\n\S|$)", file_str, re.S)
         if match and match.group(1):
-
-            class MissingDict(dict):
-                def __getitem__(self, key):
-                    # print("in getitem " + key)
-                    if key == "object":
-                        return object
-                    val = dict.get(self, key)
-                    return val
-
-            missinglocals = MissingDict()
-            missingglobals = MissingDict()
+            myg = {}
+            myl = {}
             code_str = match.group(1) + "\n"
-            exec(code_str, missingglobals, missinglocals)
-            fm = missinglocals["FilterModule"]()
-            fltrs = fm.filters()
-            plugins.update(set(fltrs.keys()))
+            while True:
+                try:
+                    exec(code_str, myg, myl)
+                    fm = myl["FilterModule"]()
+                    fltrs = fm.filters()
+                    plugins.update(set(fltrs.keys()))
+                    break
+                except NameError as ne:
+                    match = re.match(r"^name '(\S+)' is not defined$", str(ne))
+                    if match and match.groups() and match.group(1):
+                        myg[match.group(1)] = True
+                        myl[match.group(1)] = True
+                    else:
+                        logging.error(
+                            "unable to parse filter plugins from {filename}: {code_str}"
+                        )
+                        raise ne
+        match = re.search(r"\n(class TestModule.*?)(\n\S|$)", file_str, re.S)
+        if match and match.group(1):
+            myg = {}
+            myl = {}
+            code_str = match.group(1) + "\n"
+            while True:
+                try:
+                    exec(code_str, myg, myl)
+                    fm = myl["TestModule"]()
+                    tests = fm.tests()
+                    plugins.update(set(tests.keys()))
+                    break
+                except NameError as ne:
+                    match = re.match(r"^name '(\S+)' is not defined$", str(ne))
+                    if match and match.groups() and match.group(1):
+                        myg[match.group(1)] = True
+                        myl[match.group(1)] = True
+                    else:
+                        logging.error(
+                            "unable to parse test plugins from {filename}: {code_str}"
+                        )
+                        raise ne
 
     # I think this method is not possible - loading an entire module has a
     # much larger chance of random code execution than just the FilterModule
@@ -725,7 +762,15 @@ class SearchCtx(object):
             for plugin_file in plugin_subdir.iterdir():
                 plugins = set()
                 if plugin_file.is_file() and str(plugin_file).endswith(".py"):
-                    self._load_plugins_from_file(plugin_subdir, plugin_file, plugins)
+                    try:
+                        self._load_plugins_from_file(
+                            plugin_subdir, plugin_file, plugins
+                        )
+                    except:
+                        logging.error(
+                            "Could not parse plugins from {plugin_file} - skipping"
+                        )
+                        continue
                 if (
                     not plugins
                     and plugin_file.is_file()

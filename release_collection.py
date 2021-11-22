@@ -182,7 +182,7 @@ def role_to_collection(
             sys.executable,
             "lsr_role2collection.py",
             "--src-owner",
-            DEFAULT_GIT_ORG,
+            args.src_owner,
             "--role",
             rolename,
             "--src-path",
@@ -317,7 +317,7 @@ def update_collection(args, galaxy, coll_rel):
                 args,
                 rolename,
                 coll_rel[rolename]["ref"],
-                coll_rel[rolename].get("org", DEFAULT_GIT_ORG),
+                coll_rel[rolename].get("org", args.src_owner),
                 coll_rel[rolename].get("repo", rolename),
             )
             if tag or cm_hash:
@@ -493,6 +493,12 @@ def main():
         type=str,
         default=os.environ.get("COLLECTION_SRC_PATH"),
         help="Path to the directory containing the local clone of the role repos",
+    )
+    parser.add_argument(
+        "--src-owner",
+        type=str,
+        default=os.environ.get("COLLECTION_SRC_OWNER", DEFAULT_GIT_ORG),
+        help="Name of the role owner, in legacy role format OWNER.ROLENAME",
     )
     parser.add_argument(
         "--dest-path",

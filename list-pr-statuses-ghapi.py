@@ -33,15 +33,14 @@ DEFAULT_EXCLUDES = [
     "tuned",
 ]
 
-DEFAULT_ANSIBLES = ["ansible-2.9"]
+DEFAULT_ANSIBLES = ["ansible-2.9", "ansible-2.12"]
 
 DEFAULT_PLATFORMS = [
     "centos-6",
     "centos-7",
     "centos-8",
-    "fedora-32",
-    "fedora-33",
     "fedora-34",
+    "fedora-35",
     "rhel-6",
     "rhel-7",
     "rhel-8-y",
@@ -51,7 +50,7 @@ DEFAULT_PLATFORMS = [
 
 DEFAULT_STATES = ["pending", "failure", "success", "abandoned", "error"]
 
-DEFAULT_ENVIRONMENTS = ["staging", "production"]
+DEFAULT_ENVIRONMENTS = ["el7", "staging", "production"]
 
 
 def match_environment(env, status, args):
@@ -61,6 +60,8 @@ def match_environment(env, status, args):
         env = "staging"
     elif env.endswith(" (staging)"):
         env = "staging"
+    elif env.endswith(" (el7)"):
+        env = "el7"
     else:
         env = "production"
     return env in args.env

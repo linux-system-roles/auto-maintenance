@@ -21,7 +21,7 @@ view_diffs() {
         action=""
         for hsh in $(git log --pretty=format:%h --no-merges --reverse "${tag}.."); do
             git show --stat "$hsh"
-            read -r -p 'View full diff (y)? Start over (s)? Quit (q)? ' action
+            read -r -p 'View full diff (y)? Start over (s)? Quit viewing diffs (q)? Next commit (n)? (default: n) ' action
             if [ "$action" = y ]; then
                 git show "$hsh"
             elif [ "$action" = s ] || [ "$action" = q ]; then
@@ -35,11 +35,19 @@ view_diffs() {
     done
 }
 
-mainbr=$(git branch -r | awk '/origin[/]HEAD/ {sub("origin/", "", $3); print $3}')
-git checkout "$mainbr"
+git fetch --all
+if git checkout main 2> /dev/null; then
+    mainbr=main
+elif git checkout master; then
+    mainbr=master
+else
+    echo ERROR: could not checkout either main or master
+    git remote -vv
+    exit 1
+fi
 git pull
 
-read -r -p 'Examine role? ' examine_role
+read -r -p 'Examine role (y)? (default: n) ' examine_role
 if [ "${examine_role:-n}" = y ]; then
     # get latest tag
     latest_tag=$(git describe --tags --abbrev=0)
@@ -47,39 +55,51 @@ if [ "${examine_role:-n}" = y ]; then
     case "$latest_tag" in
     v*) latest_tag="${latest_tag//v}" ;;
     esac
-    echo commits since latest tag "$latest_tag"
-
-    # get the commits since the tag
-    git log --oneline --no-merges --reverse "${latest_tag}"..
-
-    # see the changes?
-    read -r -p 'View changes? ' view_changes
-    if [ "${view_changes:-n}" = y ]; then
-        view_diffs "${latest_tag}"
-    fi
-
-    read -r -p "Old tag is $latest_tag - what is the new tag? " new_tag
-    if [ -n "${new_tag}" ]; then
-        read -r -p 'Edit release notes? ' rel_notes
-        if [ "${rel_notes:-n}" = y ]; then
-            rel_notes_file=".release-notes-${new_tag}"
-            if [ ! -f "$rel_notes_file" ]; then
-                echo title goes here > "$rel_notes_file"
-                echo "" >> "$rel_notes_file"
-                git log --oneline --no-merges --reverse --pretty=format:"# %B" "${latest_tag}".. >> "$rel_notes_file"
-            fi
-            ${EDITOR:-vi} "$rel_notes_file"
-            read -r -p 'Create new github release? ' create_release
-            if [ "${create_release:-n}" = y ]; then
-                hub release create -t "$mainbr" -F "$rel_notes_file" "$new_tag"
-                read -r -p 'Publish to Galaxy? ' publish_galaxy
-                if [ "${publish_galaxy:-n}" = y ]; then
-                    # note - bug with --no-wait - KeyError: 'github_user'
-                    # repo and LSR_GH_ORG are referenced but not assigned.
-                    # shellcheck disable=SC2154
-                    ansible-galaxy role import --branch "$mainbr" "$LSR_GH_ORG" "$repo"
-                fi
-            fi
+    # get the number of commits since latest tag
+    count=$(git log --oneline --no-merges --reverse "${latest_tag}".. | wc -l)
+    if [ "${count:-0}" = 0 ]; then
+        echo There are no commits since latest tag "$latest_tag"
+        echo ""
+    else
+        echo Commits since latest tag "$latest_tag"
+        # get the commits since the tag
+        git log --oneline --no-merges --reverse "${latest_tag}"..
+        # see the changes?
+        read -r -p 'View changes (y)? (default: n) ' view_changes
+        if [ "${view_changes:-n}" = y ]; then
+            view_diffs "${latest_tag}"
         fi
+    fi
+    echo "If you want to continue, enter the new tag in the form X.Y.Z"
+    echo "where X, Y, and Z are integers corresponding to the semantic"
+    echo "version based on the changes above."
+    echo "Or, just press Enter to skip this role and go to the next role."
+    read -r -p "Old tag is $latest_tag - new tag? (or Enter to skip) " new_tag
+    if [ -n "${new_tag}" ]; then
+        read -r -p "Edit release notes - press Enter to continue"
+        rel_notes_file=".release-notes-${new_tag}"
+        if [ ! -f "$rel_notes_file" ]; then
+            echo title goes here > "$rel_notes_file"
+            echo "" >> "$rel_notes_file"
+            git log --oneline --no-merges --reverse --pretty=format:"# %B" "${latest_tag}".. | \
+                tr -d '\r' >> "$rel_notes_file"
+        fi
+        ${EDITOR:-vi} "$rel_notes_file"
+        if [ -f CHANGELOG.md ]; then
+            read -r -p "Edit CHANGELOG.md - press Enter to continue"
+            cat "$rel_notes_file" CHANGELOG.md > .tmp-changelog
+            mv .tmp-changelog CHANGELOG.md
+            ${EDITOR:-vi} CHANGELOG.md
+            git add CHANGELOG.md
+            git commit -F "$rel_notes_file"
+            git push origin "$mainbr"
+        fi
+        read -r -p 'Create new github release - press Enter to continue'
+        hub release create -t "$mainbr" -F "$rel_notes_file" "$new_tag"
+        read -r -p 'Publish to Galaxy - press Enter to continue'
+        # note - bug with --no-wait - KeyError: 'github_user'
+        # repo and LSR_GH_ORG are referenced but not assigned.
+        # shellcheck disable=SC2154
+        ansible-galaxy role import --branch "$mainbr" "$LSR_GH_ORG" "$repo"
     fi
 fi

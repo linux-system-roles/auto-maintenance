@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-"""Update requirements.yml with latest collection versions."""
 
 import argparse
 import os
@@ -7,18 +6,106 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import yaml
-import tarfile
+import glob
+
+
+def set_rpkg_cmd(target_os):
+    if target_os == "centos-stream":
+        return "centpkg"
+    elif target_os == "rhel":
+        return "rhpkg"
+    else:
+        raise NameError("The --target-os argument must be set to either centos-stream or rhel")
+
+
+def run_cmd(cmd, cwd):
+    try:
+        cmd_out = subprocess.run(cmd, stdout=subprocess.PIPE, encoding="utf-8", cwd=cwd)
+        return cmd_out
+    except subprocess.CalledProcessError as e:
+        return e.output
+
+
+def get_updated_collection_tarball(coll):
+    coll_name = coll["name"]
+    cmd = [
+        "ansible-galaxy",
+        "collection",
+        "download",
+        "-n",
+        "-p",
+        ".",
+        coll_name,
+    ]
+    print(f"Downloading the {coll_name} collection tarball")
+    cmd_out = run_cmd(cmd, os.path.curdir)
+    pat = f"Collection '{coll_name}:([^']+)' was downloaded successfully"
+    coll_latest_ver = re.search(pat, cmd_out.stdout).group(1)
+    coll_tar = coll_name.replace(".", "-") + "-" + coll_latest_ver + ".tar.gz"
+    if coll_latest_ver == coll["version"]:
+        print(f"{coll_name} {coll_latest_ver} is of latest version, removing {coll_tar}")
+        os.remove(coll_tar)
+        return {}
+    else:
+        print(f"{coll_name} has update {coll_latest_ver}")
+        return {coll_name: coll_tar}
+
+
+def clone_repo(rpkg_cmd, branch, repo):
+    cmd = [
+        rpkg_cmd,
+        "clone",
+        repo,
+        "--branch",
+        branch,
+        "--",
+        "--single-branch",
+    ]
+    print(f"Cloning {repo}")
+    run_cmd(cmd, os.path.curdir)
+
+
+def move_tarballs_to_repo(collection_tarballs, repo):
+    print(f"Moving {', '.join(collection_tarballs.values())} to {repo}")
+    for tarball in collection_tarballs.values():
+        shutil.move(os.path.abspath(tarball), os.path.join(repo, tarball))
+
+
+def upload_sources(rpkg_cmd, collection_tarballs, repo):
+    print(f"Uploading {', '.join(collection_tarballs.values())} sources to {repo}")
+    cmd = [rpkg_cmd, "upload", *collection_tarballs.values()]
+    run_cmd(cmd, repo)
+
+
+def replace_sources_in_spec(collection_tarballs, repo):
+    print("Replacing sources in the spec file")
+    for collection, tarball in collection_tarballs.items():
+        with open(os.path.join(repo, "linux-system-roles.spec"), "r") as f:
+            content = f.read()
+            re.sub(collection + ".*$", tarball, content, flags=re.M)
+
+
+def scratch_build(rpkg_cmd, repo):
+    print("Building SRPM")
+    cmd = [rpkg_cmd, "srpm"]
+    run_cmd(cmd, repo)
+    print("Performing the scratch build using the SRPM")
+    srpm = glob.glob(os.path.join(repo, "*.src.rpm"))
+    cmd = [rpkg_cmd, "scratch-build", "--srpm", os.path.basename(srpm[0]), "--nowait"]
+    cmd_out = run_cmd(cmd, repo)
+    pat = "Task info: (.*$)"
+    build_url = re.search(pat, cmd_out.stdout).group(1)
+    return build_url
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--vendored_collections",
+        "--requirements",
         type=str,
-        default=os.environ.get("VENDORED_COLLECTIONS", "vendored_collections.yml"),
-        help="Path/filename for vendored_collections.yml",
+        default=os.environ.get("REQUIREMENTS_YML", "requirements.yml"),
+        help="Path/filename for requirements.yml",
     )
     parser.add_argument(
         "--target-os",
@@ -27,154 +114,32 @@ def main():
         help="The target OS to work on. Either centos-stream or rhel.",
     )
     parser.add_argument(
-        "--repo-url",
-        type=str,
-        default=os.environ.get("REPO_URL"),
-        help="The URL to the repository to work on.",
-    )
-    parser.add_argument(
         "--branch",
         type=str,
-        default=os.environ.get("BRANCH"),
+        default=os.environ.get("BRANCH", "c9s"),
         help="The branch of the repository to work on.",
     )
+
     args = parser.parse_args()
-
-    hsh = yaml.safe_load(open(args.vendored_collections))
-    collection_tarballs = {}
-
     target_os = args.target_os
-    repo_url = args.repo_url
     branch = args.branch
     repo = "rhel-system-roles"
-    if target_os == "centos-stream":
-        pkg_command = "centpkg"
-    elif target_os == "rhel":
-        pkg_command = "rhpkg"
-    else:
-        sys.exit(
-            "The --target-os argument must be set to either centos-stream or rhel"
-        )
+    rpkg_cmd = set_rpkg_cmd(target_os)
+    hsh = yaml.safe_load(open(args.requirements))
+    collection_tarballs = {}
 
     for coll in hsh["collections"]:
-        coll_install_dir = tempfile.mkdtemp()
-        coll_name = coll["name"]
-        coll_content_values = set()
-        for values in list(coll["content"].values()):
-            for value in values:
-                coll_content_values.add(value)
-        coll_dir = os.path.join(
-            coll_install_dir,
-            "ansible_collections",
-            coll_name.split(".")[0],
-            coll_name.split(".")[1],
-        )
-        cmd = [
-            "ansible-galaxy",
-            "collection",
-            "install",
-            "-n",
-            "-vv",
-            "--force",
-            "-p",
-            coll_install_dir,
-            coll_name,
-        ]
-        try:
-            """Get the latest version of the given collection"""
-            print(f"Installing the {coll_name} collection.")
-            out = subprocess.run(cmd, stdout=subprocess.PIPE, encoding="utf-8")
-            pat = f"Installing '{coll_name}:([^']+)' to"
-            coll_latest_ver = re.search(pat, out.stdout).group(1)
-            if coll_latest_ver == coll["version"]:
-                print(f"{coll_name} is of latest version. Skipping.")
-            else:
-                print(f"Searching {coll_name} changelog for updates.")
-                for value in coll_content_values:
-                    changelog = yaml.safe_load(
-                        open(os.path.join(coll_dir, "changelogs/changelog.yaml"))
-                    )
-                    item = re.search(
-                        value, yaml.dump(changelog["releases"][coll_latest_ver])
-                    )
-                    if item is not None:
-                        print(
-                            f"{item.group()} is mentioned in latest {coll_name} changelog."
-                        )
-                        """Add coll_name key to collection_tarballs"""
-                        collection_tarballs[coll_name] = ""
-            if coll_name in collection_tarballs.keys():
-                tar = tarfile.open(
-                    coll_name.replace(".", "-") + "-" + coll_latest_ver + ".tar.gz",
-                    "w:gz",
-                )
-                """Create collection tarballs"""
-                for name in os.listdir(coll_dir):
-                    tar.add(name=str(os.path.join(coll_dir, name)), arcname=str(name))
-                tar.close()
-                collection_tarballs[coll_name] = os.path.basename(tar.name)
-                print(f"Collection tarball {os.path.basename(tar.name)} is created.")
-            else:
-                print(
-                    f"Latest {coll_name} changelog does not list updates for the vendored modules."
-                )
-        finally:
-            shutil.rmtree(coll_install_dir)
+        collection_tarballs.update(get_updated_collection_tarball(coll))
     if len(collection_tarballs) != 0:
-        try:
-            print(
-                [
-                    "git",
-                    "clone",
-                    repo_url,
-                    "--branch",
-                    branch,
-                    "--single-branch",
-                ]
-            )
-            subprocess.run(
-                [
-                    "git",
-                    "clone",
-                    repo_url,
-                    "--branch",
-                    branch,
-                    "--single-branch",
-                ]
-            )
-            """Move tarballs to the repo directory"""
-            for tarball in collection_tarballs.values():
-                shutil.move(os.path.abspath(tarball), os.path.join(repo, tarball))
-            """Upload new sources"""
-            os.chdir(repo)
-            subprocess.run(
-                [pkg_command, "upload", " ".join(collection_tarballs.values())]
-            )
-            """Replace sources in the spec file"""
-            for collection, tarball in collection_tarballs.items():
-                with open("linux-system-roles.spec", "r") as f:
-                    content = f.read()
-                    re.sub(collection + ".*$", tarball, content, flags=re.M)
-            if pkg_command == "centpkg":
-                out = subprocess.run(
-                    [pkg_command, "scratch-build", "--nowait"],
-                    stdout=subprocess.PIPE,
-                    encoding="utf-8",
-                )
-            elif pkg_command == "rhpkg":
-                out = subprocess.run(
-                    [pkg_command, "scratch-build", "--srpm", "--nowait"],
-                    stdout=subprocess.PIPE,
-                    encoding="utf-8",
-                )
-            pat = "Task info: (.*$)"
-            build_url = re.search(pat, out.stdout).group(1)
-            print(f"Build info: {build_url}")
-            # TODO: Share build_url somewhere
-        finally:
-            print("Cleaning up the downloaded repository")
-            # os.chdir("..")
-            # shutil.rmtree(repo)
+        clone_repo(rpkg_cmd, branch, repo)
+        move_tarballs_to_repo(collection_tarballs, repo)
+        upload_sources(rpkg_cmd, collection_tarballs, repo)
+        replace_sources_in_spec(collection_tarballs, repo)
+        build_url = scratch_build(rpkg_cmd, repo)
+        # TODO: Share build_url somewhere
+        print(f"See build progress at {build_url}")
+        print("Cleaning up the downloaded repository")
+        shutil.rmtree(repo)
 
 
 if __name__ == "__main__":

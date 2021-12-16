@@ -40,6 +40,7 @@ ROLE_DIRS = [
     "defaults",
     "examples",
     "files",
+    "filter_plugins",
     "handlers",
     "library",
     "module_utils",
@@ -457,6 +458,7 @@ def process_role(role_path, is_real_role, ctx):
             ctx.found_role_name = get_role_name(role_path)
         ctx.enter_role(ctx.found_role_name, role_path)
         ctx.add_local_plugins(role_path, "library")
+        ctx.add_local_plugins(role_path, "filter_plugins")
     for dirname in ROLE_DIRS:
         dirpath = os.path.join(role_path, dirname)
         if not os.path.isdir(dirpath) or os.path.islink(dirpath):

@@ -16,7 +16,9 @@ def set_rpkg_cmd(target_os):
     elif target_os == "rhel":
         return "rhpkg"
     else:
-        raise NameError("The --target-os argument must be set to either centos-stream or rhel")
+        raise NameError(
+            "The --target-os argument must be set to either centos-stream or rhel"
+        )
 
 
 def run_cmd(cmd, cwd):
@@ -44,7 +46,9 @@ def get_updated_collection_tarball(coll):
     coll_latest_ver = re.search(pat, cmd_out.stdout).group(1)
     coll_tar = coll_name.replace(".", "-") + "-" + coll_latest_ver + ".tar.gz"
     if coll_latest_ver == coll["version"]:
-        print(f"{coll_name} {coll_latest_ver} is of latest version, removing {coll_tar}")
+        print(
+            f"{coll_name} {coll_latest_ver} is of latest version, removing {coll_tar}"
+        )
         os.remove(coll_tar)
         return {}
     else:

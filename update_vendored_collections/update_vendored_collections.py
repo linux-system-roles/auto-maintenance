@@ -115,8 +115,8 @@ def main():
     parser.add_argument(
         "--requirements",
         type=str,
-        default=os.environ.get("REQUIREMENTS_YML", "requirements.yml"),
-        help="Path/filename for requirements.yml",
+        default=os.environ.get("REQUIREMENTS_YML", "vendored_collections.yml"),
+        help="Path/filename for file containing vendored collections in the requirements.yml format",
     )
     parser.add_argument(
         "--target-os",

@@ -23,10 +23,12 @@ def set_rpkg_cmd(target_os):
 
 def run_cmd(cmd, cwd):
     try:
-        cmd_out = subprocess.run(cmd, stdout=subprocess.PIPE, encoding="utf-8", cwd=cwd)
+        cmd_out = subprocess.run(
+            cmd, encoding="utf-8", cwd=cwd, check=True, capture_output=True
+        )
         return cmd_out
     except subprocess.CalledProcessError as e:
-        return e.output
+        raise RuntimeError(e.stderr)
 
 
 def get_updated_collection_tarball(coll):
@@ -35,8 +37,8 @@ def get_updated_collection_tarball(coll):
         "ansible-galaxy",
         "collection",
         "download",
-        "-n",
-        "-p",
+        "--no-deps",
+        "--download-path",
         ".",
         coll_name,
     ]
@@ -45,6 +47,11 @@ def get_updated_collection_tarball(coll):
     pat = f"Collection '{coll_name}:([^']+)' was downloaded successfully"
     coll_latest_ver = re.search(pat, cmd_out.stdout).group(1)
     coll_tar = coll_name.replace(".", "-") + "-" + coll_latest_ver + ".tar.gz"
+    if "Skipping Galaxy server" in cmd_out.stderr:
+        os.remove(coll_tar)
+        raise RuntimeError(
+            "Cannot access Automation Hub, check if the token is provided"
+        )
     if coll_latest_ver == coll["version"]:
         print(
             f"{coll_name} {coll_latest_ver} is of latest version, removing {coll_tar}"
@@ -108,8 +115,8 @@ def main():
     parser.add_argument(
         "--requirements",
         type=str,
-        default=os.environ.get("REQUIREMENTS_YML", "requirements.yml"),
-        help="Path/filename for requirements.yml",
+        default=os.environ.get("REQUIREMENTS_YML", "vendored_collections.yml"),
+        help="Path/filename for file containing vendored collections in the requirements.yml format",
     )
     parser.add_argument(
         "--target-os",

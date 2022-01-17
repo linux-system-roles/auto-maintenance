@@ -17,7 +17,7 @@ logging:
 metrics:
   ref: 1.4.1
 nbde_client:
-  ref: 1.1.2
+  ref: 1.2.0
 nbde_server:
   ref: 1.1.2
 network:
@@ -35,7 +35,7 @@ sshd:
 storage:
   ref: 1.7.0
 timesync:
-  ref: 1.6.4
+  ref: 1.6.5
 tlog:
   ref: 1.2.3
 vpn:

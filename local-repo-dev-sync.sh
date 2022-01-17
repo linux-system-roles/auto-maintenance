@@ -62,7 +62,8 @@ repos=${REPOS:-$(gh_get_all orgs/linux-system-roles/repos '.[].name')}
 EXCLIST=${EXCLIST:-"test-harness linux-system-roles.github.io sap-base-settings \
                     sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
                     auto-maintenance image_builder sap-netweaver-preconfigure ci-testing \
-                    meta_test tox-lsr tuned .github lsr-gh-action-py26 ee_linux_system_roles"}
+                    meta_test tox-lsr tuned .github lsr-gh-action-py26 \
+                    ee_linux_system_roles ee_linux_automation"}
 declare -A EXARRAY
 for repo in $EXCLIST; do
     # EXARRAY is a "set" of excluded repos

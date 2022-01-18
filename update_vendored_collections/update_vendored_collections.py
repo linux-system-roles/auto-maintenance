@@ -64,6 +64,9 @@ def get_updated_collection_tarball(coll):
 
 
 def clone_repo(rpkg_cmd, branch, repo):
+    if os.path.exists(repo):
+        print(f"{repo} directory already exists, removing")
+        shutil.rmtree(repo)
     # --anonymous is required to clone over HTTPS and avoid SSH authentication
     cmd = [
         rpkg_cmd,

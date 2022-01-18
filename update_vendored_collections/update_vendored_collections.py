@@ -10,17 +10,6 @@ import yaml
 import glob
 
 
-def set_rpkg_cmd(target_os):
-    if target_os == "centos-stream":
-        return "centpkg"
-    elif target_os == "rhel":
-        return "rhpkg"
-    else:
-        raise NameError(
-            "The --target-os argument must be set to either centos-stream or rhel"
-        )
-
-
 def run_cmd(cmd, cwd):
     try:
         cmd_out = subprocess.run(
@@ -70,8 +59,8 @@ def clone_repo(rpkg_cmd, branch, repo):
     # --anonymous is required to clone over HTTPS and avoid SSH authentication
     cmd = [
         rpkg_cmd,
-        "--anonymous",
         "clone",
+        "--anonymous",
         repo,
         "--branch",
         branch,
@@ -124,12 +113,6 @@ def main():
         help="Path/filename for file containing vendored collections in the requirements.yml format",
     )
     parser.add_argument(
-        "--target-os",
-        type=str,
-        default=os.environ.get("TARGET_OS", "centos-stream"),
-        help="The target OS to work on. Either centos-stream or rhel.",
-    )
-    parser.add_argument(
         "--branch",
         type=str,
         default=os.environ.get("BRANCH", "c9s"),
@@ -137,21 +120,21 @@ def main():
     )
 
     args = parser.parse_args()
-    target_os = args.target_os
     branch = args.branch
     repo = "rhel-system-roles"
-    rpkg_cmd = set_rpkg_cmd(target_os)
+    centpkg_cmd = "centpkg"
+    fedpkg_cmd = "fedpkg"
     hsh = yaml.safe_load(open(args.requirements))
     collection_tarballs = {}
 
     for coll in hsh["collections"]:
         collection_tarballs.update(get_updated_collection_tarball(coll))
     if len(collection_tarballs) != 0:
-        clone_repo(rpkg_cmd, branch, repo)
+        clone_repo(centpkg_cmd, branch, repo)
         move_tarballs_to_repo(collection_tarballs, repo)
-        upload_sources(rpkg_cmd, collection_tarballs, repo)
+        upload_sources(centpkg_cmd, collection_tarballs, repo)
         replace_sources_in_spec(collection_tarballs, repo)
-        build_url = scratch_build(rpkg_cmd, repo)
+        build_url = scratch_build(centpkg_cmd, repo)
         # TODO: Share build_url somewhere
         print(f"See build progress at {build_url}")
         print("Cleaning up the downloaded repository")

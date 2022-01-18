@@ -64,8 +64,10 @@ def get_updated_collection_tarball(coll):
 
 
 def clone_repo(rpkg_cmd, branch, repo):
+    # --anonymous is required to clone over HTTPS and avoid SSH authentication
     cmd = [
         rpkg_cmd,
+        "--anonymous",
         "clone",
         repo,
         "--branch",

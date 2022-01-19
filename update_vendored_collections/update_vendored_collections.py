@@ -115,16 +115,10 @@ def main():
         default=os.environ.get("REQUIREMENTS_YML", "vendored_collections.yml"),
         help="Path/filename for file containing vendored collections in the requirements.yml format",
     )
-    parser.add_argument(
-        "--branch",
-        type=str,
-        default=os.environ.get("BRANCH", "c9s"),
-        help="The branch of the repository to work on.",
-    )
 
     args = parser.parse_args()
-    branch = args.branch
-    repo = "rhel-system-roles"
+    centos_repo = "rhel-system-roles"
+    fedora_repo = "linux-system-roles"
     centpkg_cmd = "centpkg"
     fedpkg_cmd = "fedpkg"
     hsh = yaml.safe_load(open(args.requirements))
@@ -133,16 +127,15 @@ def main():
     for coll in hsh["collections"]:
         collection_tarballs.update(get_updated_collection_tarball(coll))
     if len(collection_tarballs) != 0:
-        clone_repo(centpkg_cmd, branch, repo)
-        move_tarballs_to_repo(collection_tarballs, repo)
         upload_sources(centpkg_cmd, collection_tarballs, repo)
-        replace_sources_in_spec(collection_tarballs, repo)
-        build_url = scratch_build(centpkg_cmd, repo)
+        clone_repo(centpkg_cmd, "c9s", centos_repo)
         copy_tarballs_to_repo(collection_tarballs, centos_repo)
+        replace_sources_in_spec(collection_tarballs, centos_repo)
+        build_url = scratch_build(centpkg_cmd, centos_repo)
         # TODO: Share build_url somewhere
         print(f"See build progress at {build_url}")
-        print("Cleaning up the downloaded repository")
-        shutil.rmtree(repo)
+        print(f"Removing the {centos_repo} repository")
+        shutil.rmtree(centos_repo)
 
 
 if __name__ == "__main__":

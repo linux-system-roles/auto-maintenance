@@ -71,10 +71,10 @@ def clone_repo(rpkg_cmd, branch, repo):
     run_cmd(cmd, os.path.curdir)
 
 
-def move_tarballs_to_repo(collection_tarballs, repo):
-    print(f"Moving {', '.join(collection_tarballs.values())} to {repo}")
+def copy_tarballs_to_repo(collection_tarballs, repo):
+    print(f"Copying {', '.join(collection_tarballs.values())} to {repo}")
     for tarball in collection_tarballs.values():
-        shutil.move(os.path.abspath(tarball), os.path.join(repo, tarball))
+        shutil.copy(os.path.abspath(tarball), os.path.join(repo, tarball))
 
 
 def upload_sources(rpkg_cmd, collection_tarballs, repo):
@@ -135,6 +135,7 @@ def main():
         upload_sources(centpkg_cmd, collection_tarballs, repo)
         replace_sources_in_spec(collection_tarballs, repo)
         build_url = scratch_build(centpkg_cmd, repo)
+        copy_tarballs_to_repo(collection_tarballs, centos_repo)
         # TODO: Share build_url somewhere
         print(f"See build progress at {build_url}")
         print("Cleaning up the downloaded repository")

@@ -86,9 +86,12 @@ def upload_sources(rpkg_cmd, collection_tarballs, repo):
 def replace_sources_in_spec(collection_tarballs, repo):
     print("Replacing sources in the spec file")
     for collection, tarball in collection_tarballs.items():
-        with open(os.path.join(repo, "linux-system-roles.spec"), "r") as f:
+        with open(os.path.join(repo, "linux-system-roles.spec"), "r+") as f:
             content = f.read()
-            re.sub(collection + ".*$", tarball, content, flags=re.M)
+            content = re.sub(collection.replace(".", "-") + ".*$", tarball, content, flags=re.MULTILINE)
+            f.seek(0)
+            f.write(content)
+            f.truncate()
 
 
 def scratch_build(rpkg_cmd, repo):

@@ -127,6 +127,9 @@ def main():
         build_url = scratch_build(centpkg_cmd, centos_repo)
         # TODO: Share build_url somewhere
         print(f"See build progress at {build_url}")
+        clone_repo(fedpkg_cmd, "rawhide", fedora_repo)
+        copy_tarballs_to_repo(collection_tarballs, fedora_repo)
+        replace_sources_in_spec(collection_tarballs, fedora_repo)
         print(f"Removing the {centos_repo} repository")
         shutil.rmtree(centos_repo)
         print(f"Removing the {collection_tarballs} collection tarballs")

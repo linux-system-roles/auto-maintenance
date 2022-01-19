@@ -13,7 +13,7 @@ kdump:
 kernel_settings:
   ref: 1.1.3
 logging:
-  ref: 1.7.0
+  ref: 1.8.0
 metrics:
   ref: 1.4.1
 nbde_client:

@@ -129,6 +129,9 @@ def main():
         print(f"See build progress at {build_url}")
         print(f"Removing the {centos_repo} repository")
         shutil.rmtree(centos_repo)
+        print(f"Removing the {collection_tarballs} collection tarballs")
+        for tarball in collection_tarballs.values():
+            os.remove(tarball)
 
 
 if __name__ == "__main__":

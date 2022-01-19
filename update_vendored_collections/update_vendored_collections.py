@@ -77,12 +77,6 @@ def copy_tarballs_to_repo(collection_tarballs, repo):
         shutil.copy(os.path.abspath(tarball), os.path.join(repo, tarball))
 
 
-def upload_sources(rpkg_cmd, collection_tarballs, repo):
-    print(f"Uploading {', '.join(collection_tarballs.values())} sources to {repo}")
-    cmd = [rpkg_cmd, "upload", *collection_tarballs.values()]
-    run_cmd(cmd, repo)
-
-
 def replace_sources_in_spec(collection_tarballs, repo):
     print("Replacing sources in the spec file")
     for collection, tarball in collection_tarballs.items():
@@ -127,7 +121,6 @@ def main():
     for coll in hsh["collections"]:
         collection_tarballs.update(get_updated_collection_tarball(coll))
     if len(collection_tarballs) != 0:
-        upload_sources(centpkg_cmd, collection_tarballs, repo)
         clone_repo(centpkg_cmd, "c9s", centos_repo)
         copy_tarballs_to_repo(collection_tarballs, centos_repo)
         replace_sources_in_spec(collection_tarballs, centos_repo)

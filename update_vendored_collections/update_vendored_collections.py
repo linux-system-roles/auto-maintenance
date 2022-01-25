@@ -101,6 +101,15 @@ def scratch_build(rpkg_cmd, repo):
     return build_url
 
 
+def delete_files(centos_repo, fedora_repo, collection_tarballs):
+    for repo in centos_repo, fedora_repo:
+        print(f"Removing the {repo} repository")
+        shutil.rmtree(repo)
+    print(f"Removing the {collection_tarballs.values()} collection tarballs")
+    for tarball in collection_tarballs.values():
+        os.remove(tarball)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -130,11 +139,7 @@ def main():
         clone_repo(fedpkg_cmd, "rawhide", fedora_repo)
         copy_tarballs_to_repo(collection_tarballs, fedora_repo)
         replace_sources_in_spec(collection_tarballs, fedora_repo)
-        print(f"Removing the {centos_repo} repository")
-        shutil.rmtree(centos_repo)
-        print(f"Removing the {collection_tarballs} collection tarballs")
-        for tarball in collection_tarballs.values():
-            os.remove(tarball)
+        delete_files(centos_repo, fedora_repo, collection_tarballs)
 
 
 if __name__ == "__main__":

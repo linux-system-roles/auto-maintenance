@@ -53,7 +53,7 @@ def get_updated_collection_tarball(coll):
         return {coll_name: coll_tar}
 
 
-def clone_repo(rpkg_cmd, branch, repo):
+def clone_repo(repo, branch, rpkg_cmd):
     if os.path.exists(repo):
         print(f"{repo} directory already exists, removing")
         shutil.rmtree(repo)
@@ -128,7 +128,12 @@ def scratch_build(rpkg_cmd, repo):
     return build_url
 
 
-def fedora_repo_add_remote(repo, repo_user, repo_url):
+def fedora_repo_add_remote(repo, repo_user, repo_email, repo_url):
+    print(f"Configuring the {repo} repository to use {repo_user} credentials")
+    cmd = ["git", "config", "user.name", repo_user]
+    run_cmd(cmd, repo)
+    cmd = ["git", "config", "user.email", repo_email]
+    run_cmd(cmd, repo)
     print(f"Adding {repo_user} remote to the {repo} repository")
     cmd = ["git", "remote", "add", repo_user, repo_url]
     run_cmd(cmd, repo)
@@ -178,10 +183,13 @@ def main():
 
     args = parser.parse_args()
     centos_repo = "rhel-system-roles"
+    centos_branch = "c9s"
     fedora_repo = "linux-system-roles"
+    fedora_branch = "rawhide"
     fedora_repo_user = "linuxsystemroles"
+    fedora_repo_email = "systemroles-owner@lists.fedorahosted.org"
     fedora_fork_url = "ssh://linuxsystemroles@pkgs.fedoraproject.org/forks/linuxsystemroles/rpms/linux-system-roles.git"
-    fedora_branch = "update-vendored-collections"
+    fedora_push_branch = "update-vendored-collections"
     centpkg_cmd = "centpkg"
     fedpkg_cmd = "fedpkg"
     hsh = yaml.safe_load(open(args.requirements))
@@ -190,16 +198,23 @@ def main():
     for coll in hsh["collections"]:
         collection_tarballs.update(get_updated_collection_tarball(coll))
     if len(collection_tarballs) != 0:
-        clone_repo(centpkg_cmd, "c9s", centos_repo)
+        """Make a CentOS scratch build"""
+        clone_repo(centos_repo, centos_branch, centpkg_cmd)
         copy_tarballs_to_repo(collection_tarballs, centos_repo)
         update_spec(collection_tarballs, centos_repo)
         build_url = scratch_build(centpkg_cmd, centos_repo)
-        clone_repo(fedpkg_cmd, "rawhide", fedora_repo)
+
+        """Push spec file with updated collection tarballs to Fedora"""
+        clone_repo(fedora_repo, fedora_branch, fedpkg_cmd)
         copy_tarballs_to_repo(collection_tarballs, fedora_repo)
         update_spec(collection_tarballs, fedora_repo)
-        fedora_repo_add_remote(fedora_repo, fedora_repo_user, fedora_fork_url)
-        commit_changes(fedora_repo, collection_tarballs, build_url, fedora_branch)
-        fedora_repo_push(fedora_repo, fedora_repo_user, fedora_branch)
+        fedora_repo_add_remote(
+            fedora_repo, fedora_repo_user, fedora_repo_email, fedora_fork_url
+        )
+        commit_changes(fedora_repo, collection_tarballs, build_url, fedora_push_branch)
+        fedora_repo_push(fedora_repo, fedora_repo_user, fedora_push_branch)
+
+        """Clean created files and directories """
         delete_files(centos_repo, fedora_repo, collection_tarballs)
 
 

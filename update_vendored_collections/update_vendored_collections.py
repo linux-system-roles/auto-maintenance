@@ -81,7 +81,9 @@ def copy_tarballs_to_repo(collection_tarballs, repo):
 def spec_replace_sources(content, collection_tarballs):
     print("Replacing sources in the spec file")
     for collection, tarball in collection_tarballs.items():
-        content = re.sub(collection.replace(".", "-") + ".*$", tarball, content, flags=re.MULTILINE)
+        content = re.sub(
+            collection.replace(".", "-") + ".*$", tarball, content, flags=re.MULTILINE
+        )
     return content
 
 
@@ -90,11 +92,15 @@ def spec_add_changelog(content, collection_tarballs, lines):
     for line in lines:
         if line == "%changelog\n":
             current_version = re.sub(".*> - ", "", next(lines)).strip()
-            new_version = current_version[:-1] + str(int(re.sub(".*-", "", current_version)) + 1)
-            changelog_date = datetime.datetime.now().strftime('%a %b %d %Y')
+            new_version = current_version[:-1] + str(
+                int(re.sub(".*-", "", current_version)) + 1
+            )
+            changelog_date = datetime.datetime.now().strftime("%a %b %d %Y")
             meta_line = f"* {changelog_date} Sergei Petrosian <spetrosi@redhat.com> - {new_version}\n"
             comment_line = f"- Update {', '.join(collection_tarballs.keys())}\n\n"
-            content = re.sub("%changelog\n", "%changelog\n" + meta_line + comment_line, content)
+            content = re.sub(
+                "%changelog\n", "%changelog\n" + meta_line + comment_line, content
+            )
             return content
 
 
@@ -122,6 +128,36 @@ def scratch_build(rpkg_cmd, repo):
     return build_url
 
 
+def fedora_repo_add_remote(repo, repo_user, repo_url):
+    print(f"Adding {repo_user} remote to the {repo} repository")
+    cmd = ["git", "remote", "add", repo_user, repo_url]
+    run_cmd(cmd, repo)
+
+
+def commit_changes(repo, collection_tarballs, build_url, branch):
+    print("Checking out a new branch")
+    cmd = ["git", "checkout", "-b", branch]
+    run_cmd(cmd, repo)
+    print("Staging linux-system-roles.spec")
+    cmd = ["git", "add", "linux-system-roles.spec"]
+    run_cmd(cmd, repo)
+    commit_message = f"""
+Update vendored {', '.join(collection_tarballs.keys())}
+
+The CentOS scratch build is at {build_url}
+AI: @spetros to open a PR
+FYI @rmeggins @nhosoi
+"""
+    print("Committing changes")
+    cmd = ["git", "commit", "--message", commit_message]
+    run_cmd(cmd, repo)
+
+
+def fedora_repo_push(repo, repo_user, branch):
+    cmd = ["git", "push", repo_user, branch, "--force"]
+    run_cmd(cmd, repo)
+
+
 def delete_files(centos_repo, fedora_repo, collection_tarballs):
     for repo in centos_repo, fedora_repo:
         print(f"Removing the {repo} repository")
@@ -143,6 +179,9 @@ def main():
     args = parser.parse_args()
     centos_repo = "rhel-system-roles"
     fedora_repo = "linux-system-roles"
+    fedora_repo_user = "linuxsystemroles"
+    fedora_fork_url = "ssh://linuxsystemroles@pkgs.fedoraproject.org/forks/linuxsystemroles/rpms/linux-system-roles.git"
+    fedora_branch = "update-vendored-collections"
     centpkg_cmd = "centpkg"
     fedpkg_cmd = "fedpkg"
     hsh = yaml.safe_load(open(args.requirements))
@@ -155,11 +194,12 @@ def main():
         copy_tarballs_to_repo(collection_tarballs, centos_repo)
         update_spec(collection_tarballs, centos_repo)
         build_url = scratch_build(centpkg_cmd, centos_repo)
-        # TODO: Share build_url somewhere
-        print(f"See build progress at {build_url}")
         clone_repo(fedpkg_cmd, "rawhide", fedora_repo)
         copy_tarballs_to_repo(collection_tarballs, fedora_repo)
         update_spec(collection_tarballs, fedora_repo)
+        fedora_repo_add_remote(fedora_repo, fedora_repo_user, fedora_fork_url)
+        commit_changes(fedora_repo, collection_tarballs, build_url, fedora_branch)
+        fedora_repo_push(fedora_repo, fedora_repo_user, fedora_branch)
         delete_files(centos_repo, fedora_repo, collection_tarballs)
 
 

@@ -163,6 +163,23 @@ def fedora_repo_push(repo, repo_user, branch):
     run_cmd(cmd, repo)
 
 
+def update_vendored_collections_yml(hsh, collection_tarballs, requirements):
+    collections_to_update = {}
+    updated_requirements = {"collections": []}
+    for collection, tarball in collection_tarballs.items():
+        version = re.sub(".tar.gz", "", re.sub(".*-", "", tarball))
+        collections_to_update.update({collection: version})
+    for coll in hsh["collections"]:
+        for collection, version in collections_to_update.items():
+            if coll["name"] == collection:
+                updated_requirements["collections"].append({
+                    "name": coll["name"], "version": version
+                })
+    print(f"Update {requirements} with fresh collections versions")
+    with open(requirements, "w") as f:
+        yaml.dump(updated_requirements, f)
+
+
 def delete_files(centos_repo, fedora_repo, collection_tarballs):
     for repo in centos_repo, fedora_repo:
         print(f"Removing the {repo} repository")
@@ -192,7 +209,8 @@ def main():
     fedora_push_branch = "update-vendored-collections"
     centpkg_cmd = "centpkg"
     fedpkg_cmd = "fedpkg"
-    hsh = yaml.safe_load(open(args.requirements))
+    requirements = args.requirements
+    hsh = yaml.safe_load(open(requirements))
     collection_tarballs = {}
 
     for coll in hsh["collections"]:
@@ -203,7 +221,6 @@ def main():
         copy_tarballs_to_repo(collection_tarballs, centos_repo)
         update_spec(collection_tarballs, centos_repo)
         build_url = scratch_build(centpkg_cmd, centos_repo)
-
         """Push spec file with updated collection tarballs to Fedora"""
         clone_repo(fedora_repo, fedora_branch, fedpkg_cmd)
         copy_tarballs_to_repo(collection_tarballs, fedora_repo)
@@ -213,6 +230,9 @@ def main():
         )
         commit_changes(fedora_repo, collection_tarballs, build_url, fedora_push_branch)
         fedora_repo_push(fedora_repo, fedora_repo_user, fedora_push_branch)
+
+        """Update vendored_collections.yml and push to GitHub"""
+        update_vendored_collections_yml(hsh, collection_tarballs, requirements)
 
         """Clean created files and directories """
         delete_files(centos_repo, fedora_repo, collection_tarballs)

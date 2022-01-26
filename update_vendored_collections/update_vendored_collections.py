@@ -8,6 +8,7 @@ import subprocess
 import sys
 import yaml
 import glob
+import datetime
 
 
 def run_cmd(cmd, cwd):
@@ -77,15 +78,35 @@ def copy_tarballs_to_repo(collection_tarballs, repo):
         shutil.copy(os.path.abspath(tarball), os.path.join(repo, tarball))
 
 
-def replace_sources_in_spec(collection_tarballs, repo):
+def spec_replace_sources(content, collection_tarballs):
     print("Replacing sources in the spec file")
     for collection, tarball in collection_tarballs.items():
-        with open(os.path.join(repo, "linux-system-roles.spec"), "r+") as f:
-            content = f.read()
-            content = re.sub(collection.replace(".", "-") + ".*$", tarball, content, flags=re.MULTILINE)
-            f.seek(0)
-            f.write(content)
-            f.truncate()
+        content = re.sub(collection.replace(".", "-") + ".*$", tarball, content, flags=re.MULTILINE)
+    return content
+
+
+def spec_add_changelog(content, collection_tarballs, lines):
+    print("Adding changelog entry to the spec file")
+    for line in lines:
+        if line == "%changelog\n":
+            current_version = re.sub(".*> - ", "", next(lines)).strip()
+            new_version = current_version[:-1] + str(int(re.sub(".*-", "", current_version)) + 1)
+            changelog_date = datetime.datetime.now().strftime('%a %b %d %Y')
+            meta_line = f"* {changelog_date} Sergei Petrosian <spetrosi@redhat.com> - {new_version}\n"
+            comment_line = f"- Update {', '.join(collection_tarballs.keys())}\n\n"
+            content = re.sub("%changelog\n", "%changelog\n" + meta_line + comment_line, content)
+            return content
+
+
+def update_spec(collection_tarballs, repo):
+    with open(os.path.join(repo, "linux-system-roles.spec"), "r") as f:
+        content = f.read()
+        f.seek(0)
+        lines = iter(f.readlines())
+    content = spec_replace_sources(content, collection_tarballs)
+    content = spec_add_changelog(content, collection_tarballs, lines)
+    with open(os.path.join(repo, "linux-system-roles.spec"), "w") as f:
+        f.write(content)
 
 
 def scratch_build(rpkg_cmd, repo):
@@ -132,13 +153,13 @@ def main():
     if len(collection_tarballs) != 0:
         clone_repo(centpkg_cmd, "c9s", centos_repo)
         copy_tarballs_to_repo(collection_tarballs, centos_repo)
-        replace_sources_in_spec(collection_tarballs, centos_repo)
+        update_spec(collection_tarballs, centos_repo)
         build_url = scratch_build(centpkg_cmd, centos_repo)
         # TODO: Share build_url somewhere
         print(f"See build progress at {build_url}")
         clone_repo(fedpkg_cmd, "rawhide", fedora_repo)
         copy_tarballs_to_repo(collection_tarballs, fedora_repo)
-        replace_sources_in_spec(collection_tarballs, fedora_repo)
+        update_spec(collection_tarballs, fedora_repo)
         delete_files(centos_repo, fedora_repo, collection_tarballs)
 
 

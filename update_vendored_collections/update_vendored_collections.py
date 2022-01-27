@@ -128,29 +128,34 @@ def scratch_build(rpkg_cmd, repo):
     return build_url
 
 
-def fedora_repo_add_remote(repo, repo_user, repo_email, repo_url):
+def repo_configure_credentials(repo, repo_user, repo_email):
     print(f"Configuring the {repo} repository to use {repo_user} credentials")
     cmd = ["git", "config", "user.name", repo_user]
     run_cmd(cmd, repo)
     cmd = ["git", "config", "user.email", repo_email]
     run_cmd(cmd, repo)
+
+
+def repo_add_remote(repo, repo_user, repo_url):
     print(f"Adding {repo_user} remote to the {repo} repository")
     cmd = ["git", "remote", "add", repo_user, repo_url]
     run_cmd(cmd, repo)
 
 
-def commit_changes(repo, collection_tarballs, build_url, branch):
+def repo_commit_changes(repo, collection_tarballs, build_url, branch, files_list):
     print("Checking out a new branch")
     cmd = ["git", "checkout", "-b", branch]
     run_cmd(cmd, repo)
-    print("Staging linux-system-roles.spec")
-    cmd = ["git", "add", "linux-system-roles.spec"]
-    run_cmd(cmd, repo)
+    print(f"Staging {', '.join(files_list)}")
+    for file in files_list:
+        print(file)
+        cmd = ["git", "add", file]
+        run_cmd(cmd, repo)
     commit_message = f"""
 Update vendored {', '.join(collection_tarballs.keys())}
 
 The CentOS scratch build is at {build_url}
-AI: @spetros to open a PR
+AI: @spetrosi to open a PR for auto-maintenance and Fedora Pagure
 FYI @rmeggins @nhosoi
 """
     print("Committing changes")
@@ -158,23 +163,23 @@ FYI @rmeggins @nhosoi
     run_cmd(cmd, repo)
 
 
-def fedora_repo_push(repo, repo_user, branch):
+def repo_push(repo, repo_user, branch):
     cmd = ["git", "push", repo_user, branch, "--force"]
     run_cmd(cmd, repo)
 
 
 def update_vendored_collections_yml(hsh, collection_tarballs, requirements):
-    collections_to_update = {}
+    collections_versions = {}
     updated_requirements = {"collections": []}
     for collection, tarball in collection_tarballs.items():
         version = re.sub(".tar.gz", "", re.sub(".*-", "", tarball))
-        collections_to_update.update({collection: version})
+        collections_versions.update({collection: version})
     for coll in hsh["collections"]:
-        for collection, version in collections_to_update.items():
+        for collection, version in collections_versions.items():
             if coll["name"] == collection:
-                updated_requirements["collections"].append({
-                    "name": coll["name"], "version": version
-                })
+                updated_requirements["collections"].append(
+                    {"name": coll["name"], "version": version}
+                )
     print(f"Update {requirements} with fresh collections versions")
     with open(requirements, "w") as f:
         yaml.dump(updated_requirements, f)
@@ -184,7 +189,7 @@ def delete_files(centos_repo, fedora_repo, collection_tarballs):
     for repo in centos_repo, fedora_repo:
         print(f"Removing the {repo} repository")
         shutil.rmtree(repo)
-    print(f"Removing the {collection_tarballs.values()} collection tarballs")
+    print(f"Removing the {', '.join(collection_tarballs.values())} collection tarballs")
     for tarball in collection_tarballs.values():
         os.remove(tarball)
 
@@ -203,10 +208,14 @@ def main():
     centos_branch = "c9s"
     fedora_repo = "linux-system-roles"
     fedora_branch = "rawhide"
-    fedora_repo_user = "linuxsystemroles"
-    fedora_repo_email = "systemroles-owner@lists.fedorahosted.org"
+    fedora_user = "linuxsystemroles"
+    fedora_email = "systemroles-owner@lists.fedorahosted.org"
     fedora_fork_url = "ssh://linuxsystemroles@pkgs.fedoraproject.org/forks/linuxsystemroles/rpms/linux-system-roles.git"
     fedora_push_branch = "update-vendored-collections"
+    auto_maintenance_repo = sys.path[0]
+    auto_maintenance_user = "tft-bot"
+    auto_maintenance_fork_url = "git@github.com:tft-bot/auto-maintenance.git"
+    auto_maintenance_push_branch = fedora_push_branch
     centpkg_cmd = "centpkg"
     fedpkg_cmd = "fedpkg"
     requirements = args.requirements
@@ -221,18 +230,39 @@ def main():
         copy_tarballs_to_repo(collection_tarballs, centos_repo)
         update_spec(collection_tarballs, centos_repo)
         build_url = scratch_build(centpkg_cmd, centos_repo)
+
         """Push spec file with updated collection tarballs to Fedora"""
         clone_repo(fedora_repo, fedora_branch, fedpkg_cmd)
         copy_tarballs_to_repo(collection_tarballs, fedora_repo)
         update_spec(collection_tarballs, fedora_repo)
-        fedora_repo_add_remote(
-            fedora_repo, fedora_repo_user, fedora_repo_email, fedora_fork_url
+        repo_configure_credentials(fedora_repo, fedora_user, fedora_email)
+        repo_add_remote(fedora_repo, fedora_user, fedora_fork_url)
+        repo_commit_changes(
+            fedora_repo,
+            collection_tarballs,
+            build_url,
+            fedora_push_branch,
+            ["linux-system-roles.spec"],
         )
-        commit_changes(fedora_repo, collection_tarballs, build_url, fedora_push_branch)
-        fedora_repo_push(fedora_repo, fedora_repo_user, fedora_push_branch)
+        repo_push(fedora_repo, fedora_user, fedora_push_branch)
 
         """Update vendored_collections.yml and push to GitHub"""
         update_vendored_collections_yml(hsh, collection_tarballs, requirements)
+        repo_add_remote(
+            auto_maintenance_repo, auto_maintenance_user, auto_maintenance_fork_url
+        )
+        files_to_stage = list(collection_tarballs.values())
+        files_to_stage.append(requirements)
+        repo_commit_changes(
+            auto_maintenance_repo,
+            collection_tarballs,
+            build_url,
+            auto_maintenance_push_branch,
+            files_to_stage,
+        )
+        repo_push(
+            auto_maintenance_repo, auto_maintenance_user, auto_maintenance_push_branch
+        )
 
         """Clean created files and directories """
         delete_files(centos_repo, fedora_repo, collection_tarballs)

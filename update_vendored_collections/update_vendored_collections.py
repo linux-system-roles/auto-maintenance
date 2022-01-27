@@ -138,17 +138,21 @@ def repo_configure_credentials(repo, repo_user, repo_email):
 
 def repo_add_remote(repo, repo_user, repo_url):
     print(f"Adding {repo_user} remote to the {repo} repository")
-    cmd = ["git", "remote", "add", repo_user, repo_url]
-    run_cmd(cmd, repo)
+    cmd = ["git", "remote"]
+    remotes = run_cmd(cmd, repo)
+    if repo_user not in remotes.stdout:
+        cmd = ["git", "remote", "add", repo_user, repo_url]
+        run_cmd(cmd, repo)
+    else:
+        print(f"Remote {repo_user} already exists, continuing")
 
 
 def repo_commit_changes(repo, commit_message, branch, files_list):
-    print("Checking out a new branch")
-    cmd = ["git", "checkout", "-b", branch]
+    print(f"Checking out the {branch} branch")
+    cmd = ["git", "checkout", "-B", branch]
     run_cmd(cmd, repo)
     print(f"Staging {', '.join(files_list)}")
     for file in files_list:
-        print(file)
         cmd = ["git", "add", file]
         run_cmd(cmd, repo)
     print("Committing changes")
@@ -235,7 +239,8 @@ Update vendored collections tarballs
 
 The following tarball(s) have updates:
 {', '.join(collection_tarballs.keys())}
-The CentOS scratch build is at {build_url}
+The CentOS scratch build URL:
+{build_url}
 """
         repo_commit_changes(
             fedora_repo,
@@ -252,15 +257,17 @@ The CentOS scratch build is at {build_url}
         )
         files_to_stage = list(collection_tarballs.values())
         files_to_stage.append(requirements)
-        open_pr_url = \
-            "https://src.fedoraproject.org/fork/linuxsystemroles/rpms/linux-system-roles/diff/rawhide..update" \
-            "-vendored-collections "
+        open_pr_url = (
+            "https://src.fedoraproject.org/fork/linuxsystemroles/rpms/linux-system-roles/diff/"
+            "rawhide..update-vendored-collections"
+        )
         auto_maintenance_commit_message = f"""
 Update {requirements} and upload latest collection tarballs
 
 The following collection tarball(s) have updates:
 {', '.join(collection_tarballs.keys())}
-The CentOS scratch build is at {build_url}
+The CentOS scratch build URL:
+{build_url}
 AI: @spetrosi to open a PR for linux-system-roles:
 {open_pr_url}
 CC: @rmeggins @nhosoi"

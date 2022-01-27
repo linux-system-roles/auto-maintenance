@@ -142,7 +142,7 @@ def repo_add_remote(repo, repo_user, repo_url):
     run_cmd(cmd, repo)
 
 
-def repo_commit_changes(repo, collection_tarballs, build_url, branch, files_list):
+def repo_commit_changes(repo, commit_message, branch, files_list):
     print("Checking out a new branch")
     cmd = ["git", "checkout", "-b", branch]
     run_cmd(cmd, repo)
@@ -151,13 +151,6 @@ def repo_commit_changes(repo, collection_tarballs, build_url, branch, files_list
         print(file)
         cmd = ["git", "add", file]
         run_cmd(cmd, repo)
-    commit_message = f"""
-Update vendored {', '.join(collection_tarballs.keys())}
-
-The CentOS scratch build is at {build_url}
-AI: @spetrosi to open a PR for auto-maintenance and Fedora Pagure
-FYI @rmeggins @nhosoi
-"""
     print("Committing changes")
     cmd = ["git", "commit", "--message", commit_message]
     run_cmd(cmd, repo)
@@ -237,10 +230,16 @@ def main():
         update_spec(collection_tarballs, fedora_repo)
         repo_configure_credentials(fedora_repo, fedora_user, fedora_email)
         repo_add_remote(fedora_repo, fedora_user, fedora_fork_url)
+        fedora_commit_message = f"""
+Update vendored collections tarballs
+
+The following tarball(s) have updates:
+{', '.join(collection_tarballs.keys())}
+The CentOS scratch build is at {build_url}
+"""
         repo_commit_changes(
             fedora_repo,
-            collection_tarballs,
-            build_url,
+            fedora_commit_message,
             fedora_push_branch,
             ["linux-system-roles.spec"],
         )
@@ -253,10 +252,22 @@ def main():
         )
         files_to_stage = list(collection_tarballs.values())
         files_to_stage.append(requirements)
+        open_pr_url = \
+            "https://src.fedoraproject.org/fork/linuxsystemroles/rpms/linux-system-roles/diff/rawhide..update" \
+            "-vendored-collections "
+        auto_maintenance_commit_message = f"""
+Update {requirements} and upload latest collection tarballs
+
+The following collection tarball(s) have updates:
+{', '.join(collection_tarballs.keys())}
+The CentOS scratch build is at {build_url}
+AI: @spetrosi to open a PR for linux-system-roles:
+{open_pr_url}
+CC: @rmeggins @nhosoi"
+"""
         repo_commit_changes(
             auto_maintenance_repo,
-            collection_tarballs,
-            build_url,
+            auto_maintenance_commit_message,
             auto_maintenance_push_branch,
             files_to_stage,
         )

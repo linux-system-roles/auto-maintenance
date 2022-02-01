@@ -1,6 +1,4 @@
 collections:
-- name: ansible.netcommon
-  version: 2.4.0
 - name: ansible.posix
   version: 1.2.0
 - name: community.general

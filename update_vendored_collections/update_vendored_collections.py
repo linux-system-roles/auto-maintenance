@@ -255,14 +255,12 @@ The CentOS scratch build URL:
         repo_add_remote(
             auto_maintenance_repo, auto_maintenance_user, auto_maintenance_fork_url
         )
-        files_to_stage = list(collection_tarballs.values())
-        files_to_stage.append(requirements)
         open_pr_url = (
             "https://src.fedoraproject.org/fork/linuxsystemroles/rpms/linux-system-roles/diff/"
             "rawhide..update-vendored-collections"
         )
         auto_maintenance_commit_message = f"""
-Update {requirements} and upload latest collection tarballs
+Update {requirements}
 
 The following collection tarball(s) have updates:
 {', '.join(collection_tarballs.keys())}
@@ -276,14 +274,11 @@ CC: @rmeggins @nhosoi"
             auto_maintenance_repo,
             auto_maintenance_commit_message,
             auto_maintenance_push_branch,
-            files_to_stage,
+            [requirements],
         )
         repo_push(
             auto_maintenance_repo, auto_maintenance_user, auto_maintenance_push_branch
         )
-
-        """Clean created files and directories """
-        delete_files(centos_repo, fedora_repo, collection_tarballs)
 
 
 if __name__ == "__main__":

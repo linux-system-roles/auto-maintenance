@@ -1,0 +1,17 @@
+on:
+  push:
+    branches:
+    - update-vendored-collections
+
+jobs:
+  pull-request:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: pull-request
+      uses: repo-sync/pull-request@v2
+      with:
+        destination_branch: "main"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        destination_branch: "master"
+        pr_label: "auto-pr"

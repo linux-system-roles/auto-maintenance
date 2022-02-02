@@ -265,7 +265,7 @@ The CentOS scratch build URL:
 {build_url}
 AI: @spetrosi to open a PR for linux-system-roles. This requires logging in as linuxsystemroles user:
 {open_pr_url}
-CC: @richm @nhosoi"
+CC: @richm @nhosoi
 """
         repo_commit_changes(
             auto_maintenance_repo,

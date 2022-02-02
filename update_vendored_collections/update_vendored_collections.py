@@ -161,7 +161,7 @@ def repo_commit_changes(repo, commit_message, branch, files_list):
 
 
 def repo_force_push(repo, remote, branch):
-    print(f"Pushing to the {remote} {branch} branch")
+    print(f"Pushing to the {remote}/{branch} branch")
     cmd = ["git", "push", remote, branch, "--force"]
     run_cmd(cmd, repo)
 
@@ -263,9 +263,9 @@ The following collection tarball(s) have updates:
 {', '.join(collection_tarballs.keys())}
 The CentOS scratch build URL:
 {build_url}
-AI: @spetrosi to open a PR for linux-system-roles:
+AI: @spetrosi to open a PR for linux-system-roles. This requires logging in as linuxsystemroles user:
 {open_pr_url}
-CC: @rmeggins @nhosoi"
+CC: @richm @nhosoi"
 """
         repo_commit_changes(
             auto_maintenance_repo,

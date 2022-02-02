@@ -160,8 +160,9 @@ def repo_commit_changes(repo, commit_message, branch, files_list):
     run_cmd(cmd, repo)
 
 
-def repo_push(repo, repo_user, branch):
-    cmd = ["git", "push", repo_user, branch, "--force"]
+def repo_force_push(repo, remote, branch):
+    print(f"Pushing to the {remote} {branch} branch")
+    cmd = ["git", "push", remote, branch, "--force"]
     run_cmd(cmd, repo)
 
 
@@ -210,8 +211,7 @@ def main():
     fedora_fork_url = "ssh://linuxsystemroles@pkgs.fedoraproject.org/forks/linuxsystemroles/rpms/linux-system-roles.git"
     fedora_push_branch = "update-vendored-collections"
     auto_maintenance_repo = sys.path[0]
-    auto_maintenance_user = "tft-bot"
-    auto_maintenance_fork_url = "git@github.com:tft-bot/auto-maintenance.git"
+    auto_maintenance_remote = "origin"
     auto_maintenance_push_branch = fedora_push_branch
     centpkg_cmd = "centpkg"
     fedpkg_cmd = "fedpkg"
@@ -248,13 +248,10 @@ The CentOS scratch build URL:
             fedora_push_branch,
             ["linux-system-roles.spec"],
         )
-        repo_push(fedora_repo, fedora_user, fedora_push_branch)
+        repo_force_push(fedora_repo, fedora_user, fedora_push_branch)
 
         """Update vendored_collections.yml and push to GitHub"""
         update_vendored_collections_yml(hsh, collection_tarballs, requirements)
-        repo_add_remote(
-            auto_maintenance_repo, auto_maintenance_user, auto_maintenance_fork_url
-        )
         open_pr_url = (
             "https://src.fedoraproject.org/fork/linuxsystemroles/rpms/linux-system-roles/diff/"
             "rawhide..update-vendored-collections"
@@ -276,8 +273,8 @@ CC: @rmeggins @nhosoi"
             auto_maintenance_push_branch,
             [requirements],
         )
-        repo_push(
-            auto_maintenance_repo, auto_maintenance_user, auto_maintenance_push_branch
+        repo_force_push(
+            auto_maintenance_repo, auto_maintenance_remote, auto_maintenance_push_branch
         )
 
 

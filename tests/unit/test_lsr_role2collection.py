@@ -611,7 +611,7 @@ class LSRRole2Collection(unittest.TestCase):
             "utf-8",
         )
         IMPORT_RE = re.compile(
-            br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
+            rb"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
         )
         config["namespace"] = namespace
         config["collection"] = collection_name
@@ -699,7 +699,7 @@ class LSRRole2Collection(unittest.TestCase):
             "utf-8",
         )
         FROM_RE = re.compile(
-            br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(.+)(\s+#.+|.*)$",
+            rb"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(.+)(\s+#.+|.*)$",
             flags=re.M,
         )
         config["namespace"] = namespace

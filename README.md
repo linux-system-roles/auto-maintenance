@@ -190,6 +190,13 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      in the README that you do not want to change, you may have to change the
                      README in another way, not using this script, by using sed with a custom
                      regex.
+--extra-script /path/to/executable
+                     This is a script to use to do custom conversion of the role.  For example,
+                     to convert uses of filter plugins to FQCN.  If you do not specify anything,
+                     then it looks for an executable file named `lsr_role2coll_extra_script` in
+                     the role root directory, and runs it.  The arguments such as dest dir,
+                     namespace, etc. are passed in via environment variables.  See the code for
+                     the list of environment variables available.
 ```
 
 ### environment variables

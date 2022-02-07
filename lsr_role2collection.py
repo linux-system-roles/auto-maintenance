@@ -29,12 +29,13 @@ import fnmatch
 import logging
 import os
 import re
+import subprocess
 import sys
 import textwrap
 
 from pathlib import Path
 from ruamel.yaml import YAML
-from shutil import copytree, copy2, copyfile, ignore_patterns, rmtree
+from shutil import copytree, copy2, copyfile, ignore_patterns, rmtree, which
 from operator import itemgetter
 
 ALL_ROLE_DIRS = [
@@ -71,6 +72,8 @@ TASK_LIST_KWS = [
     "rescue",
     "tasks",
 ]
+
+EXTRA_SCRIPT = "lsr_role2coll_extra_script"
 
 
 class LSRException(Exception):
@@ -381,10 +384,10 @@ DO_NOT_COPY = (
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
 
 IMPORT_RE = re.compile(
-    br"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
+    rb"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
 )
 FROM_RE = re.compile(
-    br"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(\S+)(\s+#.+|.*)$",
+    rb"(\bfrom) (ansible\.module_utils\.?)(\S+)? import (\(*(?:\n|\r\n)?)(\S+)(\s+#.+|.*)$",
     flags=re.M,
 )
 
@@ -903,14 +906,17 @@ def from_replace(match):
                 )
             )
         else:
-            return b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s%s" % (
-                match.group(1),
-                bytes(_namespace, "utf-8"),
-                bytes(_collection, "utf-8"),
-                match_group3,
-                match.group(4),
-                match.group(5),
-                match.group(6),
+            return (
+                b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s%s"
+                % (
+                    match.group(1),
+                    bytes(_namespace, "utf-8"),
+                    bytes(_collection, "utf-8"),
+                    match_group3,
+                    match.group(4),
+                    match.group(5),
+                    match.group(6),
+                )
             )
     if parts5 in _module_utils:
         from_file0, lfrom_file0, from_file1, lfrom_file1 = get_candidates(
@@ -923,24 +929,30 @@ def from_replace(match):
                 or lfrom_file0.is_file()
                 or lfrom_file1.is_file()
             ):
-                return b"%s ansible_collections.%s.%s.plugins.module_utils.%s import %s%s%s" % (
-                    match.group(1),
-                    bytes(_namespace, "utf-8"),
-                    bytes(_collection, "utf-8"),
-                    match.group(3),
-                    match.group(4),
-                    match.group(5),
-                    match.group(6),
+                return (
+                    b"%s ansible_collections.%s.%s.plugins.module_utils.%s import %s%s%s"
+                    % (
+                        match.group(1),
+                        bytes(_namespace, "utf-8"),
+                        bytes(_collection, "utf-8"),
+                        match.group(3),
+                        match.group(4),
+                        match.group(5),
+                        match.group(6),
+                    )
                 )
             else:
-                return b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s%s" % (
-                    match.group(1),
-                    bytes(_namespace, "utf-8"),
-                    bytes(_collection, "utf-8"),
-                    match.group(3),
-                    match.group(4),
-                    match.group(5),
-                    match.group(6),
+                return (
+                    b"%s ansible_collections.%s.%s.plugins.module_utils.%s.__init__ import %s%s%s"
+                    % (
+                        match.group(1),
+                        bytes(_namespace, "utf-8"),
+                        bytes(_collection, "utf-8"),
+                        match.group(3),
+                        match.group(4),
+                        match.group(5),
+                        match.group(6),
+                    )
                 )
         if (
             from_file0.is_file()
@@ -960,13 +972,16 @@ def from_replace(match):
                 )
             )
         else:
-            return b"%s ansible_collections.%s.%s.plugins.module_utils.__init__ import %s%s%s" % (
-                match.group(1),
-                bytes(_namespace, "utf-8"),
-                bytes(_collection, "utf-8"),
-                match.group(4),
-                match.group(5),
-                match.group(6),
+            return (
+                b"%s ansible_collections.%s.%s.plugins.module_utils.__init__ import %s%s%s"
+                % (
+                    match.group(1),
+                    bytes(_namespace, "utf-8"),
+                    bytes(_collection, "utf-8"),
+                    match.group(4),
+                    match.group(5),
+                    match.group(6),
+                )
             )
     return match.group(0)
 
@@ -1083,6 +1098,15 @@ def role2collection():
         help=(
             "This is the path to the collection meta/runtime.yml - the default "
             f"is {default_meta_runtime}."
+        ),
+    )
+    parser.add_argument(
+        "--extra-script",
+        type=Path,
+        default=os.environ.get("COLLECTION_EXTRA_SCRIPT"),
+        help=(
+            "Executable script to run to do any extra conversions - the default "
+            f"is {EXTRA_SCRIPT} in the role root directory."
         ),
     )
     args, unknown = parser.parse_known_args()
@@ -1214,6 +1238,16 @@ def role2collection():
             f"Neither {src_path} nor {src_path.parent} is a role top directory."
         )
         sys.exit(errno.ENOENT)
+
+    extra_script = args.extra_script
+    if extra_script and not which(extra_script):
+        logging.error(f"The extra-script {extra_script} is not an executable.")
+        sys.exit(errno.ENOENT)
+    elif not extra_script:
+        extra_script = src_path / EXTRA_SCRIPT
+        if not which(extra_script):
+            extra_script = None
+
     _extras = set(os.listdir(src_path)).difference(ALL_DIRS)
     try:
         _extras.remove(".git")
@@ -1465,7 +1499,7 @@ def role2collection():
                     new_text = FROM_RE.sub(from_replace, new_text)
                     for rewrite in additional_rewrites:
                         pattern = re.compile(
-                            re.escape(br"ansible.module_utils.%s" % b".".join(rewrite))
+                            re.escape(rb"ansible.module_utils.%s" % b".".join(rewrite))
                         )
                         new_text = pattern.sub(rewrite[-1], new_text)
 
@@ -1561,6 +1595,26 @@ def role2collection():
     if not meta_dir.exists():
         meta_dir.mkdir()
     copyfile(src_meta_runtime, meta_dir / "runtime.yml")
+
+    if extra_script:
+        env = {}
+        env.update(os.environ)
+        env.update(
+            {
+                "LSR_ROLES_DIR": roles_dir / role,
+                "LSR_TESTS_DIR": tests_dir / role,
+                "LSR_NAMESPACE": namespace,
+                "LSR_COLLECTION": collection,
+                "LSR_ROLE": role,
+                "LSR_NEW_ROLE": new_role,
+            }
+        )
+        subprocess.check_call(
+            [str(extra_script.resolve())],
+            cwd=roles_dir / role,
+            env=env,
+        )
+
     default_collections_paths = "~/.ansible/collections:/usr/share/ansible/collections"
     default_collections_paths_list = list(
         map(os.path.expanduser, default_collections_paths.split(":"))

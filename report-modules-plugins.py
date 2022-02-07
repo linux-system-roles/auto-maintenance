@@ -190,6 +190,7 @@ class PluginItem(object):
         self.is_test = is_test
         self.used_in_collection = used_in_collection
         self.used_in_role = used_in_role
+        self.orig_name = name
 
     def split_fqcn(self, name):
         ary = name.rsplit(".", 1)
@@ -201,6 +202,16 @@ class PluginItem(object):
             elif ary[0] == "community.general.system":
                 ary[0] = "community.general"
         return ary
+
+    def has_correct_fqcn(self):
+        """The local plugin has correct FQCN if it matches the collection it was used in."""
+        ary = self.split_fqcn(self.orig_name)
+        if len(ary) < 2:
+            return False  # not FQCN
+        if self.collection == LOCAL:
+            expected = self.used_in_collection + "." + self.name
+            return expected == self.orig_name
+        return True
 
 
 def node2plugin_type(nodetype):
@@ -592,10 +603,11 @@ class SearchCtx(object):
         self.found_role_name = None
         self.tests_stack = []
         self.pathname = None
+        self.filename = None
         self.role_pathname = None
         self.lineno = 0
         self.in_collection_integration_tests = False
-        self.errors = 0
+        self.errors = []
         self.dependencies = []  # collection and/or role dependencies
         self.role_reqs = {}  # role meta/requirements.yml, if any
         self.manifest_json = {}
@@ -842,10 +854,9 @@ class SearchCtx(object):
             and not is_builtin_collection(collection)
             and not self.is_dependency(collection)
         ):
-            logging.error(
+            self.errors.append(
                 f"collection {collection} is not declared as a dependency for plugin {plugin_name} at {relpth}:{lineno}"
             )
-            self.errors += 1
         if plugin_name.startswith("ansible.builtin."):
             plugin_name = plugin_name.replace("ansible.builtin.", "")
         self.plugins.append(
@@ -880,11 +891,10 @@ class SearchCtx(object):
             ctx = module_loader.find_plugin_with_context(plugin)
             collection = ctx.plugin_resolved_collection
             if not collection:
-                logging.error(
+                collection = "UNKNOWN"
+                self.errors.append(
                     f"{self.filename}:{self.lineno}:module plugin named {plugin} not found"
                 )
-                collection = "UNKNOWN"
-                self.errors += 1
 
             return (collection, "module")
         else:
@@ -900,11 +910,10 @@ class SearchCtx(object):
                         collection = self.templar.environment.filters[plugin].__module__
                         convert_it = True
                     if not collection and plugintype == jinja2.nodes.Filter:
-                        logging.error(
+                        collection = "UNKNOWN"
+                        self.errors.append(
                             f"{self.filename}:{self.lineno}:filter plugin named {plugin} not found"
                         )
-                        collection = "UNKNOWN"
-                        self.errors += 1
                 if collection:
                     returntype = "filter"
             if not collection and plugintype in [jinja2.nodes.Test, jinja2.nodes.Call]:
@@ -917,10 +926,9 @@ class SearchCtx(object):
                         collection = self.templar.environment.tests[plugin].__module__
                         convert_it = True
                     if not collection and plugintype == jinja2.nodes.Test:
-                        logging.error(
+                        self.errors.append(
                             f"{self.filename}:{self.lineno}:test plugin named {plugin} not found"
                         )
-                        self.errors += 1
                         return ("UNKNOWN", "test")
                 if collection:
                     returntype = "test"
@@ -936,12 +944,11 @@ class SearchCtx(object):
                 collection = "macro"
                 returntype = "macro"
         if not collection:
-            logging.error(
-                f"{self.filename}:{self.lineno}:plugin named {plugin} not found"
-            )
             collection = "UNKNOWN"
             returntype = "UNKNOWN"
-            self.errors += 1
+            self.errors.append(
+                f"{self.filename}:{self.lineno}:plugin named {plugin} not found"
+            )
         # convert collection to namespace.name format if in python module format
         if convert_it:
             if collection == "genericpath":
@@ -1005,6 +1012,14 @@ def usage():
     """
 
 
+def fqcn_is_wrong(check_fqcn, item):
+    return (
+        check_fqcn == "all"
+        or (check_fqcn == "modules" and item.type == "module")
+        or (check_fqcn == "plugins" and item.type != "module")
+    ) and not item.has_correct_fqcn()
+
+
 def main():
     parser = argparse.ArgumentParser(add_help=True, usage=usage())
     parser.add_argument(
@@ -1019,16 +1034,22 @@ def main():
         action="store_true",
         help="Show every file and line number where the plugin is used.",
     )
+    parser.add_argument(
+        "--check-fqcn",
+        choices=["plugins", "modules", "all"],
+        default="",
+        help="Look for non-builtin plugins/modules that are not in FQCN format and error if found.",
+    )
     args = parser.parse_args()
     all_plugins = []
     testing_plugins = {}
     runtime_plugins = {}
     ctx = SearchCtx()
-    errors = 0
+    errors = []
     for pth in args.paths:
         process_path(pth, ctx)
         all_plugins.extend(ctx.plugins)
-        errors += ctx.errors
+        errors.extend(ctx.errors)
         ctx.reset()
     for item in all_plugins:
         if item.type == "macro":
@@ -1054,6 +1075,14 @@ def main():
         elif item.used_in_collection:
             location_item = subitem["collections"].setdefault(location, {})
         location_item.setdefault(item.relpth, []).append(item.lineno)
+        if (
+            args.check_fqcn
+            and not is_builtin_collection(key)
+            and fqcn_is_wrong(args.check_fqcn, item)
+        ):
+            errors.append(
+                f"ERROR: not FQCN: {item.orig_name} at {item.relpth}:{item.lineno}"
+            )
 
     builtin_collections = COLLECTION_BUILTINS
     builtin_collections.add(LOCAL)
@@ -1073,12 +1102,14 @@ def main():
                 if thelist:
                     print(f"The following {collection} {plugintype}s are used {desc}:")
                     print(f"{' '.join(sorted(thelist))}")
-        print(f"\nThe following additional plugins are used {desc}:")
+        if len(hsh) > 0:
+            print(f"\nThe following additional plugins are used {desc}:")
         for key in sorted(hsh):
             if is_builtin_collection(key):
                 continue
             item = hsh[key]
-            print(f"{item['collection']}.{item['name']} type: {item['type']}")
+            if len(item["roles"].keys()):
+                print(f"{item['collection']}.{item['name']} type: {item['type']}")
             for role in sorted(item["roles"].keys()):
                 print(f"\trole: {role}")
                 location_item = item["roles"][role]
@@ -1098,8 +1129,10 @@ def main():
                     else:
                         print(f"\t\tfile: {relpth} lines: {len(location_item[relpth])}")
         print("\n")
-        print(f"Found {errors} errors")
-        return errors
+        print(f"Found {len(errors)} errors")
+        for msg in errors:
+            print(msg)
+        return len(errors)
 
 
 if __name__ == "__main__":

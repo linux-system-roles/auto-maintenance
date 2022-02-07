@@ -951,7 +951,9 @@ class SearchCtx(object):
             )
         # convert collection to namespace.name format if in python module format
         if convert_it:
-            if collection == "genericpath":
+            if collection == "functools":
+                collection = ANSIBLE_BUILTIN
+            elif collection == "genericpath":
                 collection = ANSIBLE_BUILTIN
             elif collection == "json":
                 collection = ANSIBLE_BUILTIN
@@ -1128,11 +1130,11 @@ def main():
                             print(f"\t\t{relpth}:{lineno}")
                     else:
                         print(f"\t\tfile: {relpth} lines: {len(location_item[relpth])}")
-        print("\n")
-        print(f"Found {len(errors)} errors")
-        for msg in errors:
-            print(msg)
-        return len(errors)
+    print("\n")
+    print(f"Found {len(errors)} errors")
+    for msg in errors:
+        print(msg)
+    return len(errors)
 
 
 if __name__ == "__main__":

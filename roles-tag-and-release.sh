@@ -50,31 +50,39 @@ git pull
 read -r -p 'Examine role (y)? (default: n) ' examine_role
 if [ "${examine_role:-n}" = y ]; then
     # get latest tag
-    latest_tag=$(git describe --tags --abbrev=0)
+    latest_tag=$(git describe --tags --abbrev=0 2> /dev/null)
     # special case for network
     case "$latest_tag" in
     v*) latest_tag="${latest_tag//v}" ;;
     esac
-    # get the number of commits since latest tag
-    count=$(git log --oneline --no-merges --reverse "${latest_tag}".. | wc -l)
-    if [ "${count:-0}" = 0 ]; then
-        echo There are no commits since latest tag "$latest_tag"
-        echo ""
+    if [ -z "$latest_tag" ]; then
+        # repo and LSR_GH_ORG are referenced but not assigned.
+        # shellcheck disable=SC2154
+        echo Repo for "$LSR_GH_ORG" "$repo" has no tags - create one below or skip
     else
-        echo Commits since latest tag "$latest_tag"
-        # get the commits since the tag
-        git log --oneline --no-merges --reverse "${latest_tag}"..
-        # see the changes?
-        read -r -p 'View changes (y)? (default: n) ' view_changes
-        if [ "${view_changes:-n}" = y ]; then
-            view_diffs "${latest_tag}"
+        # get the number of commits since latest tag
+        count=$(git log --oneline --no-merges --reverse "${latest_tag}".. | wc -l)
+        if [ "${count:-0}" = 0 ]; then
+            echo There are no commits since latest tag "$latest_tag"
+            echo ""
+        else
+            echo Commits since latest tag "$latest_tag"
+            echo ""
+            # get the commits since the tag
+            git log --oneline --no-merges --reverse "${latest_tag}"..
+            echo ""
+            # see the changes?
+            read -r -p 'View changes (y)? (default: n) ' view_changes
+            if [ "${view_changes:-n}" = y ]; then
+                view_diffs "${latest_tag}"
+            fi
         fi
     fi
     echo "If you want to continue, enter the new tag in the form X.Y.Z"
     echo "where X, Y, and Z are integers corresponding to the semantic"
     echo "version based on the changes above."
     echo "Or, just press Enter to skip this role and go to the next role."
-    read -r -p "Old tag is $latest_tag - new tag? (or Enter to skip) " new_tag
+    read -r -p "Old tag is ${latest_tag:-EMPTY} - new tag? (or Enter to skip) " new_tag
     if [ -n "${new_tag}" ]; then
         read -r -p "Edit release notes - press Enter to continue"
         rel_notes_file=".release-notes-${new_tag}"

@@ -23,5 +23,11 @@ license:
 dependencies: {}
 
 tags:
-  - "system"
-  - "collection"
+  - system
+  - collection
+  - infrastructure
+  - linux
+  - monitoring
+  - networking
+  - security
+  - storage

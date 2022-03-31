@@ -17,7 +17,7 @@ logging:
 metrics:
   ref: 1.5.1
 nbde_client:
-  ref: 1.2.1
+  ref: 1.2.2
 nbde_server:
   ref: 1.1.2
 network:

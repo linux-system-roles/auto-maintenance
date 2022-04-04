@@ -187,7 +187,7 @@ def update_vendored_collections_yml(hsh, collection_tarballs, requirements):
     for coll in hsh["collections"]:
         if coll["name"] not in collections_versions.keys():
             collections_versions.update({coll["name"]: coll["version"]})
-    # Sort collections eto be in the same order as hsh["collections"]
+    # Sort collections to be in the same order as hsh["collections"]
     for coll in hsh["collections"]:
         collections_versions_sorted.update(
             {coll["name"]: collections_versions[coll["name"]]}
@@ -239,7 +239,9 @@ def main():
 
     for coll in hsh["collections"]:
         collection_tarballs.update(get_updated_collection_tarball(coll))
-    if len(collection_tarballs) != 0:
+    if len(collection_tarballs) == 0:
+        print("No updates found, exiting")
+    else:
         """Make a CentOS scratch build"""
         clone_repo(centos_repo, centos_branch, centpkg_cmd)
         copy_tarballs_to_repo(collection_tarballs, centos_repo)

@@ -104,6 +104,16 @@ def spec_add_changelog(content, collection_tarballs, lines):
             return content
 
 
+def spec_bump_release(content):
+    print("Bumping release in the spec file")
+    cur_release = re.search(r"^Release: (\d+)", content, flags=re.MULTILINE).group(1)
+    new_release = str(int(cur_release) + 1)
+    content = re.sub(
+        r"^Release: \d+", "Release: " + new_release, content, flags=re.MULTILINE
+    )
+    return content
+
+
 def update_spec(collection_tarballs, repo):
     with open(os.path.join(repo, "linux-system-roles.spec"), "r") as f:
         content = f.read()
@@ -111,6 +121,7 @@ def update_spec(collection_tarballs, repo):
         lines = iter(f.readlines())
     content = spec_replace_sources(content, collection_tarballs)
     content = spec_add_changelog(content, collection_tarballs, lines)
+    content = spec_bump_release(content)
     with open(os.path.join(repo, "linux-system-roles.spec"), "w") as f:
         f.write(content)
 

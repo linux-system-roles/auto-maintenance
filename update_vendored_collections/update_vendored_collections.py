@@ -180,15 +180,22 @@ def repo_force_push(repo, remote, branch):
 def update_vendored_collections_yml(hsh, collection_tarballs, requirements):
     collections_versions = {}
     updated_requirements = {"collections": []}
+    collections_versions_sorted = {}
     for collection, tarball in collection_tarballs.items():
         version = re.sub(".tar.gz", "", re.sub(".*-", "", tarball))
         collections_versions.update({collection: version})
     for coll in hsh["collections"]:
-        for collection, version in collections_versions.items():
-            if coll["name"] == collection:
-                updated_requirements["collections"].append(
-                    {"name": coll["name"], "version": version}
-                )
+        if coll["name"] not in collections_versions.keys():
+            collections_versions.update({coll["name"]: coll["version"]})
+    # Sort collections eto be in the same order as hsh["collections"]
+    for coll in hsh["collections"]:
+        collections_versions_sorted.update(
+            {coll["name"]: collections_versions[coll["name"]]}
+        )
+    for collection, version in collections_versions_sorted.items():
+        updated_requirements["collections"].append(
+            {"name": collection, "version": version}
+        )
     print(f"Update {requirements} with fresh collections versions")
     with open(requirements, "w") as f:
         yaml.dump(updated_requirements, f)

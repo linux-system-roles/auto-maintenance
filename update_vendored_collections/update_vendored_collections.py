@@ -104,6 +104,16 @@ def spec_add_changelog(content, collection_tarballs, lines):
             return content
 
 
+def spec_bump_release(content):
+    print("Bumping release in the spec file")
+    cur_release = re.search(r"^Release: (\d+)", content, flags=re.MULTILINE).group(1)
+    new_release = str(int(cur_release) + 1)
+    content = re.sub(
+        r"^Release: \d+", "Release: " + new_release, content, flags=re.MULTILINE
+    )
+    return content
+
+
 def update_spec(collection_tarballs, repo):
     with open(os.path.join(repo, "linux-system-roles.spec"), "r") as f:
         content = f.read()
@@ -111,6 +121,7 @@ def update_spec(collection_tarballs, repo):
         lines = iter(f.readlines())
     content = spec_replace_sources(content, collection_tarballs)
     content = spec_add_changelog(content, collection_tarballs, lines)
+    content = spec_bump_release(content)
     with open(os.path.join(repo, "linux-system-roles.spec"), "w") as f:
         f.write(content)
 
@@ -169,15 +180,22 @@ def repo_force_push(repo, remote, branch):
 def update_vendored_collections_yml(hsh, collection_tarballs, requirements):
     collections_versions = {}
     updated_requirements = {"collections": []}
+    collections_versions_sorted = {}
     for collection, tarball in collection_tarballs.items():
         version = re.sub(".tar.gz", "", re.sub(".*-", "", tarball))
         collections_versions.update({collection: version})
     for coll in hsh["collections"]:
-        for collection, version in collections_versions.items():
-            if coll["name"] == collection:
-                updated_requirements["collections"].append(
-                    {"name": coll["name"], "version": version}
-                )
+        if coll["name"] not in collections_versions.keys():
+            collections_versions.update({coll["name"]: coll["version"]})
+    # Sort collections to be in the same order as hsh["collections"]
+    for coll in hsh["collections"]:
+        collections_versions_sorted.update(
+            {coll["name"]: collections_versions[coll["name"]]}
+        )
+    for collection, version in collections_versions_sorted.items():
+        updated_requirements["collections"].append(
+            {"name": collection, "version": version}
+        )
     print(f"Update {requirements} with fresh collections versions")
     with open(requirements, "w") as f:
         yaml.dump(updated_requirements, f)
@@ -221,7 +239,9 @@ def main():
 
     for coll in hsh["collections"]:
         collection_tarballs.update(get_updated_collection_tarball(coll))
-    if len(collection_tarballs) != 0:
+    if len(collection_tarballs) == 0:
+        print("No updates found, exiting")
+    else:
         """Make a CentOS scratch build"""
         clone_repo(centos_repo, centos_branch, centpkg_cmd)
         copy_tarballs_to_repo(collection_tarballs, centos_repo)

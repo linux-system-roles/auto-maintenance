@@ -13,17 +13,17 @@ kdump:
 kernel_settings:
   ref: 1.1.7
 logging:
-  ref: 1.9.0
+  ref: 1.9.1
 metrics:
-  ref: 1.6.0
+  ref: 1.7.0
 nbde_client:
   ref: 1.2.3
 nbde_server:
   ref: 1.1.3
 network:
-  ref: 6da2df4ba0d2c9f71c38c1fc83a2ef7339c4d6af
+  ref: 3cbb6b24c1a1da0225440bc1dcfa2c36539dda05
 postfix:
-  ref: 1.2.1
+  ref: 1.2.2
 selinux:
   ref: 1.3.5
 ssh:

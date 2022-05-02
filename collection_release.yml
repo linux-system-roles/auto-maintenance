@@ -5,7 +5,7 @@ cockpit:
 crypto_policies:
   ref: 1.2.4
 firewall:
-  ref: 1.1.1
+  ref: 1.2.0
 ha_cluster:
   ref: 1.7.0
 kdump:
@@ -15,7 +15,7 @@ kernel_settings:
 logging:
   ref: 1.9.1
 metrics:
-  ref: 1.7.0
+  ref: 1.7.1
 nbde_client:
   ref: 1.2.3
 nbde_server:

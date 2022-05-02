@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: MIT
 set -o pipefail
 
+AUTOSKIP=${AUTOSKIP:-true}
 # Find the last tag in each role
 # Look at the git commits since that tag
 # Look at the actual changes since that tag
@@ -47,37 +48,41 @@ else
 fi
 git pull
 
-read -r -p 'Examine role (y)? (default: n) ' examine_role
-if [ "${examine_role:-n}" = y ]; then
-    # get latest tag
-    latest_tag=$(git describe --tags --abbrev=0 2> /dev/null)
-    # special case for network
-    case "$latest_tag" in
-    v*) latest_tag="${latest_tag//v}" ;;
-    esac
-    if [ -z "$latest_tag" ]; then
-        # repo and LSR_GH_ORG are referenced but not assigned.
-        # shellcheck disable=SC2154
-        echo Repo for "$LSR_GH_ORG" "$repo" has no tags - create one below or skip
+# get latest tag
+latest_tag=$(git describe --tags --abbrev=0 2> /dev/null)
+# special case for network
+case "$latest_tag" in
+v*) latest_tag="${latest_tag//v}" ;;
+esac
+skip=false
+if [ -z "$latest_tag" ]; then
+    # repo and LSR_GH_ORG are referenced but not assigned.
+    # shellcheck disable=SC2154
+    echo Repo for "$LSR_GH_ORG" "$repo" has no tags - create one below or skip
+else
+    # get the number of commits since latest tag
+    count=$(git log --oneline --no-merges --reverse "${latest_tag}".. | wc -l)
+    if [ "${count:-0}" = 0 ]; then
+        echo There are no commits since latest tag "$latest_tag"
+        echo ""
+        if [ "$AUTOSKIP" = true ]; then
+            echo Autoskip enabled - skipping tag/release for role "$repo"
+            skip=true
+        fi
     else
-        # get the number of commits since latest tag
-        count=$(git log --oneline --no-merges --reverse "${latest_tag}".. | wc -l)
-        if [ "${count:-0}" = 0 ]; then
-            echo There are no commits since latest tag "$latest_tag"
-            echo ""
-        else
-            echo Commits since latest tag "$latest_tag"
-            echo ""
-            # get the commits since the tag
-            git log --oneline --no-merges --reverse "${latest_tag}"..
-            echo ""
-            # see the changes?
-            read -r -p 'View changes (y)? (default: n) ' view_changes
-            if [ "${view_changes:-n}" = y ]; then
-                view_diffs "${latest_tag}"
-            fi
+        echo Commits since latest tag "$latest_tag"
+        echo ""
+        # get the commits since the tag
+        git log --oneline --no-merges --reverse "${latest_tag}"..
+        echo ""
+        # see the changes?
+        read -r -p 'View changes (y)? (default: n) ' view_changes
+        if [ "${view_changes:-n}" = y ]; then
+            view_diffs "${latest_tag}"
         fi
     fi
+fi
+if [ "$skip" = false ]; then
     echo "If you want to continue, enter the new tag in the form X.Y.Z"
     echo "where X, Y, and Z are integers corresponding to the semantic"
     echo "version based on the changes above."

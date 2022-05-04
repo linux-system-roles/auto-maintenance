@@ -340,18 +340,30 @@ def update_collection(args, galaxy, coll_rel):
             galaxy["name"],
             collection_readme,
         )
-        req_yml = os.path.join(args.src_path, rolename, "meta", "requirements.yml")
-        if os.path.isfile(req_yml):
-            req_yml_hsh = yaml.safe_load(open(req_yml))
-            for coll in req_yml_hsh.get("collections", []):
-                if isinstance(coll, dict):
-                    coll_name = coll["name"]
-                    coll_ver = coll.get("version", "*")
-                else:
-                    coll_name = coll
-                    coll_ver = "*"
-                galaxy_deps = galaxy.setdefault("dependencies", {})
-                galaxy_deps[coll_name] = coll_ver
+        legacy_rqf = "requirements.yml"
+        coll_rqf = "collection-requirements.yml"
+        for rqf in [legacy_rqf, coll_rqf]:
+            req_yml = os.path.join(args.src_path, rolename, "meta", rqf)
+            if os.path.isfile(req_yml):
+                req_yml_hsh = yaml.safe_load(open(req_yml))
+                if isinstance(req_yml_hsh, list):
+                    continue  # legacy role format
+                if rqf == legacy_rqf:
+                    logging.warning(
+                        "The role %s is still using %s - please convert to %s instead",
+                        rolename,
+                        rqf,
+                        coll_rqf,
+                    )
+                for coll in req_yml_hsh.get("collections", []):
+                    if isinstance(coll, dict):
+                        coll_name = coll["name"]
+                        coll_ver = coll.get("version", "*")
+                    else:
+                        coll_name = coll
+                        coll_ver = "*"
+                    galaxy_deps = galaxy.setdefault("dependencies", {})
+                    galaxy_deps[coll_name] = coll_ver
     if not args.no_update:
         if not any(versions_updated):
             logging.info(

@@ -425,10 +425,21 @@ def process_ansible_yml_path(yml_path, ctx):
 
 
 def process_role_meta_path(meta_path, ctx):
-    reqs_file = os.path.join(meta_path, "requirements.yml")
-    if os.path.isfile(reqs_file):
-        ctx.role_reqs = yaml.safe_load(open(reqs_file))
-        ctx.add_dependencies()
+    legacy_rqf = "requirements.yml"
+    coll_rqf = "collection-requirements.yml"
+    for rqf in [legacy_rqf, coll_rqf]:
+        reqs_file = os.path.join(meta_path, rqf)
+        if os.path.isfile(reqs_file):
+            reqs = yaml.safe_load(open(reqs_file))
+            if isinstance(reqs, dict):
+                ctx.role_reqs = reqs
+                ctx.add_dependencies()
+                if rqf == legacy_rqf:
+                    logging.warning(
+                        "Still using %s - please convert to %s instead",
+                        reqs_file,
+                        coll_rqf,
+                    )
     meta_main = os.path.join(meta_path, "main.yml")
     if os.path.isfile(meta_main) and not os.path.islink(meta_main):
         process_yml_file(meta_main, ctx)

@@ -177,28 +177,35 @@ def role_to_collection(
 ):
     """Convert the role to collection format."""
     subrole_prefix = f"private_{rolename}_subrole_"
-    _ = run_cmd(
-        [
-            sys.executable,
-            "lsr_role2collection.py",
-            "--src-owner",
-            args.src_owner,
-            "--role",
-            rolename,
-            "--src-path",
-            args.src_path,
-            "--dest-path",
-            args.dest_path,
-            "--namespace",
-            namespace,
-            "--collection",
-            collection_name,
-            "--subrole-prefix",
-            subrole_prefix,
-            "--readme",
-            collection_readme,
-        ]
-    )
+    cmd = [
+        sys.executable,
+        "lsr_role2collection.py",
+        "--src-owner",
+        args.src_owner,
+        "--role",
+        rolename,
+        "--src-path",
+        args.src_path,
+        "--dest-path",
+        args.dest_path,
+        "--namespace",
+        namespace,
+        "--collection",
+        collection_name,
+        "--subrole-prefix",
+        subrole_prefix,
+        "--readme",
+        collection_readme,
+    ]
+    # HACK - special case for ansible-sshd - not fully qualified
+    if rolename == "sshd":
+        cmd.extend(
+            [
+                "--extra-mapping",
+                f"ansible-sshd:{namespace}.{collection_name}.{rolename}",
+            ]
+        )
+    _ = run_cmd(cmd)
 
 
 def update_galaxy_version(args, galaxy, versions_updated):

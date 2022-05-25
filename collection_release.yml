@@ -21,7 +21,7 @@ nbde_client:
 nbde_server:
   ref: 1.1.4
 network:
-  ref: bf6215dab8357722ccc6052b27c2b029287ed5e6
+  ref: 1.8.0
 postfix:
   ref: 1.2.3
 selinux:

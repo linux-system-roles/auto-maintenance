@@ -1086,8 +1086,9 @@ def role2collection():
         default=os.environ.get("COLLECTION_EXTRA_MAPPING", ""),
         help=(
             "This is a comma delimited list of extra mappings to apply when "
-            "converting the files - this converts the given name to collection "
-            "format with the optional given namespace and collection."
+            "converting the files - this replaces the given role name with "
+            "collection format with the optional given namespace and collection "
+            "as sell as the given FQCN with other FQCN."
         ),
     )
     default_meta_runtime = Path(__file__).parent / "lsr_role2collection" / "runtime.yml"
@@ -1136,60 +1137,107 @@ def role2collection():
     subrole_prefix = args.subrole_prefix
     readme_path = args.readme
 
-    # Input: "linux-system-roles.role0:newrole0,\
-    #         linux-system-roles.role1:fedora.linux_system_roles.role1"
+    # Assume fedora is the default namespace and linux_system_roles is
+    # the default collection.
+    #
+    # Input: "a-owner.role0:newrole0,\
+    #         a-owner.role1:linux_system_roles.role1,\
+    #         a-owner.role2:fedora.linux_system_roles.role2,\
+    #         my_namespace.my_collection.role3:redhat.rhel_system_roles.role3,\
+    #         my_namespace.my_collection.role4:linux_system_roles.role4",\
+    #         my_namespace.my_collection.role5:role5"
     # Output:
     # [
-    #   {'src_name': {'src_owner': 'linux-system-roles', 'role': 'sap-base-settings'},
-    #    'dest_name': {'dest_prefix': None, 'role': ['base_settings']}},
-    #   {'src_name': {'src_owner': 'linux-system-roles', 'role': 'timesync'},
-    #    'dest_name': {'dest_prefix': 'fedora.linux_system_roles', 'role': 'timesync'}}
+    #   {'src_name': {'src_owner': 'linux-system-roles', 'role': 'role0'},
+    #    'dest_name': {'dest_prefix': None, 'role': 'newrole0'}},
+    #   {'src_name': {'src_owner': 'a-owner', 'role': 'role1'},
+    #    'dest_name': {'dest_prefix': 'fedora.linux_system_roles', 'role': 'role1'},
+    #   {'src_name': {'src_owner': 'a-owner', 'role': 'role2'},
+    #    'dest_name': {'dest_prefix': 'fedora.linux_system_roles', 'role': 'role2'}}
+    # ],
+    # [
+    #   {'src_name': {'src_coll': 'my_namespace.my_collection.role3'},
+    #    'dest_name': {'dest_coll': 'redhat.rhel_system_roles.role3}},
+    #   {'src_name': {'src_coll': 'my_namespace.my_collection.role4'},
+    #    'dest_name': {'dest_coll': 'fedora.linux_system_roles.role4}},
+    #   {'src_name': {'src_coll': 'my_namespace.my_collection.role3'},
+    #    'dest_name': {'dest_coll': 'fedora.linux_system_roles.role3'}},
     # ]
-    # Note: skip if src role is the role to be converted.
-    def parse_extra_mapping(mapping_str, namespace, role):
+    # Note: Skip if the role in the given src_name is the role to be converted.
+    def parse_extra_mapping(mapping_str, namespace, collection, role):
         _mapping_list = mapping_str.split(",")
-        _mapping_dict_list = []
+        _mapping_role_list = []
+        _mapping_coll_list = []
         for _map in _mapping_list:
             _item = _map.split(":")
             if len(_item) == 2:
+                _mapping_dict = {}
                 _src = _item[0].split(".")
+                _src_name = {}
+                if len(_src) == 1:
+                    # "rolename"
+                    if _src[0] == role:
+                        continue
+                    _src_name["src_owner"] = None
+                    _src_name["role"] = _src[0]
+                    _mapping_dict["src_name"] = _src_name
+                elif len(_src) == 2:
+                    # "linux-system-roles.rolename"
+                    if _src[1] == role:
+                        continue
+                    _src_name["src_owner"] = _src[0]
+                    _src_name["role"] = _src[1]
+                    _mapping_dict["src_name"] = _src_name
+                elif len(_src) == 3:
+                    # FQCN
+                    _src_name["src_coll"] = _item[0]
+                    _mapping_dict["src_name"] = _src_name
+
+                _dest = _item[1].split(".")
+                _dest_name = {}
                 if len(_src) == 1 or len(_src) == 2:
-                    _src_name = {}
-                    if len(_src) == 1:
+                    if len(_dest) == 1:
                         # "rolename"
-                        _src_name["src_owner"] = None
-                        _src_name["role"] = _src[0]
-                    elif len(_src) == 2:
-                        # "linux-system-roles.rolename"
-                        _src_name["src_owner"] = _src[0]
-                        _src_name["role"] = _src[1]
-                    _dest = _item[1].split(".")
-                    if len(_dest) > 0 and len(_dest) <= 3:
-                        _dest_name = {}
-                        if len(_dest) == 1:
-                            # "rolename"
-                            _dest_name["dest_prefix"] = None
-                            _dest_name["role"] = _dest[0]
-                        elif len(_dest) == 2:
-                            # "collection.rolename"
-                            _dest_name["dest_prefix"] = "{0}.{1}.".format(
-                                namespace, _dest[0]
-                            )
-                            _dest_name["role"] = _dest[1]
-                        elif len(_dest) == 3:
-                            # "namespace.collection.rolename"
-                            _dest_name["dest_prefix"] = "{0}.{1}.".format(
-                                _dest[0], _dest[1]
-                            )
-                            _dest_name["role"] = _dest[2]
+                        _dest_name["dest_prefix"] = None
+                        _dest_name["role"] = _dest[0]
+                    elif len(_dest) == 2:
+                        # "collection.rolename"
+                        _dest_name["dest_prefix"] = "{0}.{1}.".format(
+                            namespace, _dest[0]
+                        )
+                        _dest_name["role"] = _dest[1]
+                    elif len(_dest) == 3:
+                        # "namespace.collection.rolename"
+                        _dest_name["dest_prefix"] = "{0}.{1}.".format(
+                            _dest[0], _dest[1]
+                        )
+                        _dest_name["role"] = _dest[2]
+                    _mapping_dict["dest_name"] = _dest_name
+                    _mapping_role_list.append(_mapping_dict)
+                elif len(_src) == 3:
+                    if len(_dest) == 1:
+                        # "rolename"
+                        _dest_name["dest_coll"] = "{0}.{1}.{2}".format(
+                            namespace, collection, _item[1]
+                        )
+                    elif len(_dest) == 2:
+                        # "collection.rolename"
+                        _dest_name["dest_coll"] = "{0}.{1}".format(namespace, _item[1])
+                    elif len(_dest) == 3:
+                        # FQCN
+                        _dest_name["dest_coll"] = _item[1]
+                    _mapping_dict["dest_name"] = _dest_name
+                    _mapping_coll_list.append(_mapping_dict)
+                else:
+                    print(
+                        "ERROR: Ignoring invalid extra-mapping value {0}".format(_map)
+                    )
+        return _mapping_role_list, _mapping_coll_list
 
-                        _mapping_dict = {}
-                        _mapping_dict["src_name"] = _src_name
-                        _mapping_dict["dest_name"] = _dest_name
-                        _mapping_dict_list.append(_mapping_dict)
-        return _mapping_dict_list
+    extra_mapping, extra_coll_mapping = parse_extra_mapping(
+        args.extra_mapping, namespace, collection, role
+    )
 
-    extra_mapping = parse_extra_mapping(args.extra_mapping, namespace, role)
     extra_mapping_src_owner = list(
         map(itemgetter("src_owner"), list(map(itemgetter("src_name"), extra_mapping)))
     )
@@ -1614,6 +1662,25 @@ def role2collection():
             cwd=roles_dir / role,
             env=env,
         )
+
+    # Handle --extra-mapping FQCN0:FQCN1 or FQCN2:ROLE3
+    file_patterns = ["*.yml", "*.md"]
+    for _emap in extra_coll_mapping:
+        # Replacing SRC_OWNER.ROLE with FQCN
+        _from = "{0}".format(_emap["src_name"]["src_coll"])
+        _to = "{0}".format(_emap["dest_name"]["dest_coll"])
+        # role
+        file_replace(roles_dir / new_role, _from, _to, file_patterns)
+        # subroles
+        for sr in roles_dir.iterdir():
+            if sr.name.startswith(subrole_prefix):
+                file_replace(roles_dir / sr.name, _from, _to, file_patterns)
+        # tests
+        file_replace(tests_dir / new_role, _from, _to, file_patterns)
+        # docs
+        file_replace(docs_dir / new_role, _from, _to, file_patterns)
+        # meta
+        file_replace(meta_dir, _from, _to, file_patterns)
 
     default_collections_paths = "~/.ansible/collections:/usr/share/ansible/collections"
     default_collections_paths_list = list(

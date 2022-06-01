@@ -177,12 +177,15 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      the name to start with the value; default to an empty string
 --readme README      Path to the readme file used in top README.md
 --extra-mapping EXTRA_MAPPING
-                     This is a comma delimited list of extra mappings to apply when converting the
-                     files - this converts the given name to collection format with the optional given
-                     namespace and collection.
+                     This is a comma delimited list of extra mappings to apply when converting
+                     the files - this replaces the given role name with collection format with
+                     the optional given namespace and collection as sell as the given FQCN with
+                     other FQCN.
                      The format is
                        "src_name:[[dest_namespace.]dest_collection.]dest_name,\
-                        src_name:[[dest_namespace.]dest_collection.]dest_name,...."
+                        ...,
+                        src_FQCN:[[dest_namespace.]dest_collection.]dest_name,\
+                        ..."
                      The default for `dest_namespace` is the `--namespace` value,
                      and the default for `dest_collection` is the `--collection` value.
                      `src_name` is the name of a role, preferably in `namespace.rolename` format.

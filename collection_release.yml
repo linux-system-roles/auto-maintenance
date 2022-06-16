@@ -30,7 +30,7 @@ ssh:
   ref: 1.1.7
 sshd:
   org: willshersystems
-  ref: 61cce32ce615a036309cbe54e6c70efe149580a1
+  ref: 7349bd448ed1824a02c7c5917f98e85f5ba0d8d0
   repo: ansible-sshd
 storage:
   ref: 1.8.1

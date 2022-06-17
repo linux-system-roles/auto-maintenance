@@ -13,6 +13,7 @@ linux-system-roles repos.
   * [check_rpmspec_collection.sh](#check_rpmspec_collectionsh)
   * [roles-tag-and-release.sh](#roles-tag-and-releasesh)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
+  * [bz-manage.sh](#bz-managesh)
   * [configure_squid](#configure_squid)
 <!--te-->
 
@@ -703,6 +704,159 @@ will print out all open PRs, along with their statuses and checks, along with
 some other metadata.  There are a number of command line options to look for
 specific repos, platform status, ansible version status, staging vs.
 production, and many more.  See the help for the command for more information.
+
+# bz-manage.sh
+
+## Intro
+
+This tool is primarily for downstream maintainers for various administrative
+Bugzilla tasks such as creating new system roles BZs, checking if a BZ in a
+specified release has a clone in other releases, setting the ITM and DTM fields
+for BZs in a given ITR, managing the `devel_whiteboard` field, and printing git
+commit and changelog entries.
+
+See also
+[RHEL Development Guide](https://one.redhat.com/rhel-development-guide/#assembly_rhel-9-development_rhel-dev-guide)
+for more information about the Bugzilla workflow.
+
+## Requirements
+
+You must have the `bugzilla` cli tool (provided by the `python-bugzilla-cli`
+package on Fedora).
+
+You must have an authentication API key configured
+[API Key](https://bugzilla.redhat.com/userprefs.cgi?tab=apikey) - see
+[Authentication](https://bugzilla.redhat.com/docs/en/html/api/core/v1/general.html#authentication)
+and `man bugzilla` - the section "AUTHENTICATION CACHE AND API KEYS" for more
+information.
+
+You must have the `jq` cli tool (provided by the `jq` package on Fedora).
+
+## Commands
+
+### setitm, setdtm
+Use this to set the ITM or DTM for all BZ in a given ITR and given STATUS to a
+given value, if the ITM/DTM is less than the given value.  For example, you have
+several BZ in the POST status for ITR 8.7.0, and you need to ensure that all of
+them have an ITM of at least 23 - if the ITM is not set, set it to 23 - if the
+ITM is set to a value less than 23, set it to 23 - if the ITM is set to a value
+of 23 or higher, do not touch it.
+```
+ITR=8.7.0 ITM=23 STATUS=POST ./bz-manage.sh setitm
+```
+
+### reset_dev_wb
+Use this to remove `qa_ack?` from the `Devel Whiteboard` field if the BZ has
+been given `qa_ack+`, and remove `pre-verify?` from the `Devel Whiteboard`
+field if the BZ has been given `Verified:Tested`.
+```
+ITR=9.1.0 ./bz-manage.sh reset_dev_wb
+```
+
+### get_commit_msg
+Use this to generate a git commit message for a downstream dist-git commit, which
+must be in a specific format.  For example, you have several BZ for ITR 8.7.0 in
+the POST STATUS, and they have been given `release+`, and now you want to make a
+downstream commit, push, and build.
+```
+ITR=8.7.0 STATUS=POST ./bz-manage.sh get_commit_msg
+```
+will output something like this:
+```
+bond: fix typo in supporting the infiniband ports in active-backup mode
+Resolves: rhbz#2064067
+
+pytest failed when running with nm providers in the rhel-8.5 beaker machine
+Resolves: rhbz#2065217
+```
+You must still provide the git commit summary/title, but you can just copy/paste
+this output for the git commit body.
+
+### get_cl
+Use this to generate an RPM spec file Changelog message.  This is similar to
+`get_commit_msg` but it does not require the BZ to have `release+`.  For
+example, you have several BZ for ITR 9.1.0 in the POST STATUS, and you want to
+make an RPM scratch build with a changelog.  You also want to include the cloned
+BZ in the changelog message.
+```
+ITR=9.1.0 STATUS=POST INCLUDE_CLONE=true RPM_CL=true ./bz-manage.sh get_cl
+```
+will output something like this:
+```
+- network - bond: fix typo in supporting the infiniband ports in active-backup mode
+  Resolves: rhbz#2064067 (8.7.0)
+  Resolves: rhbz#2065394 (9.1.0)
+
+- network - pytest failed when running with nm providers in the rhel-8.5 beaker machine
+  Resolves: rhbz#2065217 (8.7.0)
+  Resolves: rhbz#2066911 (9.1.0)
+```
+that you can copy/paste into a spec changelog.  If you do not specify
+`INCLUDE_CLONE=true` then it will output only the BZ for the given ITR.  If you
+do not specify `RPM_CL=true` then the output will be formatted for a git commit
+message rather than for an RPM spec.
+
+### new
+Create a new system roles BZ.  NOTE: Does not use any environment variables -
+all parameters are passed in on the command line.  All parameters are required.
+Usage:
+```
+./bz-manage.sh new X.Y "SUMMARY" "COMMENT" ROLENAME
+```
+* `X.Y` - the major.minor version (e.g. 8.7) - the ITR will be set to `X.Y.0`
+* `SUMMARY` - the BZ summary/title
+* `COMMENT` - the initial BZ comment
+* `ROLENAME` - name of role - the whiteboard field will be updated with
+`role:ROLENAME` - use `""` if you want to leave the field blank e.g. the BZ
+corresponds to multiple roles
+
+For example, to create a new 9.1
+BZ:
+```
+./bz-manage.sh new 9.1 "kernel_settings mis-configures memory settings" \
+  "I can reproduce on rhel-9 but not rhel-8" kernel_settings
+```
+NOTE: You will have to edit the BZ after creation.  And the RHEL Bugzilla
+workflow tools automatically edit the BZ several times. It may take a few
+minutes after you create a new BZ that you can actually edit it without having
+your edits overwritten or discarded.
+
+### clone_check
+Check that the BZs of a given ITR and STATUS all have an appropriate clone.  It will
+check that there is a clone, that the clone has the same SUMMARY, and that the clone
+has the same STATUS.
+```
+ITR=8.7.0 STATUS=POST ./bz-manage clone_check
+```
+e.g.
+```
+ERROR: bz 2066876 status [POST] does not match clone 2072745 status [ON_QA]
+```
+The clone check is not perfect, so be sure to check manually. 
+
+## Parameters
+
+Almost all parameters are passed as environment variables.  However, the `new`
+command takes all parameters on the command line - see above.
+
+### ITR
+default "8.7.0" - the Internal Target Release of the BZ to manage
+
+### ITM
+Internal Target Milestone - used with `setitm`
+
+### DTM
+Dev Target Milestone - used with `setdtm`
+
+### STATUS
+BZ status e.g. `NEW`, `ASSIGNED`, `POST`, etc.  Most commands only operate on BZs that
+have the specified STATUS - the primary exception is `reset_dev_wb`.
+
+### LIMIT
+By default, the limit on the number of BZ returned by a query is 100.  Use LIMIT to
+change that value.
+
+There are other undocumented environment variables used, check the code for more details.
 
 # configure_squid
 

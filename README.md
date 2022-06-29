@@ -11,7 +11,7 @@ linux-system-roles repos.
   * [lsr_role2collection.py](#lsr_role2collectionpy)
   * [release_collection.py](#release_collectionpy)
   * [check_rpmspec_collection.sh](#check_rpmspec_collectionsh)
-  * [roles-tag-and-release.sh](#roles-tag-and-releasesh)
+  * [role-make-version-changelog.sh](#role-make-version-changelogsh)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
   * [bz-manage.sh](#bz-managesh)
   * [configure_squid](#configure_squid)
@@ -378,7 +378,7 @@ Or, figure out some way to download the correct versions of
 
 You should ensure that the roles have been appropriately tagged with semantic
 versions.  You are strongly encouraged to use
-[roles-tag-and-release.sh](#roles-tag-and-releasesh) to tag, release, and
+[role-make-version-changelog.sh](#role-make-version-changelogsh) to tag, release, and
 publish the individual roles.  If you do this, then you can usually let the
 script automatically update the versions in `collection_release.yml` and
 `galaxy.yml`.  Otherwise, you will need to ensure that the information in
@@ -418,7 +418,7 @@ kernel_settings:
 This will use e.g.
 `git clone https://github.com/linux-system-roles/certificate -b 1.0.0`, etc.
 
-Use [roles-tag-and-release.sh](#roles-tag-and-releasesh) to create new
+Use [role-make-version-changelog.sh](#role-make-version-changelogsh) to create new
 tags/versions in each role.  If you use strict semantic versioning everywhere,
 in your github tags and in the `collection_release.yml` file, you can use the
 automatic versioning feature of the script to automatically update the version
@@ -508,7 +508,7 @@ release.
 We assume that each role will be doing regular tagged releases where the tag is
 the semantic version.  If not, then it will be difficult to determine what sort
 of change the role has made, and how it should affect the collection version.
-The [roles-tag-and-release.sh](#roles-tag-and-releasesh) script is useful to
+The [role-make-version-changelog.sh](#role-make-version-changelogsh) script is useful to
 identify what sort of changes were made in each role, update the semantic
 version tag, do github releases, and publish individual roles to Galaxy.  You
 are strongly encouraged to use that script.
@@ -670,15 +670,28 @@ Then, it verifies that `README.html` files are only in /usr/share/doc/ area.
 
 Usage: ./check_rpmspec_collection.sh [ -h | --help ] | [ fedpkg | rhpkg [ branch_name ] ]
 
-# roles-tag-and-release.sh
+# role-make-version-changelog.sh
 
-This script is used in conjunction with `local-repo-dev-sync.sh` to examine the
-changes, tag, release to github, and import each role to Galaxy.  Use it like
-this:
-
+This script is used to create a new version, tag, and release for a role.  It
+will guide you through the process.  It will show you the changes in the role
+since the last tag, and ask you what will be the new semantic version to use for
+the tag.  It will then put the changes in a file to use for the update to the
+CHANGELOG.md file for the new version, and put you in your editor to edit the
+file.  If you are using this in conjunction with `local-repo-dev-sync.sh`, it
+will push the changes to your repo and create a pull request for CHANGELOG.md.
+Once the CHANGELOG.md PR is merged, there is github action automation to tag the
+repo with the version, create a github release, and import the new version into
+Ansible Galaxy.  You must provide a branch for the PR, or if you are not using
+the script with `local-repo-dev-sync.sh`, you can create a branch in your local
+clone directory.
 ```
-LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh `pwd`/roles-tag-and-release.sh
+BRANCH=my_branch_name LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh `pwd`/role-make-version-changelog.sh
 ```
+NOTE: You must install and configure `gh` in order to create the pull request.
+If you want to have more control over the commit, commit msg, and PR, then you
+can clone the repo manually, create the branch, and run
+`role-make-version-changelog.sh` in the local repo clone directory.  This will
+not push or create a PR.
 
 This script is highly interactive.  Since we are using semantic versioning,
 there must be some sort of human interaction to decide which X, Y, or Z version
@@ -687,15 +700,16 @@ will optionally show you the detailed changes.  It will then prompt for the new
 tag.  If you hit Enter/Return here, it will skip tagging, so hit Enter/Return if
 you do not want to make a new tag/release.  If you do want to make a new
 release, enter a tag/version in the form of `X.Y.Z`, based on the semantic
-changes to the role.  You will then be prompted to edit the release notes for
-the release.  You will need to create some sort of meaningful title for the
-release.  The body of the release will be filled in by the commit messages from
-the commits since the last tag - you will almost certainly need to edit these.
-When you are done, it will ask if you want to create a new GitHub release.  If
-you do, it will create the release, then ask if you want to publish the role to
-Galaxy.  If you do, it will perform a role import into Galaxy.
+changes to the role.  You will then be prompted to edit CHANGELOG.md for the
+release.  The body will be filled in by the commit messages from the commits
+since the last tag - you will need to edit these. When you are done, it will
+make a commit in your local repo.  If you are using it with
+`local-repo-dev-sync.sh`, and `gh` is installed and configured, it will push the
+changes to your repo and create the PR.
 
-Use this script before [release_collection.py](#release_collectionpy).
+Use this script, and ensure the CHANGELOG.md PR is merged, and the repo is
+tagged and released, before you run
+[release_collection.py](#release_collectionpy).
 
 # list-pr-statuses-ghapi.py
 

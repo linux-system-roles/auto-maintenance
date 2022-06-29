@@ -11,6 +11,8 @@ AUTOSKIP=${AUTOSKIP:-true}
 # Figure out what to use for the new tag
 # Figure out what to put in the release notes for the release
 
+CHANGELOG_ONLY=${CHANGELOG_ONLY:-false}
+
 # To be used in conjunction with local-repo-dev-sync.sh
 # This script is called from every role
 
@@ -37,16 +39,20 @@ view_diffs() {
 }
 
 git fetch --all
-if git checkout main 2> /dev/null; then
-    mainbr=main
-elif git checkout master; then
-    mainbr=master
+if [ "$CHANGELOG_ONLY" != true ]; then
+    if git checkout main 2> /dev/null; then
+        mainbr=main
+    elif git checkout master; then
+        mainbr=master
+    else
+        echo ERROR: could not checkout either main or master
+        git remote -vv
+        exit 1
+    fi
+    git pull
 else
-    echo ERROR: could not checkout either main or master
-    git remote -vv
-    exit 1
+    mainbr=$( git branch --show-current )
 fi
-git pull
 
 # get latest tag
 latest_tag=$(git describe --tags --abbrev=0 2> /dev/null)
@@ -104,7 +110,10 @@ if [ "$skip" = false ]; then
             mv .tmp-changelog CHANGELOG.md
             ${EDITOR:-vi} CHANGELOG.md
             git add CHANGELOG.md
-            git commit -F "$rel_notes_file"
+            git commit -s -F "$rel_notes_file"
+            if [ "$CHANGELOG_ONLY" == true ]; then
+                exit 0
+            fi
             git push origin "$mainbr"
         fi
         read -r -p 'Create new github release - press Enter to continue'

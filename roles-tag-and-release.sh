@@ -106,7 +106,17 @@ if [ "$skip" = false ]; then
         ${EDITOR:-vi} "$rel_notes_file"
         if [ -f CHANGELOG.md ]; then
             read -r -p "Edit CHANGELOG.md - press Enter to continue"
-            cat "$rel_notes_file" CHANGELOG.md > .tmp-changelog
+			pat="=*"
+            if [[ $( head -n 1 CHANGELOG.md ) == "Changelog" ]] &&
+               [[ $( head -n 2 CHANGELOG.md | tail -n 1 ) =~ $pat ]]; then
+                # if CHANGELOG.md starts with "# Changelog", keep the first line.
+                head -n 2 CHANGELOG.md > .tmp-changelog
+				echo "" >> .tmp-changelog
+                cat "$rel_notes_file" >> .tmp-changelog
+                tail -n +3 CHANGELOG.md >> .tmp-changelog
+            else
+                cat "$rel_notes_file" CHANGELOG.md > .tmp-changelog
+            fi
             mv .tmp-changelog CHANGELOG.md
             ${EDITOR:-vi} CHANGELOG.md
             git add CHANGELOG.md

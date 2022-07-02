@@ -98,23 +98,29 @@ if [ "$skip" = false ]; then
         read -r -p "Edit release notes - press Enter to continue"
         rel_notes_file=".release-notes-${new_tag}"
         if [ ! -f "$rel_notes_file" ]; then
-            echo title goes here > "$rel_notes_file"
+            echo "[$new_tag] - $( date +%Y-%m-%d )" > "$rel_notes_file"
+            echo "--------------------" >> "$rel_notes_file"
             echo "" >> "$rel_notes_file"
-            git log --oneline --no-merges --reverse --pretty=format:"# %B" "${latest_tag}".. | \
+            echo "REMOVE_ME: Recommend to itemize the change logs in either of the following two." >> "$rel_notes_file"
+            echo "### New features" >> "$rel_notes_file"
+            echo "### Bug fixes" >> "$rel_notes_file"
+            git log --oneline --no-merges --reverse --pretty=format:"- %B" "${latest_tag}".. | \
                 tr -d '\r' >> "$rel_notes_file"
         fi
         ${EDITOR:-vi} "$rel_notes_file"
         if [ -f CHANGELOG.md ]; then
             read -r -p "Edit CHANGELOG.md - press Enter to continue"
-			pat="=*"
-            if [[ $( head -n 1 CHANGELOG.md ) == "Changelog" ]] &&
-               [[ $( head -n 2 CHANGELOG.md | tail -n 1 ) =~ $pat ]]; then
-                # if CHANGELOG.md starts with "# Changelog", keep the first line.
-                head -n 2 CHANGELOG.md > .tmp-changelog
-				echo "" >> .tmp-changelog
+            myheader="Changelog
+========="
+            clheader=$(head -2 CHANGELOG.md)
+            if [ "$myheader" = "$clheader" ]; then
+                echo "$clheader" > .tmp-changelog
+                echo "" >> .tmp-changelog
                 cat "$rel_notes_file" >> .tmp-changelog
                 tail -n +3 CHANGELOG.md >> .tmp-changelog
             else
+                echo WARNING: Changelog header "$clheader"
+                echo not in expected format "$myheader"
                 cat "$rel_notes_file" CHANGELOG.md > .tmp-changelog
             fi
             mv .tmp-changelog CHANGELOG.md

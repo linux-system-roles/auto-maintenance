@@ -12,6 +12,7 @@ AUTOSKIP=${AUTOSKIP:-true}
 # Figure out what to put in the release notes for the release
 
 CHANGELOG_ONLY=${CHANGELOG_ONLY:-false}
+repo=${repo:-$( git remote get-url origin | awk -F'/' '{print $NF}' )}
 
 # To be used in conjunction with local-repo-dev-sync.sh
 # This script is called from every role
@@ -56,9 +57,13 @@ fi
 
 # get latest tag
 latest_tag=$(git describe --tags --abbrev=0 2> /dev/null)
-# special case for network
+# special case for network and sshd
 case "$latest_tag" in
-v*) latest_tag="${latest_tag//v}" ;;
+v*)
+    if [ "$repo" != "ansible-sshd" ]; then
+        latest_tag="${latest_tag//v}"
+    fi
+    ;;
 esac
 skip=false
 if [ -z "$latest_tag" ]; then

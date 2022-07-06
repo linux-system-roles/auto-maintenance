@@ -103,12 +103,12 @@ if [ "$skip" = false ]; then
         read -r -p "Edit release notes - press Enter to continue"
         rel_notes_file=".release-notes-${new_tag}"
         if [ ! -f "$rel_notes_file" ]; then
-            echo "[$new_tag] - $( date +%Y-%m-%d )" > "$rel_notes_file"
-            echo "--------------------" >> "$rel_notes_file"
-            echo "" >> "$rel_notes_file"
-            echo "REMOVE_ME: Recommend to itemize the change logs in either of the following two." >> "$rel_notes_file"
-            echo "### New features" >> "$rel_notes_file"
-            echo "### Bug fixes" >> "$rel_notes_file"
+            { echo "[$new_tag] - $( date +%Y-%m-%d )"; \
+              echo "--------------------"; \
+              echo ""; \
+              echo "REMOVE_ME: Recommend to itemize the change logs in either of the following two."; \
+              echo "### New features"; \
+              echo "### Bug fixes"; } > "$rel_notes_file"
             git log --oneline --no-merges --reverse --pretty=format:"- %B" "${latest_tag}".. | \
                 tr -d '\r' >> "$rel_notes_file"
         fi
@@ -119,8 +119,7 @@ if [ "$skip" = false ]; then
 ========="
             clheader=$(head -2 CHANGELOG.md)
             if [ "$myheader" = "$clheader" ]; then
-                echo "$clheader" > .tmp-changelog
-                echo "" >> .tmp-changelog
+                { echo "$clheader"; echo ""; } > .tmp-changelog
                 cat "$rel_notes_file" >> .tmp-changelog
                 tail -n +3 CHANGELOG.md >> .tmp-changelog
             else

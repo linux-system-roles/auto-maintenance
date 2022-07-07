@@ -106,9 +106,11 @@ if [ "$skip" = false ]; then
             { echo "[$new_tag] - $( date +%Y-%m-%d )"; \
               echo "--------------------"; \
               echo ""; \
-              echo "REMOVE_ME: Recommend to itemize the change logs in either of the following two."; \
-              echo "### New features"; \
-              echo "### Bug fixes"; } > "$rel_notes_file"
+              echo "REMOVE_ME: Recommend to itemize the change logs in either of the following sections."; \
+              echo "REMOVE_ME: Use Other Changes for the CI related items."; \
+              echo "### New Features"; \
+              echo "### Bug Fixes"; \
+              echo "### Other Changes"; } > "$rel_notes_file"
             git log --oneline --no-merges --reverse --pretty=format:"- %B" "${latest_tag}".. | \
                 tr -d '\r' >> "$rel_notes_file"
         fi

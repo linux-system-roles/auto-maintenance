@@ -40,13 +40,13 @@ if [ ! -d "$LSR_BASE_DIR" ]; then
 fi
 
 repos=${REPOS:-$(gh repo list "$LSR_GH_ORG" -L 100 --json name -q '.[].name')}
-EXCLIST=${EXCLIST:-"test-harness linux-system-roles.github.io sap-base-settings \
+DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"test-harness linux-system-roles.github.io sap-base-settings \
                     sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
                     auto-maintenance image_builder sap-netweaver-preconfigure ci-testing \
                     meta_test tox-lsr tuned .github lsr-gh-action-py26 \
                     ee_linux_system_roles ee_linux_automation .github"}
 declare -A EXARRAY
-for repo in $EXCLIST; do
+for repo in $DEFAULT_EXCLIST ${EXCLIST:-}; do
     # EXARRAY is a "set" of excluded repos
     EXARRAY[$repo]=$repo
 done

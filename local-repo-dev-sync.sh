@@ -13,8 +13,6 @@ LSR_BASE_DIR=${LSR_BASE_DIR:-~/linux-system-roles}
 requiredcmds="gh jq"
 missingcmds=""
 
-gh_cmd=gh
-
 for cmd in $requiredcmds; do
     if ! type -p "$cmd" > /dev/null 2>&1; then
         missingcmds="$missingcmds $cmd"
@@ -94,11 +92,12 @@ for repo in $repos; do
             exit 1
         fi
         if [ "${RENAME_FORK:-false}" = true ]; then
-            if [[ "$origin_url" =~ .*github.com/.*/"${LSR_GH_ORG}"-.* ]]; then
+            newname="${LSR_GH_ORG}"-"$repo"
+            if [ "$origin_repo" = "$newname" ]; then
                 : # already renamed
             else
-                gh repo rename "${LSR_GH_ORG}"-"$repo" -R "$origin_org/$origin_repo"
-                origin_repo="${LSR_GH_ORG}"-"$repo"
+                gh repo rename "$newname" -R "$origin_org/$origin_repo"
+                origin_repo="$newname"
             fi
         fi
     fi

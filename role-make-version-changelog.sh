@@ -82,7 +82,7 @@ fi
 echo Using branch "$BRANCH" for the changelog commit/PR
 
 # get latest tag
-latest_tag=$(git describe --tags --abbrev=0 2> /dev/null)
+latest_tag=$(git describe --tags --abbrev=0 2> /dev/null || :)
 # special case for network and sshd
 allow_v=""
 case "$latest_tag" in
@@ -103,7 +103,7 @@ skip=false
 if [ -z "$latest_tag" ]; then
     # repo and LSR_GH_ORG are referenced but not assigned.
     # shellcheck disable=SC2154
-    echo Repo for "$LSR_GH_ORG" "$repo" has no tags - create one below or skip
+    echo Repo for "${LSR_GH_ORG:-linux-system-roles}" "$repo" has no tags - create one below or skip
 else
     # get the number of commits since latest tag
     count=$(git log --oneline --no-merges --reverse "${latest_tag}".. | wc -l)
@@ -178,7 +178,9 @@ if [ "$skip" = false ]; then
         if [ "$myheader" = "$clheader" ]; then
             { echo "$clheader"; echo ""; } > .tmp-changelog
             cat "$rel_notes_file" >> .tmp-changelog
-            tail -n +3 CHANGELOG.md >> .tmp-changelog
+            if [ -f CHANGELOG.md ]; then
+                tail -n +3 CHANGELOG.md >> .tmp-changelog
+            fi
         else
             echo WARNING: Changelog header "$clheader"
             echo not in expected format "$myheader"

@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime
 
 try:
     import yaml
@@ -77,6 +78,33 @@ def check_versions_updated(cur_ref, new_ref, versions_updated):
         logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
         if cur_ref != new_ref:
             versions_updated[3] = True
+
+
+def comp_versions(cur_ref, new_ref):
+    """Compare versions.
+
+    Return values:
+    1  - if cur_ref > new_ref
+    0  - if cur_ref == new_ref
+    -1 - if cur_ref < new_ref"""
+
+    try:
+        _mobj = re.match(r"v?(\d*[.]\d*[.]\d*)", cur_ref)
+        if _mobj and _mobj.group(1):
+            cur_ref = _mobj.group(1)
+        _mobj = re.match(r"v?(\d*[.]\d*[.]\d*)", new_ref)
+        if _mobj and _mobj.group(1):
+            new_ref = _mobj.group(1)
+        cur_v = StrictVersion(cur_ref)
+        new_v = StrictVersion(new_ref)
+        for idx in range(0, 3):
+            if cur_v.version[idx] > new_v.version[idx]:
+                return 1
+            elif cur_v.version[idx] < new_v.version[idx]:
+                return -1
+        return 0
+    except ValueError as exc:
+        logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
 
 
 def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
@@ -166,6 +194,42 @@ def process_ignore_and_lint_files(args, coll_dir):
                                 ansible_lint[key].append(item)
     if ansible_lint:
         yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
+
+
+def get_role_changelog(args, rolename, cur_ref, new_ref):
+    """
+    Retrieve the matched changelogs from CHANGELOG.md and
+    return them as a string.
+    """
+    _changelog = ""
+    if comp_versions(cur_ref, new_ref) >= 0:
+        return _changelog
+    _changelogmd = os.path.join(args.src_path, rolename, "CHANGELOG.md")
+    if not os.path.exists(_changelogmd):
+        return _changelog
+    _print = False
+    _changelog = "### {}\n".format(rolename)
+    with open(_changelogmd, "r") as cl_fd:
+        for _cl in cl_fd:
+            cl = _cl.rstrip()
+            if cl.startswith("[{}]".format(new_ref)):
+                _print = True
+                _changelog = "{}\n#### {}".format(_changelog, cl)
+            elif cl.startswith("[{}]".format(cur_ref)):
+                break
+            elif _print:
+                if cl.lower() == "### new features":
+                    _changelog = "{}\n##### New Features".format(_changelog)
+                elif cl.lower() == "### bug fixes":
+                    _changelog = "{}\n##### Bug Fixes".format(_changelog)
+                elif cl.lower() == "### other changes":
+                    _changelog = "{}\n##### Other Changes".format(_changelog)
+                elif cl.startswith("["):
+                    _changelog = "{}\n#### {}".format(_changelog, cl)
+                elif not cl.startswith("----"):
+                    _changelog = "{}\n{}".format(_changelog, cl)
+    logging.info(f"get_role_changelog - returning\n{_changelog}")
+    return _changelog
 
 
 def role_to_collection(
@@ -293,6 +357,84 @@ def build_collection(args, coll_dir, galaxy=None):
         logging.info("ansible-galaxy is skipped since it is not available.")
 
 
+NF = "New Features"
+BF = "Bug Fixes"
+
+
+def gather_changes(vstr, changes):
+    output = ""
+    if vstr:
+        output = "{}\n---------------------".format(vstr)
+    if changes[NF]:
+        output = "{}\n### New Features\n\n".format(output)
+        for c in changes[NF]:
+            output = "{}{}".format(output, c)
+    if changes[BF]:
+        output = "{}\n### Bug Fixes\n\n".format(output)
+        for c in changes[BF]:
+            output = "{}{}".format(output, c)
+    return output
+
+
+def compact_coll_changelog(input_changelog):
+    """ """
+    output_changelog = ""
+    enabled = False
+    vmatched = False
+    changes = {}
+    changes[NF] = []
+    changes[BF] = []
+    vstr = ""
+    tag = ""
+    role = ""
+    for _cl in input_changelog.splitlines():
+        cl = _cl.rstrip()
+        if cl == "" or cl.startswith("#### [") or cl == "- none":
+            continue
+        if cl == "##### Other Changes":
+            enabled = False
+            continue
+        _mobj = re.match(r"\[\d*[.]\d*[.]\d*\] - \d{4}-\d{2}-\d{2}", cl)
+        if _mobj:
+            vmatched = True
+            enabled = False
+            if vstr and (changes[NF] or changes[BF]):
+                output_changelog = "{}\n{}".format(
+                    output_changelog, gather_changes(vstr, changes)
+                )
+            changes[NF] = []
+            changes[BF] = []
+            vstr = _mobj[0]
+            continue
+        _mobj = re.match(r"-*", cl)
+        if vmatched and _mobj[0]:
+            vmatched = False
+            enabled = True
+        else:
+            if cl == "##### New Features" or cl == "##### New features":
+                tag = NF
+            elif cl == "##### Bug Fixes" or cl == "##### Bug fixes":
+                tag = BF
+            else:
+                # ### ROLENAME
+                _mobj = re.match(r"### (.*)", cl)
+                if _mobj and _mobj.group(1):
+                    role = _mobj.group(1)
+                    enabled = True
+                elif enabled:
+                    # Retrieves itemized changes
+                    _mobj = re.match(r"- (.*)", cl)
+                    if _mobj and _mobj.group(1):
+                        change = _mobj.group(1)
+                        if tag and role:
+                            changes[tag].append("- {0} - {1}\n".format(role, change))
+    if changes[NF] or changes[BF]:
+        output_changelog = "{}\n{}".format(
+            output_changelog, gather_changes("", changes)
+        )
+    return output_changelog
+
+
 def update_collection(args, galaxy, coll_rel):
     """
     Update refs in collection_release.yml.
@@ -317,6 +459,7 @@ def update_collection(args, galaxy, coll_rel):
     collection_readme = os.path.join("lsr_role2collection", "collection_readme.md")
     # major, minor, micro, hash
     versions_updated = [False, False, False, False]
+    coll_changelog = ""
     for rolename in args.include:
         if not args.skip_git:
             cur_ref = coll_rel[rolename]["ref"]
@@ -340,6 +483,15 @@ def update_collection(args, galaxy, coll_rel):
                 check_versions_updated(
                     cur_ref, coll_rel[rolename]["ref"], versions_updated
                 )
+            # If a version update is detected, retrieve the new changelogs from CHANGELOG.md
+            if comp_versions(cur_ref, coll_rel[rolename]["ref"]) < 0:
+                logging.info(
+                    "The role %s is updated. Updating the changelog.", rolename
+                )
+                _changelog = get_role_changelog(
+                    args, rolename, cur_ref, coll_rel[rolename]["ref"]
+                )
+                coll_changelog = "{}\n{}".format(coll_changelog, _changelog)
         role_to_collection(
             args,
             rolename,
@@ -382,6 +534,36 @@ def update_collection(args, galaxy, coll_rel):
             with open(args.collection_release_yml.name, "w") as crf:
                 yaml.safe_dump(coll_rel, crf, sort_keys=True)
 
+    # If to-be-appended changelogs are found, update COLLECTION_CHANGELOG.md
+    # and copy it to the collection docs dir.
+    if coll_changelog:
+        clhandle, clname = tempfile.mkstemp(suffix=".cl", prefix="collection")
+        with os.fdopen(clhandle, "w") as clf:
+            # Header
+            clf.write("Changelog\n=========\n\n")
+            # New changelogs
+            clf.write(
+                "[{}] - {}\n---------------------".format(
+                    galaxy["version"], datetime.now().date()
+                )
+            )
+            clf.write(compact_coll_changelog(coll_changelog))
+            # Existing changelogs
+            orig_cl_file = "lsr_role2collection/COLLECTION_CHANGELOG.md"
+            with open(orig_cl_file, "r") as origclf:
+                _clogs = origclf.read()
+                _clogs = re.sub(
+                    "^Changelog\n=========\n", "", _clogs, flags=re.MULTILINE
+                )
+                clf.write(_clogs)
+            # Overwrite the original changelog with the new one.
+            logging.info(
+                f"{orig_cl_file} is updated. Please merge to the master branch"
+            )
+            shutil.copy(clname, orig_cl_file)
+            # Copy the new changelog to the docs dir in collection
+            coll_changelog = os.path.join(coll_dir, "docs", "CHANGELOG.md")
+            shutil.copy(clname, coll_changelog)
     build_collection(args, coll_dir, galaxy)
 
 

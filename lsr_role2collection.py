@@ -1503,12 +1503,18 @@ def role2collection():
     # Copy processed README.md to the docs dir after renaming it to README_ROLENAME.md
     readme_md = roles_dir / new_role / "README.md"
     if readme_md.is_file():
+        if not docs_dir.is_dir():
+            docs_dir.unlink(missing_ok=True)
+            docs_dir.mkdir()
         role_readme_md = docs_dir / "README_{0}.md".format(new_role)
         copyfile(readme_md, role_readme_md)
 
     # Copy CHANGELOG.md to the docs dir after renaming it to CHANGELOG_ROLENAME.md
     changelog_md = src_path / "CHANGELOG.md"
     if changelog_md.is_file():
+        if not docs_dir.is_dir():
+            docs_dir.unlink(missing_ok=True)
+            docs_dir.mkdir()
         role_changelog_md = docs_dir / "CHANGELOG_{0}.md".format(new_role)
         copyfile(changelog_md, role_changelog_md)
 

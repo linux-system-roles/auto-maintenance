@@ -29,7 +29,7 @@ except ImportError:
 
 import json
 
-from distutils.version import StrictVersion
+from pkg_resources import parse_version
 
 DEFAULT_GIT_SITE = "https://github.com"
 DEFAULT_GIT_ORG = "linux-system-roles"
@@ -61,6 +61,17 @@ def run_cmd(cmdlist, cwd=None, env=None):
     return rc
 
 
+def lsr_parse_version(v_str):
+    test_v = parse_version("1")  # guaranteed to work
+    v = parse_version(v_str)
+    if not isinstance(v, test_v.__class__):
+        raise ValueError(f"Error: {v_str} is not a proper version number")
+    if not hasattr(v, "release"):
+        if hasattr(v, "_version"):
+            setattr(v, "release", v._version.release)
+    return v
+
+
 def check_versions_updated(cur_ref, new_ref, versions_updated):
     """Compare versions and update list.
 
@@ -69,10 +80,10 @@ def check_versions_updated(cur_ref, new_ref, versions_updated):
     minor, and/or micro versions were updated."""
 
     try:
-        cur_v = StrictVersion(cur_ref)
-        new_v = StrictVersion(new_ref)
+        cur_v = lsr_parse_version(cur_ref)
+        new_v = lsr_parse_version(new_ref)
         for idx in range(0, 3):
-            if cur_v.version[idx] != new_v.version[idx]:
+            if cur_v.release[idx] != new_v.release[idx]:
                 versions_updated[idx] = True
     except ValueError as exc:
         logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
@@ -84,25 +95,19 @@ def comp_versions(cur_ref, new_ref):
     """Compare versions.
 
     Return values:
-    1  - if cur_ref > new_ref
-    0  - if cur_ref == new_ref
-    -1 - if cur_ref < new_ref"""
+    -1 - if cur_ref < new_ref
+     0 - if cur_ref == new_ref
+     1 - if cur_ref > new_ref"""
 
     try:
-        _mobj = re.match(r"v?(\d*[.]\d*[.]\d*)", cur_ref)
-        if _mobj and _mobj.group(1):
-            cur_ref = _mobj.group(1)
-        _mobj = re.match(r"v?(\d*[.]\d*[.]\d*)", new_ref)
-        if _mobj and _mobj.group(1):
-            new_ref = _mobj.group(1)
-        cur_v = StrictVersion(cur_ref)
-        new_v = StrictVersion(new_ref)
-        for idx in range(0, 3):
-            if cur_v.version[idx] > new_v.version[idx]:
-                return 1
-            elif cur_v.version[idx] < new_v.version[idx]:
-                return -1
-        return 0
+        v_cur_ref = lsr_parse_version(cur_ref)
+        v_new_ref = lsr_parse_version(new_ref)
+        if v_cur_ref < v_new_ref:
+            return -1
+        elif v_cur_ref == v_new_ref:
+            return 0
+        else:
+            return 1
     except ValueError as exc:
         logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
 
@@ -280,8 +285,8 @@ def update_galaxy_version(args, galaxy, versions_updated):
         and any(versions_updated[0:3])
         and not args.no_auto_version
     ):
-        galaxy_ver = StrictVersion(galaxy["version"])
-        major, minor, micro = galaxy_ver.version
+        galaxy_ver = lsr_parse_version(galaxy["version"])
+        major, minor, micro = galaxy_ver.release
         if versions_updated[0]:
             major = major + 1
             minor = 0
@@ -380,6 +385,7 @@ def compact_coll_changelog(input_changelog):
     """ """
     output_changelog = ""
     enabled = False
+    in_code = False
     vmatched = False
     changes = {}
     changes[NF] = []
@@ -393,6 +399,9 @@ def compact_coll_changelog(input_changelog):
             continue
         if cl == "##### Other Changes":
             enabled = False
+            continue
+        if cl.startswith("```"):
+            in_code = not in_code  # toggle
             continue
         _mobj = re.match(r"\[\d*[.]\d*[.]\d*\] - \d{4}-\d{2}-\d{2}", cl)
         if _mobj:
@@ -421,7 +430,7 @@ def compact_coll_changelog(input_changelog):
                 if _mobj and _mobj.group(1):
                     role = _mobj.group(1)
                     enabled = True
-                elif enabled:
+                elif enabled and not in_code:
                     # Retrieves itemized changes
                     _mobj = re.match(r"- (.*)", cl)
                     if _mobj and _mobj.group(1):
@@ -562,8 +571,8 @@ def update_collection(args, galaxy, coll_rel):
             )
             shutil.copy(clname, orig_cl_file)
             # Copy the new changelog to the docs dir in collection
-            coll_changelog = os.path.join(coll_dir, "docs", "CHANGELOG.md")
-            shutil.copy(clname, coll_changelog)
+            coll_changelog_path = os.path.join(coll_dir, "docs", "CHANGELOG.md")
+            shutil.copy(clname, coll_changelog_path)
     build_collection(args, coll_dir, galaxy)
 
 

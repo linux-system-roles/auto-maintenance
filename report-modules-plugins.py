@@ -976,6 +976,8 @@ class SearchCtx(object):
                 collection = ANSIBLE_BUILTIN
             elif collection.startswith("ansible.plugins."):
                 collection = ANSIBLE_BUILTIN
+            elif collection == "posixpath":
+                collection = ANSIBLE_BUILTIN
         return (collection, returntype)
 
     def add_dependencies(self):

@@ -284,6 +284,12 @@ def find_plugins(args, filectx):
                     jinja2.nodes.Filter,
                     filectx.get_lineno(item.lineno),
                 )
+            if item_name in ["lookup", "query", "q"] and item.args:
+                filectx.add_plugin(
+                    item.args[0].value,
+                    jinja2.nodes.Call,
+                    filectx.get_lineno(item.lineno),
+                )
     elif isinstance(args, list):
         for item in args:
             find_plugins(item, filectx)

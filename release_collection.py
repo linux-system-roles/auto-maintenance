@@ -110,6 +110,10 @@ def comp_versions(cur_ref, new_ref):
             return 1
     except ValueError as exc:
         logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
+        if cur_ref == new_ref:
+            return 0
+        else:
+            return -1  # assume new is "newer" than cur
 
 
 def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
@@ -157,8 +161,23 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
     describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40"]
     describe_output = run_cmd(describe_cmd, roledir)
     tag, n_commits, g_hash = describe_output.stdout.strip().rsplit("-", 2)
+    if n_commits != "0":
+        # get commit messages to use for changelog
+        log_cmd = [
+            "git",
+            "log",
+            "--oneline",
+            "--no-merges",
+            "--reverse",
+            "--pretty=format:- %s",
+            f"{cur_ref}..",
+        ]
+        log_output = run_cmd(log_cmd, roledir)
+        commit_msgs = log_output.stdout.replace("\\r", "")
+    else:
+        commit_msgs = ""
     # commit hash - skip leading "g"
-    return (tag, g_hash[1:], n_commits == "0")
+    return (tag, g_hash[1:], n_commits == "0", commit_msgs)
 
 
 def process_ignore_and_lint_files(args, coll_dir):
@@ -201,7 +220,7 @@ def process_ignore_and_lint_files(args, coll_dir):
         yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
 
 
-def get_role_changelog(args, rolename, cur_ref, new_ref):
+def get_role_changelog(args, rolename, cur_ref, new_ref, commit_msgs):
     """
     Retrieve the matched changelogs from CHANGELOG.md and
     return them as a string.
@@ -209,11 +228,15 @@ def get_role_changelog(args, rolename, cur_ref, new_ref):
     _changelog = ""
     if comp_versions(cur_ref, new_ref) >= 0:
         return _changelog
+    _changelog = "### {}\n".format(rolename)
+    if commit_msgs:
+        # make a fake changelog for compact_coll_changelog
+        _changelog = "{}\n##### Bug Fixes\n\n{}".format(_changelog, commit_msgs)
+        return _changelog
     _changelogmd = os.path.join(args.src_path, rolename, "CHANGELOG.md")
     if not os.path.exists(_changelogmd):
-        return _changelog
+        return ""
     _print = False
-    _changelog = "### {}\n".format(rolename)
     with open(_changelogmd, "r") as cl_fd:
         for _cl in cl_fd:
             cl = _cl.rstrip()
@@ -233,7 +256,7 @@ def get_role_changelog(args, rolename, cur_ref, new_ref):
                     _changelog = "{}\n#### {}".format(_changelog, cl)
                 elif not cl.startswith("----"):
                     _changelog = "{}\n{}".format(_changelog, cl)
-    logging.info(f"get_role_changelog - returning\n{_changelog}")
+    logging.info("get_role_changelog - returning\n%s", _changelog)
     return _changelog
 
 
@@ -472,7 +495,7 @@ def update_collection(args, galaxy, coll_rel):
     for rolename in args.include:
         if not args.skip_git:
             cur_ref = coll_rel[rolename]["ref"]
-            tag, cm_hash, tag_is_latest = get_latest_tag_hash(
+            tag, cm_hash, tag_is_latest, commit_msgs = get_latest_tag_hash(
                 args,
                 rolename,
                 coll_rel[rolename]["ref"],
@@ -498,7 +521,7 @@ def update_collection(args, galaxy, coll_rel):
                     "The role %s is updated. Updating the changelog.", rolename
                 )
                 _changelog = get_role_changelog(
-                    args, rolename, cur_ref, coll_rel[rolename]["ref"]
+                    args, rolename, cur_ref, coll_rel[rolename]["ref"], commit_msgs
                 )
                 coll_changelog = "{}\n{}".format(coll_changelog, _changelog)
         role_to_collection(
@@ -556,7 +579,7 @@ def update_collection(args, galaxy, coll_rel):
                     galaxy["version"], datetime.now().date()
                 )
             )
-            clf.write(compact_coll_changelog(coll_changelog))
+            clf.write(compact_coll_changelog(coll_changelog) + "\n")
             # Existing changelogs
             orig_cl_file = "lsr_role2collection/COLLECTION_CHANGELOG.md"
             with open(orig_cl_file, "r") as origclf:

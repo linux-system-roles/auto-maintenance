@@ -767,49 +767,6 @@ field if the BZ has been given `Verified:Tested`.
 ITR=9.1.0 ./bz-manage.sh reset_dev_wb
 ```
 
-### get_commit_msg
-Use this to generate a git commit message for a downstream dist-git commit, which
-must be in a specific format.  For example, you have several BZ for ITR 8.7.0 in
-the POST STATUS, and they have been given `release+`, and now you want to make a
-downstream commit, push, and build.
-```
-ITR=8.7.0 STATUS=POST ./bz-manage.sh get_commit_msg
-```
-will output something like this:
-```
-bond: fix typo in supporting the infiniband ports in active-backup mode
-Resolves: rhbz#2064067
-
-pytest failed when running with nm providers in the rhel-8.5 beaker machine
-Resolves: rhbz#2065217
-```
-You must still provide the git commit summary/title, but you can just copy/paste
-this output for the git commit body.
-
-### get_cl
-Use this to generate an RPM spec file Changelog message.  This is similar to
-`get_commit_msg` but it does not require the BZ to have `release+`.  For
-example, you have several BZ for ITR 9.1.0 in the POST STATUS, and you want to
-make an RPM scratch build with a changelog.  You also want to include the cloned
-BZ in the changelog message.
-```
-ITR=9.1.0 STATUS=POST INCLUDE_CLONE=true RPM_CL=true ./bz-manage.sh get_cl
-```
-will output something like this:
-```
-- network - bond: fix typo in supporting the infiniband ports in active-backup mode
-  Resolves: rhbz#2064067 (8.7.0)
-  Resolves: rhbz#2065394 (9.1.0)
-
-- network - pytest failed when running with nm providers in the rhel-8.5 beaker machine
-  Resolves: rhbz#2065217 (8.7.0)
-  Resolves: rhbz#2066911 (9.1.0)
-```
-that you can copy/paste into a spec changelog.  If you do not specify
-`INCLUDE_CLONE=true` then it will output only the BZ for the given ITR.  If you
-do not specify `RPM_CL=true` then the output will be formatted for a git commit
-message rather than for an RPM spec.
-
 ### new
 Create a new system roles BZ.  NOTE: Does not use any environment variables -
 all parameters are passed in on the command line.  All parameters are required.
@@ -846,7 +803,26 @@ e.g.
 ```
 ERROR: bz 2066876 status [POST] does not match clone 2072745 status [ON_QA]
 ```
-The clone check is not perfect, so be sure to check manually. 
+The clone check is not perfect, so be sure to check manually.
+
+### rpm_release
+Use this to generate the following files:
+* cl-md - The new text to add to the CHANGELOG.md
+* cl-spec - The new text to add to the spec %changelog section
+* git-commit-msg - The git commit message
+
+For example - I have several BZ in POST that I am doing a new build for ITR 8.7.0.
+The new version will be 1.20.0.  NOTE that the version in CHANGELOG.md
+is different from the version in the spec file - so you will need to add
+the `-N` for the RELEASE for the spec file version.
+I want to update the CHANGELOG.md, the spec %changelog, and the git commit
+message with the information from all of these BZ, formatted in the correct
+manner for all of these.  You will need to edit all 3 files:
+* Edit CHANGELOG.md and add the contents of cl-md in the right place
+* Edit the spec file to add cl-spec in the right place, and ensure the name
+  and email are correct.
+* Edit the git-commit-msg with the correct git subject line.  You can then
+  use this file with git commit -F
 
 ## Parameters
 

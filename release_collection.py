@@ -176,7 +176,14 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
             commit_msgs = log_output.stdout.replace("\\r", "")
         # get previous tag in case cur_ref is a commit hash
         try:
-            describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40", cur_ref]
+            describe_cmd = [
+                "git",
+                "describe",
+                "--tags",
+                "--long",
+                "--abbrev=40",
+                cur_ref,
+            ]
             describe_output = run_cmd(describe_cmd, roledir)
             prev_tag = describe_output.stdout.strip().split("-")[0]
             if prev_tag == cur_ref:

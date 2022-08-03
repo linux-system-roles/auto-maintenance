@@ -144,40 +144,40 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
     # determine what is the main branch, check it out, and update it
     mmatch = re.search(r"origin/HEAD -> origin/(\w+)", branch_output.stdout)
     main_branch = mmatch.group(1)
-    _ = run_cmd(["bash", "-c", f"git checkout {main_branch}; git pull"], roledir)
-    if args.no_update:
-        # make sure cur_ref is checked out
-        _ = run_cmd(["git", "checkout", cur_ref], roledir)
-        return (None, None, None)
+    _ = run_cmd(["bash", "-c", f"git checkout {main_branch}; git pull --tags"], roledir)
+    commit_msgs = ""
     # see if there have been any commits since the last time we checked
     count_output = run_cmd(
         ["bash", "-c", f"git log --oneline {cur_ref}.. | wc -l"],
         roledir,
     )
+    tag, commit_hash, n_commits = None, None, "0"
     if count_output.stdout == "0":
         logging.debug(f"no changes to role {rolename} since ref {cur_ref}")
-        return (None, None, None)
-    # get latest tag and commit hash
-    describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40"]
-    describe_output = run_cmd(describe_cmd, roledir)
-    tag, n_commits, g_hash = describe_output.stdout.strip().rsplit("-", 2)
-    if n_commits != "0":
-        # get commit messages to use for changelog
-        log_cmd = [
-            "git",
-            "log",
-            "--oneline",
-            "--no-merges",
-            "--reverse",
-            "--pretty=format:- %s",
-            f"{cur_ref}..",
-        ]
-        log_output = run_cmd(log_cmd, roledir)
-        commit_msgs = log_output.stdout.replace("\\r", "")
     else:
-        commit_msgs = ""
-    # commit hash - skip leading "g"
-    return (tag, g_hash[1:], n_commits == "0", commit_msgs)
+        # get latest tag and commit hash
+        describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40"]
+        describe_output = run_cmd(describe_cmd, roledir)
+        tag, n_commits, g_hash = describe_output.stdout.strip().rsplit("-", 2)
+        # commit hash - skip leading "g"
+        commit_hash = g_hash[1:]
+        if n_commits != "0":
+            # get commit messages to use for changelog
+            log_cmd = [
+                "git",
+                "log",
+                "--oneline",
+                "--no-merges",
+                "--reverse",
+                "--pretty=format:- %s",
+                f"{cur_ref}..",
+            ]
+            log_output = run_cmd(log_cmd, roledir)
+            commit_msgs = log_output.stdout.replace("\\r", "")
+    if args.no_update:
+        # make sure cur_ref is checked out
+        _ = run_cmd(["git", "checkout", cur_ref], roledir)
+    return (tag, commit_hash, n_commits == "0", commit_msgs)
 
 
 def process_ignore_and_lint_files(args, coll_dir):

@@ -472,6 +472,12 @@ will publish the collection, waiting until it is completed.
   tagged, use this flag. However, this means you will not be able to use
   automatic versioning, and you will need to use `--new-version`, or manually
   edit the `collection_release.yml` and `galaxy.yml` and use `--no-update`.
+* `--use-commit-hash-role` - list - By default, use whatever is the value
+  of `--use-commit-hash`.  There are some cases where you want to use the
+  tag for all roles *except* one or a few.  In that case, you can use
+  `--use-commit-hash-role role1 --use-commit-hash-role role2` to specify the
+  roles for which you want to use the commit hash, and use the tag for all
+  other roles.
 * `--no-auto-version` - boolean - By default, the script will attempt to
   update the collection version in `galaxy.yml`.  Use this flag if you do
   not want to do that.

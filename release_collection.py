@@ -110,9 +110,13 @@ def comp_versions(cur_ref, new_ref):
             return 1
     except ValueError as exc:
         logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
+        if cur_ref == new_ref:
+            return 0
+        else:
+            return -1  # assume new is "newer" than cur
 
 
-def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
+def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
     """
     Get the latest tag, hash, and tag_is_latest from the upstream repo.
 
@@ -140,25 +144,56 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo):
     # determine what is the main branch, check it out, and update it
     mmatch = re.search(r"origin/HEAD -> origin/(\w+)", branch_output.stdout)
     main_branch = mmatch.group(1)
-    _ = run_cmd(["bash", "-c", f"git checkout {main_branch}; git pull"], roledir)
-    if args.no_update:
-        # make sure cur_ref is checked out
-        _ = run_cmd(["git", "checkout", cur_ref], roledir)
-        return (None, None, None)
+    _ = run_cmd(["bash", "-c", f"git checkout {main_branch}; git pull --tags"], roledir)
+    commit_msgs = ""
     # see if there have been any commits since the last time we checked
     count_output = run_cmd(
         ["bash", "-c", f"git log --oneline {cur_ref}.. | wc -l"],
         roledir,
     )
+    tag, commit_hash, n_commits, prev_tag = None, None, "0", None
     if count_output.stdout == "0":
         logging.debug(f"no changes to role {rolename} since ref {cur_ref}")
-        return (None, None, None)
-    # get latest tag and commit hash
-    describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40"]
-    describe_output = run_cmd(describe_cmd, roledir)
-    tag, n_commits, g_hash = describe_output.stdout.strip().rsplit("-", 2)
-    # commit hash - skip leading "g"
-    return (tag, g_hash[1:], n_commits == "0")
+    else:
+        # get latest tag and commit hash
+        describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40"]
+        describe_output = run_cmd(describe_cmd, roledir)
+        tag, n_commits, g_hash = describe_output.stdout.strip().rsplit("-", 2)
+        # commit hash - skip leading "g"
+        commit_hash = g_hash[1:]
+        if n_commits != "0" and use_commit_hash:
+            # get commit messages to use for changelog
+            log_cmd = [
+                "git",
+                "log",
+                "--oneline",
+                "--no-merges",
+                "--reverse",
+                "--pretty=format:- %s",
+                f"{cur_ref}..",
+            ]
+            log_output = run_cmd(log_cmd, roledir)
+            commit_msgs = log_output.stdout.replace("\\r", "")
+        # get previous tag in case cur_ref is a commit hash
+        try:
+            describe_cmd = [
+                "git",
+                "describe",
+                "--tags",
+                "--long",
+                "--abbrev=40",
+                cur_ref,
+            ]
+            describe_output = run_cmd(describe_cmd, roledir)
+            prev_tag = describe_output.stdout.strip().split("-")[0]
+            if prev_tag == cur_ref:
+                prev_tag = None  # cur_ref was already a valid tag
+        except subprocess.CalledProcessError:
+            prev_tag = None  # no previous tag
+    if args.no_update:
+        # make sure cur_ref is checked out
+        _ = run_cmd(["git", "checkout", cur_ref], roledir)
+    return (tag, commit_hash, n_commits == "0", commit_msgs, prev_tag)
 
 
 def process_ignore_and_lint_files(args, coll_dir):
@@ -201,7 +236,7 @@ def process_ignore_and_lint_files(args, coll_dir):
         yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
 
 
-def get_role_changelog(args, rolename, cur_ref, new_ref):
+def get_role_changelog(args, rolename, cur_ref, new_ref, commit_msgs):
     """
     Retrieve the matched changelogs from CHANGELOG.md and
     return them as a string.
@@ -209,11 +244,15 @@ def get_role_changelog(args, rolename, cur_ref, new_ref):
     _changelog = ""
     if comp_versions(cur_ref, new_ref) >= 0:
         return _changelog
+    _changelog = "### {}\n".format(rolename)
+    if commit_msgs:
+        # make a fake changelog for compact_coll_changelog
+        _changelog = "{}\n##### Bug Fixes\n\n{}".format(_changelog, commit_msgs)
+        return _changelog
     _changelogmd = os.path.join(args.src_path, rolename, "CHANGELOG.md")
     if not os.path.exists(_changelogmd):
-        return _changelog
+        return ""
     _print = False
-    _changelog = "### {}\n".format(rolename)
     with open(_changelogmd, "r") as cl_fd:
         for _cl in cl_fd:
             cl = _cl.rstrip()
@@ -233,7 +272,7 @@ def get_role_changelog(args, rolename, cur_ref, new_ref):
                     _changelog = "{}\n#### {}".format(_changelog, cl)
                 elif not cl.startswith("----"):
                     _changelog = "{}\n{}".format(_changelog, cl)
-    logging.info(f"get_role_changelog - returning\n{_changelog}")
+    logging.info("get_role_changelog - returning\n%s", _changelog)
     return _changelog
 
 
@@ -450,7 +489,8 @@ def update_collection(args, galaxy, coll_rel):
 
     Use the latest tag for the ref.  If use_commit_hash is True
     and the latest commit is not tagged, use the commit hash of
-    the latest commit for the ref.
+    the latest commit for the ref.  Or if the role is specified
+    using use_commit_hash_role.
     """
     coll_dir = os.path.join(
         args.dest_path, "ansible_collections", galaxy["namespace"], galaxy["name"]
@@ -471,16 +511,19 @@ def update_collection(args, galaxy, coll_rel):
     coll_changelog = ""
     for rolename in args.include:
         if not args.skip_git:
+            if args.use_commit_hash and rolename not in args.use_commit_hash_role:
+                args.use_commit_hash_role.append(rolename)
             cur_ref = coll_rel[rolename]["ref"]
-            tag, cm_hash, tag_is_latest = get_latest_tag_hash(
+            tag, cm_hash, tag_is_latest, commit_msgs, prev_tag = get_latest_tag_hash(
                 args,
                 rolename,
                 coll_rel[rolename]["ref"],
                 coll_rel[rolename].get("org", args.src_owner),
                 coll_rel[rolename].get("repo", rolename),
+                rolename in args.use_commit_hash_role,
             )
             if tag or cm_hash:
-                if tag_is_latest or not args.use_commit_hash:
+                if tag_is_latest or rolename not in args.use_commit_hash_role:
                     coll_rel[rolename]["ref"] = tag
                 else:
                     coll_rel[rolename]["ref"] = cm_hash
@@ -497,8 +540,10 @@ def update_collection(args, galaxy, coll_rel):
                 logging.info(
                     "The role %s is updated. Updating the changelog.", rolename
                 )
+                if prev_tag is None:
+                    prev_tag = cur_ref
                 _changelog = get_role_changelog(
-                    args, rolename, cur_ref, coll_rel[rolename]["ref"]
+                    args, rolename, prev_tag, coll_rel[rolename]["ref"], commit_msgs
                 )
                 coll_changelog = "{}\n{}".format(coll_changelog, _changelog)
         role_to_collection(
@@ -556,7 +601,7 @@ def update_collection(args, galaxy, coll_rel):
                     galaxy["version"], datetime.now().date()
                 )
             )
-            clf.write(compact_coll_changelog(coll_changelog))
+            clf.write(compact_coll_changelog(coll_changelog) + "\n")
             # Existing changelogs
             orig_cl_file = "lsr_role2collection/COLLECTION_CHANGELOG.md"
             with open(orig_cl_file, "r") as origclf:
@@ -812,6 +857,20 @@ def main():
         default=False,
         action="store_true",
         help="True when skip check with galaxy-importer.",
+    )
+    parser.add_argument(
+        "--use-commit-hash-role",
+        default=[],
+        action="append",
+        help=(
+            "Use the latest commit hash instead of the tag for these roles."
+            "  Use this option when you want to use the tag for every role "
+            "except the named roles e.g. --use-commit-hash-role sshd "
+            "--use-commit-hash-role network will use the tag for every role"
+            " except sshd and network, which will use the latest commit hash."
+            "  Using --use-commit-hash is the same as using --use-commit-hash-role"
+            " and specifying every role."
+        ),
     )
     args = parser.parse_args()
 

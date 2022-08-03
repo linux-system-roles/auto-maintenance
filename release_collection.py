@@ -151,7 +151,7 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
         ["bash", "-c", f"git log --oneline {cur_ref}.. | wc -l"],
         roledir,
     )
-    tag, commit_hash, n_commits = None, None, "0"
+    tag, commit_hash, n_commits, prev_tag = None, None, "0", None
     if count_output.stdout == "0":
         logging.debug(f"no changes to role {rolename} since ref {cur_ref}")
     else:
@@ -174,10 +174,19 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
             ]
             log_output = run_cmd(log_cmd, roledir)
             commit_msgs = log_output.stdout.replace("\\r", "")
+        # get previous tag in case cur_ref is a commit hash
+        try:
+            describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40", cur_ref]
+            describe_output = run_cmd(describe_cmd, roledir)
+            prev_tag = describe_output.stdout.strip().split("-")[0]
+            if prev_tag == cur_ref:
+                prev_tag = None  # cur_ref was already a valid tag
+        except subprocess.CalledProcessError:
+            prev_tag = None  # no previous tag
     if args.no_update:
         # make sure cur_ref is checked out
         _ = run_cmd(["git", "checkout", cur_ref], roledir)
-    return (tag, commit_hash, n_commits == "0", commit_msgs)
+    return (tag, commit_hash, n_commits == "0", commit_msgs, prev_tag)
 
 
 def process_ignore_and_lint_files(args, coll_dir):
@@ -498,7 +507,7 @@ def update_collection(args, galaxy, coll_rel):
             if args.use_commit_hash and rolename not in args.use_commit_hash_role:
                 args.use_commit_hash_role.append(rolename)
             cur_ref = coll_rel[rolename]["ref"]
-            tag, cm_hash, tag_is_latest, commit_msgs = get_latest_tag_hash(
+            tag, cm_hash, tag_is_latest, commit_msgs, prev_tag = get_latest_tag_hash(
                 args,
                 rolename,
                 coll_rel[rolename]["ref"],
@@ -524,8 +533,10 @@ def update_collection(args, galaxy, coll_rel):
                 logging.info(
                     "The role %s is updated. Updating the changelog.", rolename
                 )
+                if prev_tag is None:
+                    prev_tag = cur_ref
                 _changelog = get_role_changelog(
-                    args, rolename, cur_ref, coll_rel[rolename]["ref"], commit_msgs
+                    args, rolename, prev_tag, coll_rel[rolename]["ref"], commit_msgs
                 )
                 coll_changelog = "{}\n{}".format(coll_changelog, _changelog)
         role_to_collection(

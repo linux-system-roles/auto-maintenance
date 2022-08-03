@@ -1,3 +1,32 @@
+Changelog
+=========
+
+[1.26.0] - 2022-08-03
+---------------------
+
+### New Features
+
+- cockpit - Add customization of port (#67)
+- firewall - feature - add/remove interfaces by PCI ID
+- logging - Support startmsg.regex and endmsg.regex in the files inputs.
+- network - Support the nmstate network state configuration
+- selinux - Added setting of seuser and selevel for completeness (#108)
+- ssh - add RSAMinSize parameter (#45)
+
+### Bug Fixes
+
+- ha_cluster - readme: describe limitations of udp transports (#56)
+- kernel_settings - Set the kernel_settings_reboot_required when reboot needed (#93)
+- metrics - docs: make minimum redis and grafana versions more clear
+- metrics - restart pmie, pmlogger if changed, do not wait for handler
+- nbde_client - Sets needed spacing for appended rd.neednet parameter (#68)
+- network - IfcfgUtil: Remediate `connection_seems_active()` for controller
+- sshd - Add CHANGELOG.md
+- sshd - Add changelog_to_tag.yml to .github/workflows
+- sshd - add parameter RSAMinSize
+- sshd - Add parameter RSAMinSize to Match blocks
+- storage - Update README.md with latest changes (#290)
+
 [1.24.2] - 2022-06-15
 ---------------------
 

@@ -159,12 +159,12 @@ rpm_release() {
   #   need to edit for name, email
   # - git-commit-msg - in the format required by dist-git
   # - cl-md - the new entry for CHANGELOG.md
+  local version queryurl jq bz summary roles doc_text datesec new_features fixes
   version="$1"; shift
-  local queryurl jq bz summary itr
   queryurl="${BASE_URL}&bug_status=${STATUS}"
   jq='.bugs[] | ((.id|tostring) + "|" + (.whiteboard|gsub("role:"; "")) + "|" + .cf_doc_type + "|" + .summary)'
   datesec=$(date +%s)
-  get_bzs "${queryurl}" "$jq" -r | sort -k 2 -t \| > bzs.raw
+  get_bzs "$queryurl" "$jq" -r | sort -k 2 -t \| > bzs.raw
   cat > "${CL_MD:-cl-md}" <<EOF
 [$version] - $(date -I --date=@"$datesec")
 ----------------------------
@@ -211,9 +211,9 @@ EOF
       { echo ""
         echo "$fix_summary"
         echo "Resolves:rhbz#${bz}"; } >> "${GIT_COMMIT_MSG:-git-commit-msg}"
-      fixes=true
     fi
   done < bzs.raw
+  rm bzs.raw
 }
 
 format_bz_for_md() {

@@ -70,7 +70,7 @@ reset_dev_wb() {
 }
 
 new_bz() {
-  local itr prod ver
+  local itr prod ver summary comment role
   ver="$1"; shift  # X.Y
   summary="$1"; shift
   comment="$1"; shift
@@ -159,7 +159,7 @@ rpm_release() {
   #   need to edit for name, email
   # - git-commit-msg - in the format required by dist-git
   # - cl-md - the new entry for CHANGELOG.md
-  local version queryurl jq bz summary roles doc_text datesec new_features fixes
+  local version queryurl jq bz summary fix_summary roles doc_text datesec new_features fixes
   version="$1"; shift
   queryurl="${BASE_URL}&bug_status=${STATUS}"
   jq='.bugs[] | ((.id|tostring) + "|" + (.whiteboard|gsub("role:"; "")) + "|" + .cf_doc_type + "|" + .summary)'
@@ -176,8 +176,8 @@ EOF
   echo "Package update" > "${GIT_COMMIT_MSG:-git-commit-msg}"
   new_features=false
   while IFS=\| read -r bz roles doc_text summary; do
-    fix_summary=$(fmt_summary "$summary" "$roles")
     if [ "$doc_text" = Enhancement ]; then
+      fix_summary=$(fmt_summary "$summary" "$roles")
       echo "- [${fix_summary}](${show_url}$bz)" >> "${CL_MD:-cl-md}"
       echo "- Resolves:rhbz#${bz} : ${fix_summary}" >> "${CL_SPEC:-cl-spec}"
       { echo ""
@@ -194,6 +194,7 @@ EOF
   fixes=false
   while IFS=\| read -r bz roles doc_text summary; do
     if [ "$doc_text" = "Bug Fix" ]; then
+      fix_summary=$(fmt_summary "$summary" "$roles")
       echo "- [${fix_summary}](${show_url}$bz)" >> "${CL_MD:-cl-md}"
       echo "- Resolves:rhbz#${bz} : ${fix_summary}" >> "${CL_SPEC:-cl-spec}"
       { echo ""
@@ -207,6 +208,7 @@ EOF
   fi
   while IFS=\| read -r bz roles doc_text summary; do
     if [ "$doc_text" != Enhancement ] && [ "$doc_text" != "Bug Fix" ]; then
+      fix_summary=$(fmt_summary "$summary" "$roles")
       echo "- Resolves:rhbz#${bz} : ${fix_summary}" >> "${CL_SPEC:-cl-spec}"
       { echo ""
         echo "$fix_summary"

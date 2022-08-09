@@ -138,7 +138,9 @@ def __do_handle_vars(vars, filectx):
         for item in vars:
             __do_handle_vars(item, filectx)
     elif isinstance(vars, dict):
-        for item in vars.values():
+        for key, item in vars.items():
+            if filectx.filename.endswith("defaults/main.yml"):
+                filectx.rolevars.add(key)
             __do_handle_vars(item, filectx)
     elif filectx.templar.is_template(vars):
         find_plugins(vars, filectx)
@@ -214,6 +216,36 @@ class PluginItem(object):
         return True
 
 
+class NumericOpItem(object):
+    def __init__(
+        self,
+        collection_name,
+        role_name,
+        varname,
+        opname,
+        value,
+        relpth,
+        lineno,
+        is_test,
+    ):
+        self.collection_name = collection_name
+        self.role_name = role_name
+        self.varname = varname
+        self.opname = opname
+        self.value = value
+        self.relpth = relpth
+        self.lineno = lineno
+        self.is_test = is_test
+
+    def __str__(self):
+        if self.collection_name:
+            where = self.collection_name + "."
+        else:
+            where = ""
+        where = where + self.role_name
+        return f"[{self.varname}] [{self.opname}] [{self.value}] at {where} {self.relpth}:{self.lineno}"
+
+
 def node2plugin_type(nodetype):
     if nodetype == jinja2.nodes.Filter:
         return "filter"
@@ -223,6 +255,82 @@ def node2plugin_type(nodetype):
         return "macro"
     else:
         return "module"
+
+
+MATH_OPS = (
+    jinja2.nodes.Add,
+    jinja2.nodes.Div,
+    jinja2.nodes.Mod,
+    jinja2.nodes.Mul,
+    jinja2.nodes.Neg,
+    jinja2.nodes.Pos,
+    jinja2.nodes.Pow,
+    jinja2.nodes.Sub,
+)
+
+
+# Look for places where a public variable is used in some
+# sort of numeric operation that might require casting
+# the variable to some numeric type. e.g.
+# {{ if my_float_var < 1.0 }}
+# should be
+# {{ if my_float_var | float < 1.0 }}
+# so comparisons, arithmetic, unary
+# {{ 2 + my_int_var }}
+# {{ -my_int_var }}
+# These should be cast to int
+# The return value is the variable name, the operation,
+# and the value (or 0 for unary ops)
+# The report at the end will also specify the location where
+# the usage occurred
+def get_bare_numeric_op(jinja_node, filectx):
+    var_name, op_name, value = None, None, None
+    if isinstance(jinja_node, jinja2.nodes.Compare):
+        if (
+            isinstance(jinja_node.expr, jinja2.nodes.Name)
+            and jinja_node.expr.name in filectx.rolevars
+            and isinstance(jinja_node.ops[0], jinja2.nodes.Operand)
+            and isinstance(jinja_node.ops[0].expr, jinja2.nodes.Const)
+            and isinstance(jinja_node.ops[0].expr.value, (int, float))
+        ):
+            var_name = jinja_node.expr.name
+            op_name = jinja_node.ops[0].op
+            value = jinja_node.ops[0].expr.value
+        elif (
+            isinstance(jinja_node.expr, jinja2.nodes.Const)
+            and isinstance(jinja_node.expr.value, (int, float))
+            and isinstance(jinja_node.ops[0], jinja2.nodes.Operand)
+            and isinstance(jinja_node.ops[0].expr, jinja2.nodes.Name)
+            and jinja_node.ops[0].expr.name in filectx.rolevars
+        ):
+            var_name = jinja_node.ops[0].expr.name
+            op_name = jinja_node.ops[0].op
+            value = jinja_node.expr.value
+    elif isinstance(jinja_node, (jinja2.nodes.Neg, jinja2.nodes.Pos)):
+        if (
+            isinstance(jinja_node.node, jinja2.nodes.Name)
+            and jinja_node.node.name in filectx.rolevars
+        ):
+            var_name = jinja_node.node.name
+            op_name = jinja_node.operator
+            value = 0  # unary operator, no other value
+    else:
+        if isinstance(jinja_node.left, jinja2.nodes.Name):
+            var_name = jinja_node.left.name
+            other = jinja_node.right
+        elif isinstance(jinja_node.right, jinja2.nodes.Name):
+            var_name = jinja_node.right.name
+            other = jinja_node.left
+        if (
+            var_name in filectx.rolevars
+            and isinstance(other, jinja2.nodes.Const)
+            and isinstance(other.value, (int, float))
+        ):
+            op_name = jinja_node.operator
+            value = other.value
+        else:
+            var_name = None
+    return var_name, op_name, value
 
 
 def find_plugins(args, filectx):
@@ -244,9 +352,17 @@ def find_plugins(args, filectx):
             jinja2.nodes.Filter,
             jinja2.nodes.Test,
             jinja2.nodes.Macro,
-        )
+            jinja2.nodes.Compare,
+        ) + MATH_OPS
         for item in tmpl.find_all(node_types):
-            if hasattr(item, "name"):
+            if isinstance(item, MATH_OPS) or isinstance(item, jinja2.nodes.Compare):
+                var_name, op_name, value = get_bare_numeric_op(item, filectx)
+                if var_name:
+                    filectx.add_bare_numeric_op(
+                        var_name, op_name, value, filectx.get_lineno(item.lineno)
+                    )
+                continue
+            elif hasattr(item, "name"):
                 item_name = item.name
             elif hasattr(item.node, "name"):
                 item_name = item.node.name
@@ -487,7 +603,14 @@ def process_role(role_path, is_real_role, ctx):
         ctx.enter_role(ctx.found_role_name, role_path)
         ctx.add_local_plugins(role_path, "library")
         ctx.add_local_plugins(role_path, "filter_plugins")
+    # process defaults to get role public api variables
+    dirname = "defaults"
+    dirpath = os.path.join(role_path, dirname)
+    if os.path.isdir(dirpath) and not os.path.islink(dirpath):
+        process_ansible_yml_path(dirpath, ctx)
     for dirname in ROLE_DIRS:
+        if dirname == "defaults":
+            continue
         dirpath = os.path.join(role_path, dirname)
         if not os.path.isdir(dirpath) or os.path.islink(dirpath):
             continue
@@ -629,6 +752,8 @@ class SearchCtx(object):
         self.role_reqs = {}  # role meta/requirements.yml, if any
         self.manifest_json = {}
         self.galaxy_yml = {}
+        self.rolevars = set()
+        self.numeric_ops = []
 
     def enter_collection(self, collection_name, pathname):
         if len(self.collection_name) > 0:
@@ -889,6 +1014,28 @@ class SearchCtx(object):
             )
         )
 
+    def add_bare_numeric_op(self, varname, opname, value, lineno):
+        pathname = self.pathname
+        if pathname is None:
+            pathname = self.role_pathname
+        pth = Path(pathname)
+        fpth = Path(self.filename)
+        relpth = str(fpth.relative_to(pth))
+        collection_name = self.get_collection()
+        role_name = self.get_role_fq()
+        self.numeric_ops.append(
+            NumericOpItem(
+                collection_name,
+                role_name,
+                varname,
+                opname,
+                value,
+                str(relpth),
+                lineno,
+                self.in_tests(),
+            )
+        )
+
     def get_lineno(self, other_lineno):
         if self.lineno:
             return self.lineno
@@ -1063,15 +1210,24 @@ def main():
     )
     args = parser.parse_args()
     all_plugins = []
+    all_numeric_ops = []
     testing_plugins = {}
     runtime_plugins = {}
+    testing_num_ops = []
+    runtime_num_ops = []
     ctx = SearchCtx()
     errors = []
     for pth in args.paths:
         process_path(pth, ctx)
         all_plugins.extend(ctx.plugins)
+        all_numeric_ops.extend(ctx.numeric_ops)
         errors.extend(ctx.errors)
         ctx.reset()
+    for item in all_numeric_ops:
+        if item.is_test:
+            testing_num_ops.append(item)
+        else:
+            runtime_num_ops.append(item)
     for item in all_plugins:
         if item.type == "macro":
             continue
@@ -1150,6 +1306,21 @@ def main():
                     else:
                         print(f"\t\tfile: {relpth} lines: {len(location_item[relpth])}")
     print("\n")
+    for lst, desc in [(runtime_num_ops, "at runtime"), (testing_num_ops, "in testing")]:
+        if not lst:
+            continue
+        if args.details:
+            print(
+                f"ERROR: The following numeric operations found {desc} need int or float cast filters:"
+            )
+        for item in lst:
+            if args.details:
+                print(
+                    f"[{item.varname}] [{item.opname}] [{item.value}] at {item.relpth}:{item.lineno}"
+                )
+            errors.append(item)
+        print("\n")
+
     print(f"Found {len(errors)} errors")
     for msg in errors:
         print(msg)

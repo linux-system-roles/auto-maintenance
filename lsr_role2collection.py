@@ -1088,7 +1088,9 @@ def role2collection():
             "This is a comma delimited list of extra mappings to apply when "
             "converting the files - this replaces the given role name with "
             "collection format with the optional given namespace and collection "
-            "as sell as the given FQCN with other FQCN."
+            "as sell as the given FQCN with other FQCN. In addition, 'fedora."
+            "linux_system_roles:NAMESPACE.COLLECTION' is in the mapping, "
+            "'fedora.linux_system_roles' is converted to 'NAMESPACE.COLLECTION'."
         ),
     )
     default_meta_runtime = Path(__file__).parent / "lsr_role2collection" / "runtime.yml"
@@ -1144,8 +1146,9 @@ def role2collection():
     #         a-owner.role1:linux_system_roles.role1,\
     #         a-owner.role2:fedora.linux_system_roles.role2,\
     #         my_namespace.my_collection.role3:redhat.rhel_system_roles.role3,\
-    #         my_namespace.my_collection.role4:linux_system_roles.role4",\
-    #         my_namespace.my_collection.role5:role5"
+    #         my_namespace.my_collection.role4:linux_system_roles.role4,\
+    #         my_namespace.my_collection.role5:role5,\
+    #         my_namespace0.my_collection0:my_namespace1.my_collection1"
     # Output:
     # [
     #   {'src_name': {'src_owner': 'linux-system-roles', 'role': 'role0'},
@@ -1162,6 +1165,8 @@ def role2collection():
     #    'dest_name': {'dest_coll': 'fedora.linux_system_roles.role4}},
     #   {'src_name': {'src_coll': 'my_namespace.my_collection.role3'},
     #    'dest_name': {'dest_coll': 'fedora.linux_system_roles.role3'}},
+    #   {'src_name': {'src_coll': 'my_namespace0.my_collection0'},
+    #    'dest_name': {'dest_coll': 'my_namespace1.my_collection1'}},
     # ]
     # Note: Skip if the role in the given src_name is the role to be converted.
     def parse_extra_mapping(mapping_str, namespace, collection, role):
@@ -1182,11 +1187,14 @@ def role2collection():
                     _src_name["role"] = _src[0]
                     _mapping_dict["src_name"] = _src_name
                 elif len(_src) == 2:
-                    # "linux-system-roles.rolename"
+                    # "linux-system-roles.rolename" or "fedora.linux_system_roles"
                     if _src[1] == role:
                         continue
-                    _src_name["src_owner"] = _src[0]
-                    _src_name["role"] = _src[1]
+                    elif _src[0] == "fedora" and _src[1] == "linux_system_roles":
+                        _src_name["src_coll"] = _item[0]
+                    else:
+                        _src_name["src_owner"] = _src[0]
+                        _src_name["role"] = _src[1]
                     _mapping_dict["src_name"] = _src_name
                 elif len(_src) == 3:
                     # FQCN
@@ -1201,11 +1209,14 @@ def role2collection():
                         _dest_name["dest_prefix"] = None
                         _dest_name["role"] = _dest[0]
                     elif len(_dest) == 2:
-                        # "collection.rolename"
-                        _dest_name["dest_prefix"] = "{0}.{1}.".format(
-                            namespace, _dest[0]
-                        )
-                        _dest_name["role"] = _dest[1]
+                        # "collection.rolename" or "namespace.collection"
+                        if _dest[0] == namespace and _dest[1] == collection:
+                            _dest_name["dest_coll"] = _item[1]
+                        else:
+                            _dest_name["dest_prefix"] = "{0}.{1}.".format(
+                                namespace, _dest[0]
+                            )
+                            _dest_name["role"] = _dest[1]
                     elif len(_dest) == 3:
                         # "namespace.collection.rolename"
                         _dest_name["dest_prefix"] = "{0}.{1}.".format(
@@ -1213,7 +1224,10 @@ def role2collection():
                         )
                         _dest_name["role"] = _dest[2]
                     _mapping_dict["dest_name"] = _dest_name
-                    _mapping_role_list.append(_mapping_dict)
+                    if _dest_name["dest_coll"] == _item[1]:
+                        _mapping_coll_list.append(_mapping_dict)
+                    else:
+                        _mapping_role_list.append(_mapping_dict)
                 elif len(_src) == 3:
                     if len(_dest) == 1:
                         # "rolename"

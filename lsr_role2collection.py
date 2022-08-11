@@ -1224,7 +1224,10 @@ def role2collection():
                         )
                         _dest_name["role"] = _dest[2]
                     _mapping_dict["dest_name"] = _dest_name
-                    if _dest_name["dest_coll"] == _item[1]:
+                    if (
+                        "dest_coll" in _dest_name.keys()
+                        and _dest_name["dest_coll"] == _item[1]
+                    ):
                         _mapping_coll_list.append(_mapping_dict)
                     else:
                         _mapping_role_list.append(_mapping_dict)

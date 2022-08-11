@@ -310,7 +310,7 @@ def role_to_collection(
         cmd.extend(
             [
                 "--extra-mapping",
-                f"ansible-sshd:{namespace}.{collection_name}.{rolename}",
+                f"ansible-sshd:{namespace}.{collection_name}.{rolename},fedora.linux_system_roles:{namespace}.{collection_name}",  # noqa:E501
             ]
         )
     _ = run_cmd(cmd)

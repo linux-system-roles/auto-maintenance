@@ -1088,7 +1088,7 @@ def role2collection():
             "This is a comma delimited list of extra mappings to apply when "
             "converting the files - this replaces the given role name with "
             "collection format with the optional given namespace and collection "
-            "as sell as the given FQCN with other FQCN. In addition, 'fedora."
+            "as well as the given FQCN with other FQCN. In addition, if 'fedora."
             "linux_system_roles:NAMESPACE.COLLECTION' is in the mapping, "
             "'fedora.linux_system_roles' is converted to 'NAMESPACE.COLLECTION'."
         ),

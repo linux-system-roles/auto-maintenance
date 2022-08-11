@@ -1500,26 +1500,6 @@ def role2collection():
     removeme = ["library", "modules", "module_utils", "roles"]
     cleanup_symlinks(dest, new_role, removeme)
 
-    # Copy processed README.md to the docs dir after renaming it to README_ROLENAME.md
-    readme_md = roles_dir / new_role / "README.md"
-    if readme_md.is_file():
-        if not docs_dir.is_dir():
-            if docs_dir.exists():
-                docs_dir.unlink()
-            docs_dir.mkdir()
-        role_readme_md = docs_dir / "README_{0}.md".format(new_role)
-        copyfile(readme_md, role_readme_md)
-
-    # Copy CHANGELOG.md to the docs dir after renaming it to CHANGELOG_ROLENAME.md
-    changelog_md = src_path / "CHANGELOG.md"
-    if changelog_md.is_file():
-        if not docs_dir.is_dir():
-            if docs_dir.exists():
-                docs_dir.unlink()
-            docs_dir.mkdir()
-        role_changelog_md = docs_dir / "CHANGELOG_{0}.md".format(new_role)
-        copyfile(changelog_md, role_changelog_md)
-
     # ==============================================================================
 
     # Copy library, module_utils, plugins
@@ -1701,6 +1681,26 @@ def role2collection():
         file_replace(docs_dir / new_role, _from, _to, file_patterns)
         # meta
         file_replace(meta_dir, _from, _to, file_patterns)
+
+    # Copy processed README.md to the docs dir after renaming it to README_ROLENAME.md
+    readme_md = roles_dir / new_role / "README.md"
+    if readme_md.is_file():
+        if not docs_dir.is_dir():
+            if docs_dir.exists():
+                docs_dir.unlink()
+            docs_dir.mkdir()
+        role_readme_md = docs_dir / "README_{0}.md".format(new_role)
+        copyfile(readme_md, role_readme_md)
+
+    # Copy CHANGELOG.md to the docs dir after renaming it to CHANGELOG_ROLENAME.md
+    changelog_md = src_path / "CHANGELOG.md"
+    if changelog_md.is_file():
+        if not docs_dir.is_dir():
+            if docs_dir.exists():
+                docs_dir.unlink()
+            docs_dir.mkdir()
+        role_changelog_md = docs_dir / "CHANGELOG_{0}.md".format(new_role)
+        copyfile(changelog_md, role_changelog_md)
 
     default_collections_paths = "~/.ansible/collections:/usr/share/ansible/collections"
     default_collections_paths_list = list(

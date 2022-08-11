@@ -145,7 +145,9 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                        [--src-path SRC_PATH] [--src-owner SRC_OWNER] [--role ROLE]
                        [--new-role NEW_ROLE] [--replace-dot REPLACE_DOT]
                        [--subrole-prefix SUBROLE_PREFIX] [--readme README]
-                       [--extra-mapping EXTRA_MAPPING]
+                       [--extra-mapping EXTRA_MAPPING] [--meta-runtime META_RUNTIME]
+                       [--extra-script EXTRA_SCRIPT]
+
 ```
 
 ### optional arguments
@@ -196,6 +198,9 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      regex.
                      In addition, 'fedora.linux_system_roles:NAMESPACE.COLLECTION' is in the
                      mapping, 'fedora.linux_system_roles' is converted to 'NAMESPACE.COLLECTION'.
+--meta-runtime /path/to/runtime.yml
+                     This is the path to the collection meta/runtime.yml - the default is
+                     $HOME/linux-system-roles/auto-maintenance/lsr_role2collection/runtime.yml.
 --extra-script /path/to/executable
                      This is a script to use to do custom conversion of the role.  For example,
                      to convert uses of filter plugins to FQCN.  If you do not specify anything,

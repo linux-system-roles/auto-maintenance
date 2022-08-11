@@ -194,6 +194,8 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      in the README that you do not want to change, you may have to change the
                      README in another way, not using this script, by using sed with a custom
                      regex.
+                     In addition, 'fedora.linux_system_roles:NAMESPACE.COLLECTION' is in the
+                     mapping, 'fedora.linux_system_roles' is converted to 'NAMESPACE.COLLECTION'.
 --extra-script /path/to/executable
                      This is a script to use to do custom conversion of the role.  For example,
                      to convert uses of filter plugins to FQCN.  If you do not specify anything,

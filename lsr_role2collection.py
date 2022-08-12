@@ -1176,6 +1176,9 @@ def role2collection():
         for _map in _mapping_list:
             _item = _map.split(":")
             if len(_item) == 2:
+                # src and dest are identical
+                if _item[0] == _item[1]:
+                    continue
                 _mapping_dict = {}
                 _src = _item[0].split(".")
                 _src_name = {}

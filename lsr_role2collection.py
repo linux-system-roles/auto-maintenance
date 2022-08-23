@@ -1213,7 +1213,9 @@ def role2collection():
                         _dest_name["role"] = _dest[0]
                     elif len(_dest) == 2:
                         # "collection.rolename" or "namespace.collection"
-                        if _dest[0] == namespace and _dest[1] == collection:
+                        if (
+                            _src[0] == "fedora" and _src[1] == "linux_system_roles"
+                        ) or (_dest[0] == namespace and _dest[1] == collection):
                             _dest_name["dest_coll"] = _item[1]
                         else:
                             _dest_name["dest_prefix"] = "{0}.{1}.".format(

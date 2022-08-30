@@ -497,6 +497,9 @@ def os_listdir(from_path):
 def process_yml_file(filepath, ctx):
     ctx.filename = filepath
     ctx.lineno = 0
+    if filepath.endswith("/vault-variables.yml"):
+        logging.debug(f"skipping vault-variables.yml file {filepath}")
+        return
     dl = DataLoader()
     ans_data = dl.load_from_file(filepath)
     if ans_data is None:

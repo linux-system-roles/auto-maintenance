@@ -453,23 +453,30 @@ class LSRFileTransformer(LSRFileTransformerBase):
         """do something with a task item"""
         module_name = None
         role_module_name = None
-        if "include_role" in task:
-            module_name = "include_role"
-        elif "import_role" in task:
-            module_name = "import_role"
-        elif "include_vars" in task:
-            module_name = "include_vars"
-        else:
+        is_include_or_import = False
+        is_include_vars = False
+        mods = ["include_role", "import_role", "include_vars"]
+        # add fqcn versions
+        mods = mods + ["ansible.builtin." + xx for xx in mods]
+        for mod in mods:
+            if mod in task:
+                module_name = mod
+                is_include_or_import = mod.endswith("include_role") or mod.endswith(
+                    "import_role"
+                )
+                is_include_vars = mod.endswith("include_vars")
+                break
+        if module_name is None:
             for rm in self.role_modules:
                 if rm in task:
                     module_name = rm
                     role_module_name = rm
                     break
-        if module_name == "include_role" or module_name == "import_role":
+        if is_include_or_import:
             new_rolename = self.convert_rolename(task[module_name]["name"])
             if new_rolename:
                 task[module_name]["name"] = new_rolename
-        elif module_name == "include_vars":
+        elif is_include_vars:
             """
             Convert include_vars in the test playbook.
             include_vars: path/to/{src_owner}.ROLENAME/file_or_dir

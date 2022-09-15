@@ -14,6 +14,7 @@ linux-system-roles repos.
   * [role-make-version-changelog.sh](#role-make-version-changelogsh)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
   * [bz-manage.sh](#bz-managesh)
+  * [check_jenkins.py](#check_jenkinspy)
   * [configure_squid](#configure_squid)
 <!--te-->
 
@@ -860,6 +861,84 @@ By default, the limit on the number of BZ returned by a query is 100.  Use LIMIT
 change that value.
 
 There are other undocumented environment variables used, check the code for more details.
+
+# check_jenkins.py
+
+Check the test tasks in a jenkins server.
+
+## Requirements
+
+package `python3-jenkins-1.7.0-6.fc36.noarch`
+
+You must have Kerberos authentication set up.
+
+You have to create a file `~/.config/jenkins.yml` like this:
+```yaml
+somename:
+  username: MY_USERNAME
+  url: "https://my.jenkins.hostname.tld"
+  job_name: MY_JENKINS_JOBNAME
+current: somename
+```
+
+## Usage
+
+By default, it will print the queued tasks, the running tasks, and the completed tasks.
+```
+> ./check_jenkins.py
+Queued tasks:
+QueueID  Queued Since        Role            PR  Platform               Queue Reason        
+3915644  2022-09-14T19:27:23 timesync        119 RHEL-9.2/ansible-2.13  waiting on executor 
+3915643  2022-09-14T19:27:23 timesync        119 RHEL-9.2/ansible-2.9   waiting on executor 
+3915642  2022-09-14T19:27:23 timesync        119 RHEL-8.8/ansible-2.13  waiting on executor 
+3915641  2022-09-14T19:27:23 timesync        119 RHEL-8.8/ansible-2.9   waiting on executor 
+...
+
+Running tasks:
+TaskID   Started At          Role            PR  Platform               Queue Time
+15994    2022-09-14T19:23:42 cockpit         73  RHEL-9.2/ansible-2.9   11        
+15993    2022-09-14T19:23:41 cockpit         73  RHEL-8.8/ansible-2.13  10        
+15992    2022-09-14T19:23:41 cockpit         73  RHEL-8.8/ansible-2.9   10        
+...
+
+Completed tasks:
+TaskID   Started At          Role            PR  Platform               Duration Queue Time Status    
+15966    2022-09-14T16:00:06 podman          14  RHEL-9.2/ansible-2.13  695      491        FAILED    
+15965    2022-09-14T15:58:55 podman          14  RHEL-9.2/ansible-2.9   563      420        FAILED    
+...
+```
+It takes a long time to run.  You can shorten the duration by using the environment variable
+`MAX_TASK_AGE` (number of seconds of maximum task age) e.g.
+```
+> MAX_TASK_AGE=7200 ./check_jenkins.py
+Queued tasks:
+...
+
+```
+e.g. to skip tasks older than 2 hours.
+
+You can also specify the argument `print_queued_tasks`, `print_running_tasks`, or `print_completed_tasks`
+if you just want to look at those tasks.
+```
+> ./check_jenkins.py print_queued_tasks
+Queued tasks:
+QueueID  Queued Since        Role            PR  Platform               Queue Reason        
+3915644  2022-09-14T19:27:23 timesync        119 RHEL-9.2/ansible-2.13  waiting on executor 
+...
+```
+Use `print_task_info TASK_NUM` to show a YAML representation of a task:
+```
+> ./check_jenkins.py print_task_info 15967
+_class: hudson.model.FreeStyleBuild
+actions:
+- _class: hudson.model.ParametersAction
+  parameters:
+  - _class: hudson.model.StringParameterValue
+    name: priority
+    value: '3'
+...
+```
+which isn't very useful unless you are debugging the script and/or Jenkins itself.
 
 # configure_squid
 

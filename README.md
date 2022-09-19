@@ -940,6 +940,45 @@ actions:
 ```
 which isn't very useful unless you are debugging the script and/or Jenkins itself.
 
+### print_task_tests_info
+
+Use this to see information about the task, including the individual tests
+statuses.
+```
+> ./check_jenkins.py print_task_tests_info 12345
+Role:nbde_client PR:80 Platform:RHEL-8.8.0-20220921.0 Arch:x86_64
+Node:production-3 IP:10.0.0.3 Workspace:/var/lib/jenkins/workspace/ci-test-jobname@6
+Stage                State      Result     GuestID                              Test Workdir
+COMPLETE             OK         PASSED     c3767ea3-934c-408d-b42f-d7639e3e30ca tests_bind_high_availability.yml work-tests_bind_high_availability.ymlrHBR08
+COMPLETE             OK         PASSED     06e43cbc-0090-41ad-8477-16fe0ff43447 tests_default.yml work-tests_default.yml16nMco
+COMPLETE             OK         PASSED     d05aaf71-5075-47a1-b50a-9904cc33b699 tests_default_vars.yml work-tests_default_vars.ymlQdWTmI
+GUEST_PROVISIONING   OK         UNDEFINED  unknown                              tests_include_vars_from_parent.yml unknown
+GUEST_PROVISIONING   OK         UNDEFINED  unknown                              tests_key_rotation.yml unknown
+GUEST_PROVISIONING   OK         UNDEFINED  unknown                              tests_passphrase_temporary.yml unknown
+CREATED              OK         UNDEFINED  unknown                              tests_passphrase_temporary_keyfile.yml unknown
+```
+`Node` is the internal node name used by Jenkins.  `Workspace` is the path to
+the directory on the node which is used to hold the test artifacts before they
+are published.  For example, if you want to see the ansible results for the
+completed tests_bind_high_availability.yml test:
+```
+ssh -i /path/to/key root@10.0.0.3
+cd /var/lib/jenkins/workspace/ci-test-jobname@6
+# from here you can see citool-debug.txt, etc.
+cat work-tests_bind_high_availability.ymlrHBR08/ansible-output.txt
+cat guest-setup-c3767ea3-934c-408d-b42f-d7639e3e30ca/pre-installation-artifact-workaround.txt
+etc.
+```
+
+### print_task_console
+
+If you just want to see the task output without having to use the web browser:
+```
+./check_jenkins.py print_task_console 12345 30
+... bunch of text here ...
+```
+This will show the last 30 lines of the console.
+
 # configure_squid
 
 The `configure_squid` directory stores the playbook that you can use to

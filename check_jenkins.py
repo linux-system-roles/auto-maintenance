@@ -18,6 +18,8 @@ cfg = yaml.safe_load(open(os.path.join(os.environ["HOME"], ".config", "jenkins.y
 url = cfg[cfg["current"]]["url"]
 username = cfg[cfg["current"]]["username"]
 job_name = cfg[cfg["current"]]["job_name"]
+ssh_private_key = cfg[cfg["current"]].get("ssh_private_key")
+ssh_user = cfg[cfg["current"]].get("ssh_user")
 
 server = jenkins.Jenkins(url, username=username)
 job = server.get_job_info(job_name, depth=0, fetch_all_builds=False)
@@ -71,9 +73,14 @@ def get_pr_status_label(task, short=True):
                         match = re.match(r"^(RHEL-\d+[.]\d+)[^/]+(/.+)$", label)
                         if match:
                             label = match.group(1) + match.group(2)
-                        match = re.match(r"^(CentOS-\d+)[^/]+(/.+)$", label)
-                        if match:
-                            label = match.group(1) + match.group(2)
+                        else:
+                            match = re.match(r"^(CentOS-Stream-\d+)(/.+)$", label)
+                            if match:
+                                label = match.group(1).replace("-Stream", "") + match.group(2)
+                            else:
+                                match = re.match(r"^(CentOS-\d+)[^/]+(/.+)$", label)
+                                if match:
+                                    label = match.group(1) + match.group(2)
                     return label
 
 
@@ -92,7 +99,7 @@ def get_pr_info(task):
 
 def get_queued_time(task):
     for action in task["actions"]:
-        if action["_class"] == "jenkins.metrics.impl.TimeInQueueAction":
+        if action.get("_class") == "jenkins.metrics.impl.TimeInQueueAction":
             return str(int(action["buildableDurationMillis"] / 1000))
 
 
@@ -221,9 +228,12 @@ def print_running_tasks(server, task_nums, args):
 def print_queued_tasks(server, task_nums, args):
     print(format_fields(None, "queued", None, True))
     queue_info = server.get_queue_info()
+    size = 0
     for task in queue_info:
+        size = size + 1
         if task["task"]["name"] == job_name:
             print(format_fields(task, "queued", None))
+    print(f"Queue size: {size}")
 
 
 def print_completed_tasks(server, task_nums, args):
@@ -249,6 +259,121 @@ def print_task_info(server, task_nums, args):
     for num in args:
         task = server.get_build_info(job_name, int(num))
         yaml.safe_dump(task, sys.stdout)
+
+
+def get_node_info_for_task(server, task_num):
+    """Print the node info for the given task."""
+    task = server.get_build_info(job_name, task_num)
+    node_name = task["builtOn"]
+    node = server.get_node_info(node_name)
+    description = node["description"]
+    match = re.search(r"HOSTNAME=([0-9.]+)", description)
+    if match:
+        return {"node_name": node_name, "ip": match.group(1)}
+    else:
+        print(f"ERROR: for node_name {node_name} description unknown {description}")
+        return {"node_name": node_name, "ip": "unknown"}
+
+
+def get_task_tests_info(server, task_num):
+    """Get the info for all of the tests of a task given a task num."""
+    pat_pr = r"^ +lsr-github:github --pull-request= --pull-request=linux-system-roles:(?P<role>[^:]+):(?P<pr>[^:]+):.*$"
+    rx_pr = re.compile(pat_pr)
+    pat_test = (
+        r"^[|] dist-git-(?P<role>[^-]+)-[^/]+/tests/(?P<test>[^ ]+) +[|] +(?P<stage>[^ ]+) +[|]"
+        r" +(?P<state>[^ ]+) +[|] +(?P<result>[^ ]+) +[|] +(?P<arch>[^ ]+) +(?P<platform>[^ ]+) .*"
+    )
+    rx_test = re.compile(pat_test)
+    pat_guest_id = r" [|] +([a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}) +[|]"
+    rx_guest_id = re.compile(pat_guest_id)
+    pat_workspace = r"^Building remotely on .* in workspace ([^ ]+)$"
+    rx_workspace = re.compile(pat_workspace)
+    pat_work_test_dir = r"^.*dist-git-[^ ]+ working directory 'work-([^.]+.yml)([^']+)'.*$"
+    rx_work_test_dir = re.compile(pat_work_test_dir)
+    console = server.get_build_console_output(job_name, task_num)
+    console_lines = console.split("\n")
+    tests = {}
+    info = {"tests": tests}
+    pr = ""
+    role = ""
+    platform = ""
+    arch = ""
+    workspace = "unknown"
+    last_test = ""
+    for line in console_lines:
+        match = rx_guest_id.search(line)
+        if match and last_test:
+            tests[last_test]["guest_id"] = match.group(1)
+        elif last_test:
+            tests[last_test]["guest_id"] = "unknown"
+        match = rx_test.match(line)
+        if match:
+            test = match.group("test")
+            tests.setdefault(test, {}).update(match.groupdict())
+            arch = match.group("arch")
+            platform = match.group("platform")
+            last_test = test
+        else:
+            last_test = ""
+        match = rx_pr.match(line)
+        if match:
+            pr = match.group("pr")
+            role = match.group("role")
+        match = rx_workspace.match(line)
+        if match:
+            workspace = match.group(1)
+        match = rx_work_test_dir.match(line)
+        if match:
+            test = match.group(1)
+            work_dir = "work-" + test + match.group(2)
+            tests.setdefault(test, {})["work_dir"] = work_dir
+
+    info["pr"] = pr
+    info["role"] = role
+    info["platform"] = platform
+    info["arch"] = arch
+    info["workspace"] = workspace
+    node_info = get_node_info_for_task(server, task_num)
+    info.update(node_info)
+    return info
+
+
+def print_task_tests_info(server, task_nums, args):
+    """Print tests information for a given task."""
+    info = get_task_tests_info(server, int(args[0]))
+    print(f"Role:{info['role']} PR:{info['pr']} Platform:{info['platform']} Arch:{info['arch']}")
+    print(f"Node:{info['node_name']} IP:{info['ip']} Workspace:{info['workspace']}")
+    fmt = "{:20s} {:10s} {:10s} {:36s} {} {}"
+    print(fmt.format("Stage", "State", "Result", "GuestID", "Test", "Workdir"))
+    for test, data in info["tests"].items():
+        print(fmt.format(data["stage"], data["state"], data["result"], data["guest_id"], test, data.get("work_dir", "unknown")))
+
+
+def print_task_console(server, task_nums, args):
+    console = server.get_build_console_output(job_name, int(args[0]))
+    last = int(args[1])
+    console_lines = "\n".join(console.split("\n")[-last:])
+    print(console_lines)
+
+
+def print_node_info(server, task_nums, args):
+    """Print info for given build node."""
+    for node_name in args:
+        node = server.get_node_info(node_name)
+        yaml.safe_dump(node, sys.stdout)
+
+
+def cancel_queue_id(server, task_nums, args):
+    """Cancel the given queued tasks by queue id."""
+    for num in args:
+        task = server.cancel_queue(job_name, int(num))
+
+
+def get_workspace_file(ip, workspace_dir, work_test_dir, guest_id, file_type):
+    """Get the file from the workspace dir on the Jenkins server."""
+    if file_type == "ansible": pass
+    cmd = f"scp -i {ssh_private_key} {ssh_user}@{ip}:"
+    subprocess.run(cmd)
 
 
 if len(sys.argv) > 1:

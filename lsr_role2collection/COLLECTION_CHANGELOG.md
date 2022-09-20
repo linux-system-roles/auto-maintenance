@@ -1,6 +1,29 @@
 Changelog
 =========
 
+[1.27.0] - 2022-09-19
+---------------------
+
+### New Features
+
+- selinux - add 'local' parameter to seport (#124)
+- selinux - `local: true`:
+- sshd - Make drop-in config file functionality configurable by user
+- timesync - adding support fpr Oracle Linux 6,7,8 and 9
+- vpn - Various improvements required to connect to a managed remote host (#65)
+
+### Bug Fixes
+
+- certificate - Move Debian to Python 3 packages
+- ha_cluster - only install and setup fence-virt on x86_64 hosts (#64)
+- ssh - cast value to string in jinja macro (#50)
+- sshd - Allow user to override variables
+- timesync - Update chrony.conf.j2
+- timesync - Updated: type casting in overall timesync templates for testing
+- timesync - Updated: type casting adjusted (timesync_max_distance <= int)
+- vpn - Check for /usr/bin/openssl on controller - do not use package_facts (#66)
+
+
 [1.26.1] - 2022-08-05
 ---------------------
 

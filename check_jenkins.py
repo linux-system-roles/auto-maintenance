@@ -30,8 +30,19 @@ tasks_info = {}
 # max task age in seconds
 MAX_TASK_AGE = datetime.timedelta(seconds=int(os.environ.get("MAX_TASK_AGE", "86400")))
 now = datetime.datetime.now()
+now_tz = now.astimezone()
 
 BUILD_ARTIFACT = "%(folder_url)sjob/%(short_name)s/%(number)s/artifact/%(artifact)s"
+
+CONSOLE_TZ = "Z"
+CONSOLE_TS_FMT = "%Y-%m-%d %H:%M:%S%z"
+
+
+def time_to_local(ts_str, start_ts):
+    """Convert console time string to local time."""
+    dt_ts_str = start_ts.date().isoformat() + " " + ts_str + CONSOLE_TZ
+    dt = datetime.datetime.strptime(dt_ts_str, CONSOLE_TS_FMT).astimezone(now_tz.tzinfo)
+    return dt
 
 
 def get_build_artifact(server, name, number, artifact):
@@ -193,14 +204,21 @@ def format_fields(task, task_state, ts, is_header=False):
     return fmt.format(*data)
 
 
+def get_task_ts(server, task_num):
+    """Return the task info and timestamp."""
+    global tasks_info
+    task, ts = tasks_info.get(task_num, (None, None))
+    if task is None:
+        task = server.get_build_info(job_name, task_num)
+        ts = datetime.datetime.fromtimestamp(task["timestamp"] / 1000)
+        tasks_info[task_num] = (task, ts)
+    return (task, ts)
+
+
 def task_iter(task_nums, server):
+    """Iterate through task nums returning task info and timestamp."""
     for num in task_nums:
-        global tasks_info
-        task, ts = tasks_info.get(num, (None, None))
-        if task is None:
-            task = server.get_build_info(job_name, num)
-            ts = datetime.datetime.fromtimestamp(task["timestamp"] / 1000)
-            tasks_info[num] = (task, ts)
+        task, ts = get_task_ts(server, num)
         if now - ts < MAX_TASK_AGE:
             yield (task, ts)
         else:
@@ -247,13 +265,9 @@ def print_completed_tasks(server, task_nums, args):
 
 def stop_tasks(server, task_nums, args):
     """Stop tasks matching the display_name pattern."""
-    for num in task_nums:
-        global tasks_info
-        task = tasks_info.setdefault(num, server.get_build_info(job_name, num))
-        task_name = task["displayName"]
-        if re.search(args[0], task_name) and task["result"] is None:
-            print(f"Stopping {num} {task_name}")
-            server.stop_build(job_name, num)
+    for num in args:
+        print(f"Stopping {num}")
+        server.stop_build(job_name, num)
 
 
 def print_task_info(server, task_nums, args):
@@ -288,21 +302,38 @@ def get_task_tests_info(server, task_num):
     rx_test = re.compile(pat_test)
     pat_guest_id = r" [|] +([a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}) +[|]"
     rx_guest_id = re.compile(pat_guest_id)
-    pat_workspace = r"^Building remotely on .* in workspace ([^ ]+)$"
+    pat_workspace = r"^Building remotely on .* in workspace (?P<workspace>[^ ]+)$"
     rx_workspace = re.compile(pat_workspace)
     pat_work_test_dir = (
         r"^.*dist-git-[^ ]+ working directory 'work-([^.]+.yml)([^']+)'.*$"
     )
     rx_work_test_dir = re.compile(pat_work_test_dir)
+    pat_provision_start = (
+        r"^.*\[(?P<ts_prov>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"starting guest provisioning.*$"
+    )
+    rx_provision_start = re.compile(pat_provision_start)
+    pat_guest_setup_start = (
+        r"^.*\[(?P<ts_setup>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"starting guest setup.*$"
+    )
+    rx_guest_setup_start = re.compile(pat_guest_setup_start)
+    pat_test_start = (
+        r"^.*\[(?P<ts_start>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"starting tests execution.*$"
+    )
+    rx_test_start = re.compile(pat_test_start)
+    pat_test_end = (
+        r"^.*\[(?P<ts_end>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"cleanup finished.*$"
+    )
+    rx_test_end = re.compile(pat_test_end)
+
+    task, ts = get_task_ts(server, task_num)
     console = server.get_build_console_output(job_name, task_num)
     console_lines = console.split("\n")
     tests = {}
-    info = {"tests": tests}
-    pr = ""
-    role = ""
-    platform = ""
-    arch = ""
-    workspace = "unknown"
+    info = {"tests": tests, "start": ts.isoformat(timespec="seconds")}
     last_test = ""
     for line in console_lines:
         match = rx_guest_id.search(line)
@@ -314,29 +345,38 @@ def get_task_tests_info(server, task_num):
         if match:
             test = match.group("test")
             tests.setdefault(test, {}).update(match.groupdict())
-            arch = match.group("arch")
-            platform = match.group("platform")
+            info.update(match.groupdict())
             last_test = test
         else:
             last_test = ""
         match = rx_pr.match(line)
         if match:
-            pr = match.group("pr")
-            role = match.group("role")
+            info.update(match.groupdict())
         match = rx_workspace.match(line)
         if match:
-            workspace = match.group(1)
+            info.update(match.groupdict())
         match = rx_work_test_dir.match(line)
         if match:
             test = match.group(1)
             work_dir = "work-" + test + match.group(2)
             tests.setdefault(test, {})["work_dir"] = work_dir
+        for rx in (
+            rx_provision_start,
+            rx_guest_setup_start,
+            rx_test_start,
+            rx_test_end,
+        ):
+            match = rx.match(line)
+            if match:
+                test = match.group(2)
+                grp_dict = match.groupdict()
+                for kk, vv in match.groupdict().items():
+                    if kk == "test":
+                        continue
+                    dt = time_to_local(vv, ts)
+                    grp_dict[kk] = dt.strftime("%Y-%m-%dT%H:%M:%S")
+                tests.setdefault(test, {}).update(grp_dict)
 
-    info["pr"] = pr
-    info["role"] = role
-    info["platform"] = platform
-    info["arch"] = arch
-    info["workspace"] = workspace
     node_info = get_node_info_for_task(server, task_num)
     info.update(node_info)
     return info
@@ -346,7 +386,7 @@ def print_task_tests_info(server, task_nums, args):
     """Print tests information for a given task."""
     info = get_task_tests_info(server, int(args[0]))
     print(
-        f"Role:{info['role']} PR:{info['pr']} Platform:{info['platform']} Arch:{info['arch']}"
+        f"Role:{info['role']} PR:{info['pr']} Platform:{info['platform']} Arch:{info['arch']} Start:{info['start']}"
     )
     print(f"Node:{info['node_name']} IP:{info['ip']} Workspace:{info['workspace']}")
     fmt = "{:20s} {:10s} {:10s} {:36s} {} {}"
@@ -361,6 +401,10 @@ def print_task_tests_info(server, task_nums, args):
                 test,
                 data.get("work_dir", "unknown"),
             )
+        )
+        print(
+            f"ts_prov:{data.get('ts_prov', 'None')} ts_setup:{data.get('ts_setup', 'None')} "
+            f"ts_start:{data.get('ts_start', 'None')} ts_end:{data.get('ts_end', 'None')}"
         )
 
 

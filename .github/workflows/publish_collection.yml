@@ -1,0 +1,58 @@
+name: Publish fedora.linux_system_roles collection to Ansible Galaxy
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+
+jobs:
+  publish_collection:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout auto-maintenance repository
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -ex
+          pip install --upgrade pip
+          pip install --upgrade ansible ansible-galaxy galaxy-importer pypandoc rst2html
+          docker --version
+
+      - name: Setup paths
+        id: locations
+        shell: bash
+        run: |
+          echo "dest_path=/var/tmp/collection" >> $GITHUB_OUTPUT
+
+      - name: Build and publish the collection
+        shell: bash
+        run: |
+          set -exu
+          # Ensure there is no dest_path before running release_collection.py
+          rm -rf ${{ steps.locations.dest_path }}
+          python ./release_collection.py --debug --dest-path ${{ steps.locations.dest_path }}
+          # We are up to date - exit
+          if git diff --quiet; then
+            echo "No roles have new releases - no collection will be published"
+            exit 0
+          fi
+          # A new collection has been build - find the tarball
+          _tarballs=( $(find ${{ steps.locations.dest_path }} -maxdepth 1 -type f -name '*.tar.gz') )
+          if [[ ${#_tarballs[@]} -ne 1 ]]; then
+            echo "Did not find exactly 1 tarball to publish: ${_tarballs[*]}"
+            exit 1
+          fi
+          # Publish the collection
+          ansible-galaxy collection publish -vv --token ${{ secrets.GALAXY_API_TOKEN }} ${_tarballs[0]}
+          # Push the updated collection_release.yml and galaxy.yml. This step should
+          # be last since the previous steps must succeed
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -a -m 'Collection version was updated'
+          git push

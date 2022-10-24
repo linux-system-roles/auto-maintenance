@@ -483,6 +483,35 @@ def compact_coll_changelog(input_changelog):
     return output_changelog
 
 
+def conv_md2rest(changelog_md_path, changelog_rest_path):
+    """
+    Convert the md format to the reStructuredText format
+    """
+    rval = ""
+    try:
+        import pypandoc
+
+        rval = pypandoc.convert_file(changelog_md_path, "rst", format="md")
+    except (IOError, ImportError):
+        raise Exception("Failed to import pypandoc module")
+    with open(changelog_rest_path, "w", encoding="utf-8") as f:
+        f.write(rval)
+    # Verify the converted reST
+    try:
+        from rst2html import rst2html
+
+        with open(changelog_rest_path, "r") as f:
+            rst_text = f.read()
+        html, warning = rst2html(rst_text, report_level=3)
+        if len(warning) > 0:
+            raise Exception(
+                "Converted CHANGELOG.rst has a problem as html - {}".format(warning)
+            )
+    except (IOError, ImportError):
+        logging.warning("Failed to import rst2html module")
+        pass
+
+
 def update_collection(args, galaxy, coll_rel):
     """
     Update refs in collection_release.yml.
@@ -610,6 +639,7 @@ def update_collection(args, galaxy, coll_rel):
                     "^Changelog\n=========\n", "", _clogs, flags=re.MULTILINE
                 )
                 clf.write(_clogs)
+            clf.flush()
             # Overwrite the original changelog with the new one.
             logging.info(
                 f"{orig_cl_file} is updated. Please merge to the master branch"
@@ -618,6 +648,8 @@ def update_collection(args, galaxy, coll_rel):
             # Copy the new changelog to the docs dir in collection
             coll_changelog_path = os.path.join(coll_dir, "docs", "CHANGELOG.md")
             shutil.copy(clname, coll_changelog_path)
+            coll_changelog_rest_path = os.path.join(coll_dir, "CHANGELOG.rst")
+            conv_md2rest(coll_changelog_path, coll_changelog_rest_path)
     build_collection(args, coll_dir, galaxy)
 
 

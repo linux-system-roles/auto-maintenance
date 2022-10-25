@@ -512,6 +512,20 @@ def conv_md2rest(changelog_md_path, changelog_rest_path):
         pass
 
 
+def convert_md2rst(coll_dir):
+    """
+    Convert CHANGELOG.md to CHANGELOG.rst
+    """
+    coll_changelog_path = os.path.join(coll_dir, "docs", "CHANGELOG.md")
+    if os.path.exists(coll_changelog_path):
+        coll_changelog_rest_path = os.path.join(coll_dir, "CHANGELOG.rst")
+        conv_md2rest(coll_changelog_path, coll_changelog_rest_path)
+    else:
+        logging.warning(
+            "Missing collection CHANGELOG.md {0}".format(coll_changelog_path)
+        )
+
+
 def update_collection(args, galaxy, coll_rel):
     """
     Update refs in collection_release.yml.
@@ -606,11 +620,18 @@ def update_collection(args, galaxy, coll_rel):
                         coll_ver = "*"
                     galaxy_deps = galaxy.setdefault("dependencies", {})
                     galaxy_deps[coll_name] = coll_ver
+    # Existing changelogs
+    orig_cl_file = "lsr_role2collection/COLLECTION_CHANGELOG.md"
+    # Collection changelog file path
+    coll_changelog_path = os.path.join(coll_dir, "docs", "CHANGELOG.md")
     if not args.no_update:
         if not any(versions_updated):
             logging.info(
                 "Nothing in the collection was changed - current collection is up-to-date"
             )
+            shutil.copy(orig_cl_file, coll_changelog_path)
+            # Convert CHANGELOG.md to CHANGELOG.rst
+            convert_md2rst(coll_dir)
             return
         update_galaxy_version(args, galaxy, versions_updated)
         if not args.no_update:
@@ -631,8 +652,6 @@ def update_collection(args, galaxy, coll_rel):
                 )
             )
             clf.write(compact_coll_changelog(coll_changelog) + "\n")
-            # Existing changelogs
-            orig_cl_file = "lsr_role2collection/COLLECTION_CHANGELOG.md"
             with open(orig_cl_file, "r") as origclf:
                 _clogs = origclf.read()
                 _clogs = re.sub(
@@ -646,10 +665,12 @@ def update_collection(args, galaxy, coll_rel):
             )
             shutil.copy(clname, orig_cl_file)
             # Copy the new changelog to the docs dir in collection
-            coll_changelog_path = os.path.join(coll_dir, "docs", "CHANGELOG.md")
             shutil.copy(clname, coll_changelog_path)
-            coll_changelog_rest_path = os.path.join(coll_dir, "CHANGELOG.rst")
-            conv_md2rest(coll_changelog_path, coll_changelog_rest_path)
+    else:
+        shutil.copy(orig_cl_file, coll_changelog_path)
+
+    # Convert CHANGELOG.md to CHANGELOG.rst
+    convert_md2rst(coll_dir)
     build_collection(args, coll_dir, galaxy)
 
 

@@ -878,6 +878,7 @@ somename:
   username: MY_USERNAME
   url: "https://my.jenkins.hostname.tld"
   job_name: MY_JENKINS_JOBNAME
+  token: "MY_JENKINS_TOKEN"
 current: somename
 ```
 
@@ -978,6 +979,32 @@ If you just want to see the task output without having to use the web browser:
 ... bunch of text here ...
 ```
 This will show the last 30 lines of the console.
+
+### cancel_tasks
+
+This requires a valid `token`.  Cancel the running task given by the id.
+```
+./check_jenkins.py cancel_tasks 18859 18858 ....
+```
+
+### cancel_duplicate_tasks
+
+This requires a valid `token`. There is currently a bug in Jenkins that will
+create duplicate tasks.  Using this command will remove duplicate tasks from the
+queue and running tasks.
+```
+./check_jenkins.py cancel_duplicate_tasks
+```
+
+### print_test_failures
+
+Print the failed tests from the tasks that match the given role, prnum, and platform.
+Platform is optional.  This is useful for roles that have a lot of long running
+tests, and you don't want to wait several hours to find out if any of the tests
+have failed.  See also `print_task_tests_info`.
+```
+./check_jenkins.py print_test_failures network 535
+```
 
 # configure_squid
 

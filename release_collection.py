@@ -596,6 +596,7 @@ def update_collection(args, galaxy, coll_rel):
             galaxy["name"],
             collection_readme,
         )
+        this_collection = galaxy["namespace"] + "." + galaxy["name"]
         legacy_rqf = "requirements.yml"
         coll_rqf = "collection-requirements.yml"
         for rqf in [legacy_rqf, coll_rqf]:
@@ -618,8 +619,9 @@ def update_collection(args, galaxy, coll_rel):
                     else:
                         coll_name = coll
                         coll_ver = "*"
-                    galaxy_deps = galaxy.setdefault("dependencies", {})
-                    galaxy_deps[coll_name] = coll_ver
+                    if coll_name != this_collection:
+                        galaxy_deps = galaxy.setdefault("dependencies", {})
+                        galaxy_deps[coll_name] = coll_ver
     # Existing changelogs
     orig_cl_file = "lsr_role2collection/COLLECTION_CHANGELOG.md"
     # Collection changelog file path

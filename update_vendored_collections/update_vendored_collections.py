@@ -279,19 +279,26 @@ def main():
         print("No updates found, exiting")
     else:
         """Make a CentOS scratch build"""
-        clone_repo(centos_repo, centos_branch, centpkg_cmd)
-        copy_tarballs_to_repo(collection_tarballs, centos_repo)
-        update_spec(collection_tarballs, centos_repo)
-        build_url = scratch_build(centpkg_cmd, centos_repo)
+        clone_repo(repo=centos_repo, branch=centos_branch, rpkg_cmd=centpkg_cmd)
+        copy_tarballs_to_repo(collection_tarballs=collection_tarballs, repo=centos_repo)
+        update_spec(collection_tarballs=collection_tarballs, repo=centos_repo)
+        build_url = scratch_build(rpkg_cmd=centpkg_cmd, repo=centos_repo)
 
         """Push spec file with updated collection tarballs to Fedora"""
-        clone_repo(fedora_repo, fedora_branch, fedpkg_cmd)
-        copy_tarballs_to_repo(collection_tarballs, fedora_repo)
-        update_spec(collection_tarballs, fedora_repo)
-        repo_configure_credentials(fedora_repo, fedora_user, fedora_email)
-        repo_add_remote(fedora_repo, fedora_user, fedora_fork_url)
+        clone_repo(repo=fedora_repo, branch=fedora_branch, rpkg_cmd=fedpkg_cmd)
+        copy_tarballs_to_repo(collection_tarballs=collection_tarballs, repo=fedora_repo)
+        update_spec(collection_tarballs=collection_tarballs, repo=fedora_repo)
+        repo_configure_credentials(
+            repo=fedora_repo, repo_user=fedora_user, repo_email=fedora_email
+        )
+        repo_add_remote(
+            repo=fedora_repo, repo_user=fedora_user, repo_url=fedora_fork_url
+        )
         upload_sources(
-            collection_tarballs, fedpkg_cmd, fedora_repo, "fedora_credentials.yml"
+            collection_tarballs=collection_tarballs,
+            rpkg_cmd=fedpkg_cmd,
+            repo=fedora_repo,
+            credentials_file="fedora_credentials.yml",
         )
         fedora_commit_message = f"""
 Update vendored collections tarballs
@@ -302,15 +309,17 @@ The CentOS scratch build URL:
 {build_url}
 """
         repo_commit_changes(
-            fedora_repo,
-            fedora_commit_message,
-            fedora_push_branch,
-            ["linux-system-roles.spec", "sources", ".gitignore"],
+            repo=fedora_repo,
+            commit_message=fedora_commit_message,
+            branch=fedora_push_branch,
+            files_list=["linux-system-roles.spec", "sources", ".gitignore"],
         )
-        repo_force_push(fedora_repo, fedora_user, fedora_push_branch)
+        repo_force_push(repo=fedora_repo, remote=fedora_user, branch=fedora_push_branch)
 
         """Update vendored_collections.yml and push to GitHub"""
-        update_vendored_collections_yml(hsh, collection_tarballs, requirements)
+        update_vendored_collections_yml(
+            hsh=hsh, collection_tarballs=collection_tarballs, requirements=requirements
+        )
         open_pr_url = (
             "https://src.fedoraproject.org/fork/linuxsystemroles/rpms/linux-system-roles/diff/"
             "rawhide..update-vendored-collections"
@@ -327,13 +336,15 @@ AI: @spetrosi to open a PR for linux-system-roles. This requires logging in as l
 CC: @richm @nhosoi
 """
         repo_commit_changes(
-            auto_maintenance_repo,
-            auto_maintenance_commit_message,
-            auto_maintenance_push_branch,
-            [requirements],
+            repo=auto_maintenance_repo,
+            commit_message=auto_maintenance_commit_message,
+            branch=auto_maintenance_push_branch,
+            files_list=[requirements],
         )
         repo_force_push(
-            auto_maintenance_repo, auto_maintenance_remote, auto_maintenance_push_branch
+            repo=auto_maintenance_repo,
+            remote=auto_maintenance_remote,
+            branch=auto_maintenance_push_branch,
         )
 
 

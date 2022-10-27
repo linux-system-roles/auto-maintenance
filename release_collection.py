@@ -357,13 +357,15 @@ def update_galaxy_version(args, galaxy, versions_updated):
         gf.write(galaxy_str)
 
 
-def build_collection(args, coll_dir, galaxy=None):
+def create_collection_extra_files(args, coll_dir, galaxy=None):
     collection_requirements = os.path.join(
         "lsr_role2collection", "collection_requirements.txt"
     )
     collection_requirements_dest = os.path.join(coll_dir, "requirements.txt")
     collection_bindep = os.path.join("lsr_role2collection", "collection_bindep.txt")
     collection_bindep_dest = os.path.join(coll_dir, "bindep.txt")
+    collection_req_yml_dest = os.path.join(coll_dir, "requirements.yml")
+    collection_aee_dest = os.path.join(coll_dir, "execution-environment.yml")
     # If --rpm, files such as galaxy.yml in coll_dir are being used.
     process_ignore_and_lint_files(args, coll_dir)
     if not args.rpm:
@@ -373,12 +375,32 @@ def build_collection(args, coll_dir, galaxy=None):
         else:
             shutil.copy(args.galaxy_yml.name, coll_dir)
         shutil.copy(args.collection_release_yml.name, coll_dir)
+        ee_dependencies = []
         if os.path.exists(collection_requirements):
             shutil.copy(collection_requirements, collection_requirements_dest)
+            ee_dependencies.append("python: requirements.txt")
         if os.path.exists(collection_bindep):
             shutil.copy(collection_bindep, collection_bindep_dest)
-        # copy required dot files here, if any, before we remove them below
+            ee_dependencies.append("system: bindep.txt")
+        if galaxy["dependencies"]:
+            with open(collection_req_yml_dest, "w") as crf:
+                crf.write("---\ncollections:\n")
+                for k in galaxy["dependencies"].keys():
+                    crf.write("  - name: {0}\n".format(k))
+            ee_dependencies.append("galaxy: requirements.yml")
+        with open(collection_aee_dest, "w") as eef:
+            eef.write("---\nversion: 1\n\n")
+            eef.write("build_arg_defaults:\n")
+            eef.write("  EE_BASE_IMAGE: {0}\n\n".format(args.ee_base_image))
+            eef.write("ansible_config: 'ansible.cfg'\n\n")
+            if len(ee_dependencies):
+                eef.write("dependencies:\n")
+                for eed in ee_dependencies:
+                    eef.write("  {0}\n".format(eed))
 
+
+def build_collection(args, coll_dir, galaxy=None):
+    create_collection_extra_files(args, coll_dir, galaxy)
     # removing dot files/dirs
     keep_files = set([".ansible-lint"])
     for file_name in os.listdir(coll_dir):
@@ -634,6 +656,7 @@ def update_collection(args, galaxy, coll_rel):
             shutil.copy(orig_cl_file, coll_changelog_path)
             # Convert CHANGELOG.md to CHANGELOG.rst
             convert_md2rst(coll_dir)
+            create_collection_extra_files(args, coll_dir, galaxy)
             return
         update_galaxy_version(args, galaxy, versions_updated)
         if not args.no_update:
@@ -926,6 +949,13 @@ def main():
             "  Using --use-commit-hash is the same as using --use-commit-hash-role"
             " and specifying every role."
         ),
+    )
+    parser.add_argument(
+        "--ee-base-image",
+        default=os.environ.get(
+            "EE_BASE_IMAGE", "quay.io/ansible/ansible-runner:latest"
+        ),
+        help="Base image for Ansible Execution Environment",
     )
     args = parser.parse_args()
 

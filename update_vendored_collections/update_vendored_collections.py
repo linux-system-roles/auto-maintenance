@@ -11,10 +11,10 @@ import glob
 import datetime
 
 
-def run_cmd(cmd, cwd):
+def run_cmd(cmd, cwd, input=None):
     try:
         cmd_out = subprocess.run(
-            cmd, encoding="utf-8", cwd=cwd, check=True, capture_output=True
+            cmd, encoding="utf-8", cwd=cwd, check=True, capture_output=True, input=input
         )
         return cmd_out
     except subprocess.CalledProcessError as e:
@@ -102,6 +102,42 @@ def spec_add_changelog(content, collection_tarballs, lines):
                 "%changelog\n", "%changelog\n" + meta_line + comment_line, content
             )
             return content
+
+
+def configure_fkinit(credentials_file, repo):
+    print("Configure Fedora kerberos")
+    hsh = yaml.safe_load(open(credentials_file))
+    credentials = {}
+    for credential in hsh["credentials"]:
+        credentials.update(credential)
+    cmd = ["fkinit", "--user", credentials["username"]]
+    run_cmd(cmd, repo, credentials["password"])
+
+
+def prepare_sources(repo, collection_tarballs):
+    print("Remove collection tarballs from the sources file")
+    sources_tempfile = os.path.join(repo, "sources_tempfile")
+    with open(os.path.join(repo, "sources"), "r") as f:
+        content = f.readlines()
+    with open(sources_tempfile, "w") as f:
+        for line in content:
+            if not any(coll in line for coll in collection_tarballs.values()):
+                f.write(line)
+    shutil.move(sources_tempfile, os.path.join(repo, "sources"))
+
+
+def upload_sources(collection_tarballs, rpkg_cmd, repo, credentials_file):
+    configure_fkinit(credentials_file=credentials_file, repo=repo)
+    prepare_sources(collection_tarballs=collection_tarballs, repo=repo)
+    print("Run upload and sort the sources file")
+    for tarball in collection_tarballs.values():
+        cmd = [rpkg_cmd, "upload", tarball]
+        run_cmd(cmd, repo)
+    with open(os.path.join(repo, "sources"), "r") as f:
+        content = f.readlines()
+    with open(os.path.join(repo, "sources"), "w") as f:
+        for line in sorted(content):
+            f.write(line)
 
 
 def spec_bump_release(content):
@@ -254,6 +290,9 @@ def main():
         update_spec(collection_tarballs, fedora_repo)
         repo_configure_credentials(fedora_repo, fedora_user, fedora_email)
         repo_add_remote(fedora_repo, fedora_user, fedora_fork_url)
+        upload_sources(
+            collection_tarballs, fedpkg_cmd, fedora_repo, "fedora_credentials.yml"
+        )
         fedora_commit_message = f"""
 Update vendored collections tarballs
 
@@ -266,7 +305,7 @@ The CentOS scratch build URL:
             fedora_repo,
             fedora_commit_message,
             fedora_push_branch,
-            ["linux-system-roles.spec"],
+            ["linux-system-roles.spec", "sources", ".gitignore"],
         )
         repo_force_push(fedora_repo, fedora_user, fedora_push_branch)
 

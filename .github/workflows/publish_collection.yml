@@ -46,7 +46,7 @@ jobs:
             exit 1
           fi
           # Publish the collection
-          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_TOKEN }}" "${_tarballs[0]}"
+          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
           # Push the updated collection files. This step should
           # be last since the previous steps must succeed
           git config user.name "github-actions[bot]"

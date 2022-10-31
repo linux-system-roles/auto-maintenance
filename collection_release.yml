@@ -27,10 +27,10 @@ postfix:
 selinux:
   ref: 1.5.0
 ssh:
-  ref: 1.1.10
+  ref: 1.1.11
 sshd:
   org: willshersystems
-  ref: v0.17.0
+  ref: v0.18.0
   repo: ansible-sshd
 storage:
   ref: 1.9.1

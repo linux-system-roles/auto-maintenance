@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.28.0] - 2022-10-31
+---------------------
+
+### New Features
+
+- ssh - Add final version of the option RequiredRSASize (#53)
+- sshd - Adding support for OpenWrt 21.03
+- sshd - Add final version of RequiredRSASize
+
+### Bug Fixes
+
+- sshd - Update source template to match generated files
+
+
 [1.27.0] - 2022-09-19
 ---------------------
 

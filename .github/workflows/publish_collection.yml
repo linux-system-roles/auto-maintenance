@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout auto-maintenance repository
         uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GH_PUSH_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v2
@@ -49,8 +51,8 @@ jobs:
           ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
           # Push the updated collection files. This step should
           # be last since the previous steps must succeed
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name systemroller
+          git config user.email "systemroller@users.noreply.github.com"
           git commit -a -m "Collection version was updated"
           git push
           echo ::info Done

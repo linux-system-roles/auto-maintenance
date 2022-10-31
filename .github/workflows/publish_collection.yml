@@ -3,7 +3,7 @@ name: Publish fedora.linux_system_roles collection to Ansible Galaxy
 on:
   schedule:
     # Run daily at 00:00 UTC
-    - cron: '10 18 * * *'
+    - cron: '20 18 * * *'
 
 jobs:
   publish_collection:

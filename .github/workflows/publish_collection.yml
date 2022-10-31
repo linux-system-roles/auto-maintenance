@@ -2,7 +2,9 @@ name: Publish fedora.linux_system_roles collection to Ansible Galaxy
 
 on:
   workflow_dispatch:
-
+  schedule:
+    # Run daily at 00:37 UTC
+    - cron: '37 0 * * *'
 jobs:
   publish_collection:
     runs-on: ubuntu-latest
@@ -33,7 +35,9 @@ jobs:
           # Ensure there is no dest_path before running release_collection.py
           dest_path=/var/tmp/collection
           rm -rf "$dest_path"
+          echo ::group::Build Collection
           python3 ./release_collection.py --debug --dest-path "$dest_path"
+          echo ::endgroup::
           # We are up to date - exit
           if git diff --quiet; then
             echo ::info No roles have new releases - no collection will be published
@@ -46,11 +50,15 @@ jobs:
             exit 1
           fi
           # Publish the collection
-          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}" || echo failed to publish
+          echo ::group::Publish Collection to Galaxy
+          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
+          echo ::endgroup::
           # Push the updated collection files. This step should
           # be last since the previous steps must succeed
+          echo ::group::Push updates
           git config user.name systemroller
           git config user.email "systemroller@users.noreply.github.com"
           git commit -a -m "Collection version was updated"
           git push
+          echo ::endgroup::
           echo ::info Done

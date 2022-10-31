@@ -1023,4 +1023,3 @@ EL 6 or to /etc/dnf/dnf.conf on EL > 6 and Fedora:
 proxy=http://<squid_server_ip>:3128
 sslverify=False
 ```
-update

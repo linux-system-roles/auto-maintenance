@@ -414,6 +414,15 @@ under the github organization, and the default is the `ROLENAME`, so only use
 this if you need to specify a different name for the role in the collection.
 The `sshd` role currently uses both `org` and `repo`.
 
+To add a new role - add it with a `ref: null` e.g.
+```yaml
+ad_integration:
+  ref: null
+```
+
+Then the next time you run `release_collection.py`, it will know that this is a
+new role and will update the versions accordingly.
+
 Example:
 ```yaml
 certificate:

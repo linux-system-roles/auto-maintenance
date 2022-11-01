@@ -298,9 +298,9 @@ def main():
     if not args.platform:
         args.platform = DEFAULT_PLATFORMS
     if not args.token:
-        with open(f"{os.environ['HOME']}/.config/hub") as hub:
-            hsh = yaml.safe_load(hub)
-            args.token = hsh["github.com"][0]["oauth_token"]
+        with open(f"{os.environ['HOME']}/.config/gh/hosts.yml") as gh_conf:
+            hsh = yaml.safe_load(gh_conf)
+            args.token = hsh["github.com"]["oauth_token"]
     no_status_error_time = datetime.timedelta(hours=8)
     pending_error_time = datetime.timedelta(hours=8)
     status_env = ["" if xx == "production" else " (staging)" for xx in args.env]

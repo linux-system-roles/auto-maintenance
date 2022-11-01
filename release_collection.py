@@ -63,7 +63,10 @@ def run_cmd(cmdlist, cwd=None, env=None):
 
 def lsr_parse_version(v_str):
     test_v = parse_version("1")  # guaranteed to work
-    v = parse_version(v_str)
+    if v_str is None:
+        v = parse_version("0.0.0")
+    else:
+        v = parse_version(v_str)
     if not isinstance(v, test_v.__class__):
         raise ValueError(f"Error: {v_str} is not a proper version number")
     if not hasattr(v, "release"):
@@ -77,14 +80,17 @@ def check_versions_updated(cur_ref, new_ref, versions_updated):
 
     If cur_ref and new_ref are both valid semantic versions,
     compare them, and indicate in versions_updated if the major,
-    minor, and/or micro versions were updated."""
+    minor, and/or micro versions were updated.  One exception is
+    when the major version is upgraded from 0 to 1 - in that case,
+    do not mark this as requiring a major version change."""
 
     try:
         cur_v = lsr_parse_version(cur_ref)
         new_v = lsr_parse_version(new_ref)
         for idx in range(0, 3):
             if cur_v.release[idx] != new_v.release[idx]:
-                versions_updated[idx] = True
+                if idx > 0 or cur_v.release[idx] > 0:
+                    versions_updated[idx] = True
     except ValueError as exc:
         logging.debug(f"Could not compare version {cur_ref} to {new_ref}: {exc}")
         if cur_ref != new_ref:
@@ -147,10 +153,16 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
     _ = run_cmd(["bash", "-c", f"git checkout {main_branch}; git pull --tags"], roledir)
     commit_msgs = ""
     # see if there have been any commits since the last time we checked
-    count_output = run_cmd(
-        ["bash", "-c", f"git log --oneline {cur_ref}.. | wc -l"],
-        roledir,
-    )
+    if cur_ref:
+        count_output = run_cmd(
+            ["bash", "-c", f"git log --oneline {cur_ref}.. | wc -l"],
+            roledir,
+        )
+    else:
+        count_output = run_cmd(
+            ["bash", "-c", "git log --oneline | wc -l"],
+            roledir,
+        )
     tag, commit_hash, n_commits, prev_tag = None, None, "0", None
     if count_output.stdout == "0":
         logging.debug(f"no changes to role {rolename} since ref {cur_ref}")
@@ -170,27 +182,31 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
                 "--no-merges",
                 "--reverse",
                 "--pretty=format:- %s",
-                f"{cur_ref}..",
             ]
+            if cur_ref:
+                log_cmd.append(f"{cur_ref}..")
             log_output = run_cmd(log_cmd, roledir)
             commit_msgs = log_output.stdout.replace("\\r", "")
         # get previous tag in case cur_ref is a commit hash
-        try:
-            describe_cmd = [
-                "git",
-                "describe",
-                "--tags",
-                "--long",
-                "--abbrev=40",
-                cur_ref,
-            ]
-            describe_output = run_cmd(describe_cmd, roledir)
-            prev_tag = describe_output.stdout.strip().split("-")[0]
-            if prev_tag == cur_ref:
-                prev_tag = None  # cur_ref was already a valid tag
-        except subprocess.CalledProcessError:
+        if cur_ref:
+            try:
+                describe_cmd = [
+                    "git",
+                    "describe",
+                    "--tags",
+                    "--long",
+                    "--abbrev=40",
+                    cur_ref,
+                ]
+                describe_output = run_cmd(describe_cmd, roledir)
+                prev_tag = describe_output.stdout.strip().split("-")[0]
+                if prev_tag == cur_ref:
+                    prev_tag = None  # cur_ref was already a valid tag
+            except subprocess.CalledProcessError:
+                prev_tag = None  # no previous tag
+        else:
             prev_tag = None  # no previous tag
-    if args.no_update:
+    if args.no_update and cur_ref:
         # make sure cur_ref is checked out
         _ = run_cmd(["git", "checkout", cur_ref], roledir)
     return (tag, commit_hash, n_commits == "0", commit_msgs, prev_tag)
@@ -248,6 +264,10 @@ def get_role_changelog(args, rolename, cur_ref, new_ref, commit_msgs):
     if commit_msgs:
         # make a fake changelog for compact_coll_changelog
         _changelog = "{}\n##### Bug Fixes\n\n{}".format(_changelog, commit_msgs)
+        return _changelog
+    elif cur_ref is None:
+        # make a fake changelog for compact_coll_changelog for new role
+        _changelog = "{}\n##### New Features\n\n- New Role".format(_changelog)
         return _changelog
     _changelogmd = os.path.join(args.src_path, rolename, "CHANGELOG.md")
     if not os.path.exists(_changelogmd):
@@ -593,9 +613,8 @@ def update_collection(args, galaxy, coll_rel):
                 else:
                     coll_rel[rolename]["ref"] = cm_hash
                 if not tag_is_latest and not args.no_auto_version:
-                    logging.info(
-                        f"role {rolename} tag {tag} is not the latest commit {cm_hash} "
-                        "- cannot use auto version"
+                    logging.debug(
+                        f"role {rolename} tag {tag} is not the latest commit {cm_hash}"
                     )
                 check_versions_updated(
                     cur_ref, coll_rel[rolename]["ref"], versions_updated

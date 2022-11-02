@@ -1,6 +1,32 @@
 Changelog
 =========
 
+[1.30.0] - 2022-11-02
+---------------------
+
+### New Features
+
+- ad_integration - New Role
+- cockpit - Use the firewall role and the selinux role from the cockpit role (#76)
+- cockpit - Introduce cockpit_manage_firewall to use the firewall role to
+- cockpit - Add the test check task tasks/check_port.yml for verifying the
+- cockpit - Add meta/collection-requirements.yml.
+- cockpit - Introduce cockpit_manage_selinux to use the selinux role to
+- cockpit - Use the certificate role to create the cert and the key (#78)
+- cockpit - Introduce a variable cockpit_certificates to set the certificate_requests.
+- cockpit - Update README so that using the certificate role is recommended.
+- network - Support looking up named route table in routing rule
+- network - Support 'route_metric4' for initscripts provider
+- network - Support the DNS priority
+- podman - New Role
+
+### Bug Fixes
+
+- network - bond: improve the validation for setting peer_notif_delay
+- network - bond: test arp_all_targets only when arp_interval is enabled
+- network - bond: attach ports when creating the bonding connection
+
+
 [1.29.0] - 2022-11-02
 ---------------------
 

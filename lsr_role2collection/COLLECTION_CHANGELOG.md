@@ -1,6 +1,69 @@
 Changelog
 =========
 
+[1.29.0] - 2022-11-02
+---------------------
+
+### New Features
+
+- ha_cluster - Use the firewall role and the selinux role from the ha_cluster role
+- ha_cluster - Introduce ha_cluster_manage_firewall to use the firewall role to
+- ha_cluster - Introduce ha_cluster_manage_selinux to use the selinux role to
+- ha_cluster - Add the test check task tasks/check_firewall_selinux.yml for
+- ha_cluster - Use the certificate role to create the cert and the key
+- ha_cluster - Introduce a variable ha_cluster_pcsd_certificates to set the certificate_requests.
+- ha_cluster - add support for configuring qnetd
+- ha_cluster - add support for configuring qdevice
+- ha_cluster - qdevice and qnetd documentation
+- logging - Use the firewall role, the selinux role, and the certificate role from the logging role (#293)
+- logging - Introduce logging_manage_firewall to use the firewall role to manage
+- logging - Introduce logging_manage_selinux to use the selinux role to manage
+- logging - Add the test check task check_firewall_selinux.yml for verify the
+- logging - Use the certificate role to generate certificates in the logging role
+- logging - Introduce logging_certificates variable to specify parameters for
+- metrics - Use the firewall role and the selinux role from the metrics role
+- metrics - Introduce metrics_manage_firewall to use the firewall role to
+- metrics - Introduce metrics_manage_selinux to use the selinux role to
+- metrics - Add the test check task check_firewall_selinux.yml for verify
+- metrics - Skip calling the firewall role when the managed node is rhel-6.
+- metrics - When metrics_manage_firewall and metrics_manage_selinux are set
+- nbde_server - Add support for custom ports (#38)
+- nbde_server - Introduce nbde_server_manage_firewall and nbde_server_manage_selinux
+- nbde_server - If nbde_server_manage_firewall is set to true, use the firewall
+- nbde_server - If nbde_server_manage_selinux is set to true, use the selinux
+- postfix - Use the firewall role and the selinux role from the postfix role (#56)
+- postfix - Introduce postfix_manage_firewall to use the firewall role to
+- postfix - Introduce postfix_manage_selinux to use the selinux role to
+- postfix - Add the test check task tasks/check_firewall_selinux.yml for
+- postfix - Add meta/collection-requirements.yml.
+- vpn - Use the firewall role and the selinux role from the vpn role (#70)
+- vpn - Introduce vpn_manage_firewall to enable the firewall role to manage
+- vpn - Introduce vpn_manage_selinux to enable the selinux role to manage
+- vpn - Add the test check task check_firewall_selinux.yml for verify the
+- vpn - Add meta/collection-requirements.yml
+
+### Bug Fixes
+
+- ha_cluster - fix decoding variables from an Ansible vault
+- ha_cluster - add a test for vault-encrypted variables
+- ha_cluster - adapt tests with vault-encrypted variables for CI
+- ha_cluster - use a real temporary directory for test secrets
+- ha_cluster - fix checking hacluster password
+- ha_cluster - update sbd config file template
+- ha_cluster - fix installing qnetd and pcs packages
+- ha_cluster - fix auth for qnetd host
+- metrics - grafana: small wording tweak to grafana v8/v9 action names
+- metrics - grafana: include config file for Grafana v9
+- metrics - grafana: update grafana.ini to permit all grafana-pcp plugin components
+- nbde_client - correct clevis askpass unit conditional (#81)
+- nbde_client - Add default clevis luks askpass unit (#79)
+- nbde_client - use no_log: true where secrets might be revealed
+- storage - Master thin support size fix (#299)
+- storage - percent specified 'size' of thin pool volume is now properly
+- storage - percentage size thin volume now correctly references its parent device
+- storage - percentage values are now accepted size for thin pool size
+
+
 [1.28.0] - 2022-10-31
 ---------------------
 

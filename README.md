@@ -522,6 +522,8 @@ will publish the collection, waiting until it is completed.
   Note: if the rpm file does not contain `galaxy.yml` or `MANIFEST.json` in
   `/path/to/ansible_collections/namespace/collection`, `release_collection.py`
   fails.  No default value.
+* `--extra-mapping` - string - same as the `--extra-mapping` argument to
+  lsr_role2collection
 
 ## Version
 

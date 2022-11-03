@@ -325,14 +325,16 @@ def role_to_collection(
         "--readme",
         collection_readme,
     ]
-    # HACK - special case for ansible-sshd - not fully qualified
+    extra_mapping = ""
+    comma = ""
     if rolename == "sshd":
-        cmd.extend(
-            [
-                "--extra-mapping",
-                f"ansible-sshd:{namespace}.{collection_name}.{rolename},fedora.linux_system_roles:{namespace}.{collection_name}",  # noqa:E501
-            ]
-        )
+        # HACK - special case for ansible-sshd - not fully qualified
+        extra_mapping = f"ansible-sshd:{namespace}.{collection_name}.{rolename}"
+        comma = ","
+    if args.extra_mapping:
+        extra_mapping = extra_mapping + comma + args.extra_mapping
+    if extra_mapping:
+        cmd.extend(["--extra-mapping", extra_mapping])
     _ = run_cmd(cmd)
 
 
@@ -984,6 +986,17 @@ def main():
         default=False,
         action="store_true",
         help="If true, do not generate changelog or convert to rst.",
+    )
+    parser.add_argument(
+        "--extra-mapping",
+        type=str,
+        default="",
+        help=(
+            "This is a comma delimited list of extra mappings to apply when "
+            "converting roles to collection - this replaces the given role "
+            "name with collection format with the optional given namespace "
+            "and collection as well as the given FQCN with other FQCN."
+        ),
     )
     args = parser.parse_args()
 

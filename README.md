@@ -510,7 +510,10 @@ will publish the collection, waiting until it is completed.
 * `--skip-git` - boolean - If set to `true`, use local source. By default, `false`.
 * `--skip-check` - boolean - If set to `true`, check using galaxy-importer is
   skipped. By default, `false`.
-rue when skip check with galaxy-importer
+* `--skip-changelog` - boolean - By default, the script will attempt to generate
+  a collection changelog in Rst format from the individual role changelogs, or
+  convert an existing collection changelog from MD to Rst.  Use `--skip-changelog`
+  if you do not want to do any of this.
 * `--debug` - boolean - By default, the script will only output informational
   messages.  Use `--debug` to see the details.
 * `--rpm` - string - Specifies the rpm file for the input collection. When --rpm

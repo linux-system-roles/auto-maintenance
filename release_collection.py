@@ -620,16 +620,17 @@ def update_collection(args, galaxy, coll_rel):
                     cur_ref, coll_rel[rolename]["ref"], versions_updated
                 )
             # If a version update is detected, retrieve the new changelogs from CHANGELOG.md
-            if comp_versions(cur_ref, coll_rel[rolename]["ref"]) < 0:
-                logging.info(
-                    "The role %s is updated. Updating the changelog.", rolename
-                )
-                if prev_tag is None:
-                    prev_tag = cur_ref
-                _changelog = get_role_changelog(
-                    args, rolename, prev_tag, coll_rel[rolename]["ref"], commit_msgs
-                )
-                coll_changelog = "{}\n{}".format(coll_changelog, _changelog)
+            if not args.skip_changelog:
+                if comp_versions(cur_ref, coll_rel[rolename]["ref"]) < 0:
+                    logging.info(
+                        "The role %s is updated. Updating the changelog.", rolename
+                    )
+                    if prev_tag is None:
+                        prev_tag = cur_ref
+                    _changelog = get_role_changelog(
+                        args, rolename, prev_tag, coll_rel[rolename]["ref"], commit_msgs
+                    )
+                    coll_changelog = "{}\n{}".format(coll_changelog, _changelog)
         role_to_collection(
             args,
             rolename,
@@ -672,9 +673,10 @@ def update_collection(args, galaxy, coll_rel):
             logging.info(
                 "Nothing in the collection was changed - current collection is up-to-date"
             )
-            shutil.copy(orig_cl_file, coll_changelog_path)
-            # Convert CHANGELOG.md to CHANGELOG.rst
-            convert_md2rst(coll_dir)
+            if not args.skip_changelog:
+                shutil.copy(orig_cl_file, coll_changelog_path)
+                # Convert CHANGELOG.md to CHANGELOG.rst
+                convert_md2rst(coll_dir)
             create_collection_extra_files(args, coll_dir, galaxy)
             return
         update_galaxy_version(args, galaxy, versions_updated)
@@ -684,37 +686,38 @@ def update_collection(args, galaxy, coll_rel):
 
     # If to-be-appended changelogs are found, update COLLECTION_CHANGELOG.md
     # and copy it to the collection docs dir.
-    if coll_changelog:
-        clhandle, clname = tempfile.mkstemp(suffix=".cl", prefix="collection")
-        with os.fdopen(clhandle, "w") as clf:
-            # Header
-            clf.write("Changelog\n=========\n\n")
-            # New changelogs
-            clf.write(
-                "[{}] - {}\n---------------------".format(
-                    galaxy["version"], datetime.now().date()
+    if not args.skip_changelog:
+        if coll_changelog:
+            clhandle, clname = tempfile.mkstemp(suffix=".cl", prefix="collection")
+            with os.fdopen(clhandle, "w") as clf:
+                # Header
+                clf.write("Changelog\n=========\n\n")
+                # New changelogs
+                clf.write(
+                    "[{}] - {}\n---------------------".format(
+                        galaxy["version"], datetime.now().date()
+                    )
                 )
-            )
-            clf.write(compact_coll_changelog(coll_changelog) + "\n")
-            with open(orig_cl_file, "r") as origclf:
-                _clogs = origclf.read()
-                _clogs = re.sub(
-                    "^Changelog\n=========\n", "", _clogs, flags=re.MULTILINE
+                clf.write(compact_coll_changelog(coll_changelog) + "\n")
+                with open(orig_cl_file, "r") as origclf:
+                    _clogs = origclf.read()
+                    _clogs = re.sub(
+                        "^Changelog\n=========\n", "", _clogs, flags=re.MULTILINE
+                    )
+                    clf.write(_clogs)
+                clf.flush()
+                # Overwrite the original changelog with the new one.
+                logging.info(
+                    f"{orig_cl_file} is updated. Please merge to the master branch"
                 )
-                clf.write(_clogs)
-            clf.flush()
-            # Overwrite the original changelog with the new one.
-            logging.info(
-                f"{orig_cl_file} is updated. Please merge to the master branch"
-            )
-            shutil.copy(clname, orig_cl_file)
-            # Copy the new changelog to the docs dir in collection
-            shutil.copy(clname, coll_changelog_path)
-    else:
-        shutil.copy(orig_cl_file, coll_changelog_path)
+                shutil.copy(clname, orig_cl_file)
+                # Copy the new changelog to the docs dir in collection
+                shutil.copy(clname, coll_changelog_path)
+        else:
+            shutil.copy(orig_cl_file, coll_changelog_path)
 
-    # Convert CHANGELOG.md to CHANGELOG.rst
-    convert_md2rst(coll_dir)
+        # Convert CHANGELOG.md to CHANGELOG.rst
+        convert_md2rst(coll_dir)
     build_collection(args, coll_dir, galaxy)
 
 
@@ -975,6 +978,12 @@ def main():
             "EE_BASE_IMAGE", "quay.io/ansible/ansible-runner:latest"
         ),
         help="Base image for Ansible Execution Environment",
+    )
+    parser.add_argument(
+        "--skip-changelog",
+        default=False,
+        action="store_true",
+        help="If true, do not generate changelog or convert to rst.",
     )
     args = parser.parse_args()
 

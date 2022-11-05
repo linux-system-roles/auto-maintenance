@@ -136,18 +136,48 @@ clone_check() {
   return $rc
 }
 
+# Format the summary text for the spec changelog - if the summary
+# already begins with the role, remove it
 fmt_summary() {
   local summary roles
   summary="$1"
   roles="$2"
   if [ -n "$roles" ]; then
-    if [[ "$summary" =~ ^${roles}[\ -]+(.+)$ ]]; then
+    if [[ "$summary" =~ ^${roles}[\ -:]+(.+)$ ]]; then
       echo "$roles - ${BASH_REMATCH[1]}"
+    elif [[ "$summary" =~ ^\[RFE\]\ ${roles}[\ -:]+(.+)$ ]]; then
+      echo "$roles - [RFE] ${BASH_REMATCH[1]}"
     else
       echo "$roles - $summary"
     fi
   else
     echo "$summary"
+  fi
+}
+
+# Format a section header like New Features or Bug Fixes for
+# either md or rST
+fmt_section() {
+  if [ -n "${USE_MD:-}" ]; then
+    echo "### $@"
+  else
+    echo "$@"
+    echo "~~~~~~~~~~~~~~"
+  fi
+}
+
+# Format a bz entry for the changelog md or rST
+fmt_bz_for_cl_md_rst() {
+  local summary bz
+  summary="$1"
+  bz="$2"
+  if [ -n "${USE_MD:-}" ]; then
+    echo "- [${summary}](${show_url}$bz)"
+  else
+    # do some rst fixup
+    # convert ` into ``
+    summary="$(echo "$summary" | sed 's/\([^`]\)`\([^`]\)/\1``\2/g')"
+    echo "- \`${summary} <${show_url}${bz}>\`_"
   fi
 }
 
@@ -158,27 +188,34 @@ rpm_release() {
   # - cl-spec - the new %changelog entry for the spec file - user will
   #   need to edit for name, email
   # - git-commit-msg - in the format required by dist-git
-  # - cl-md - the new entry for CHANGELOG.md
-  local version queryurl jq bz summary fix_summary roles doc_text datesec new_features fixes
+  # - cl.$suf - the new entry for CHANGELOG - .md or .rst
+  # USE_MD will use .md for suffix and generate markdown - otherwise, .rst and rST
+  local version queryurl jq bz summary fix_summary roles doc_text datesec new_features fixes suf new_cl
   version="$1"; shift
   queryurl="${BASE_URL}&bug_status=${STATUS}"
   jq='.bugs[] | ((.id|tostring) + "|" + (.whiteboard|gsub("role:"; "")) + "|" + .cf_doc_type + "|" + .summary)'
   datesec=$(date +%s)
   get_bzs "$queryurl" "$jq" -r | sort -k 2 -t \| > bzs.raw
-  cat > "${CL_MD:-cl-md}" <<EOF
+  if [ -n "${USE_MD:-}" ]; then
+    suf="md"
+  else
+    suf="rst"
+  fi
+  new_cl="${NEW_CL:-new-cl.$suf}"
+  cat > "$new_cl" <<EOF
 [$version] - $(date -I --date=@"$datesec")
 ----------------------------
 
-### New Features
-
 EOF
+  fmt_section "New Features" >> "$new_cl"
+  echo "" >> "$new_cl"
   echo "* $(LANG=en_US.utf8 date --date=@"$datesec" "+%a %b %d %Y") Your Name <email@redhat.com> - $version" > "${CL_SPEC:-cl-spec}"
   echo "Package update" > "${GIT_COMMIT_MSG:-git-commit-msg}"
   new_features=false
   while IFS=\| read -r bz roles doc_text summary; do
     if [ "$doc_text" = Enhancement ]; then
       fix_summary=$(fmt_summary "$summary" "$roles")
-      echo "- [${fix_summary}](${show_url}$bz)" >> "${CL_MD:-cl-md}"
+      fmt_bz_for_cl_md_rst "$fix_summary" "$bz" >> "$new_cl"
       echo "- Resolves:rhbz#${bz} : ${fix_summary}" >> "${CL_SPEC:-cl-spec}"
       { echo ""
         echo "$fix_summary"
@@ -187,15 +224,16 @@ EOF
     fi
   done < bzs.raw
   if [ "$new_features" = false ]; then
-    echo "- none" >> "${CL_MD:-cl-md}"
+    echo "- none" >> "$new_cl"
   fi
-  echo "" >> "${CL_MD:-cl-md}"
-  { echo "### Bug Fixes"; echo ""; } >> "${CL_MD:-cl-md}"
+  echo "" >> "$new_cl"
+  fmt_section "Bug Fixes" >> "$new_cl"
+  echo "" >> "$new_cl"
   fixes=false
   while IFS=\| read -r bz roles doc_text summary; do
     if [ "$doc_text" = "Bug Fix" ]; then
       fix_summary=$(fmt_summary "$summary" "$roles")
-      echo "- [${fix_summary}](${show_url}$bz)" >> "${CL_MD:-cl-md}"
+      fmt_bz_for_cl_md_rst "$fix_summary" "$bz" >> "$new_cl"
       echo "- Resolves:rhbz#${bz} : ${fix_summary}" >> "${CL_SPEC:-cl-spec}"
       { echo ""
         echo "$fix_summary"
@@ -204,7 +242,7 @@ EOF
     fi
   done < bzs.raw
   if [ "$fixes" = false ]; then
-    { echo "- none"; echo ""; } >> "${CL_MD:-cl-md}"
+    { echo "- none"; echo ""; } >> "$new_cl"
   fi
   while IFS=\| read -r bz roles doc_text summary; do
     if [ "$doc_text" != Enhancement ] && [ "$doc_text" != "Bug Fix" ]; then
@@ -218,7 +256,7 @@ EOF
   rm bzs.raw
 }
 
-format_bz_for_md() {
+format_bz_for_md_rst() {
   local bz roles doc_text summary nf_file bf_file jq output fix_summary
   bz="$1"
   nf_file="$2"
@@ -248,7 +286,7 @@ format_bz_for_md() {
       return 0
     fi
   fi
-  echo "- [${fix_summary}](${show_url}$bz)" >> "$output"
+  fmt_bz_for_cl_md_rst "$fix_summary" "$bz" >> "$output"
 }
 
 make_cl_for_version() {
@@ -265,7 +303,7 @@ make_cl_for_version() {
     echo ["$version"] - "$datestr"
     echo ----------------------------
     echo ""
-    echo "### New Features"
+    fmt_summary "New Features"
     echo ""; } >> "$cl_file"
   if [ -f "$cl_nf_file" ]; then
     cat "$cl_nf_file" >> "$cl_file"
@@ -273,7 +311,7 @@ make_cl_for_version() {
     echo "- none" >> "$cl_file"
   fi
   { echo ""
-    echo "### Bug Fixes"
+    fmt_summary "Bug Fixes"
     echo ""; } >> "$cl_file"
   if [ -f "$cl_bf_file" ]; then
     cat "$cl_bf_file" >> "$cl_file"
@@ -283,15 +321,20 @@ make_cl_for_version() {
   rm -f "$cl_nf_file" "$cl_bf_file"
 }
 
-spec_cl_to_cl_md() {
-  local spec print cur_ver mon day year version datestr cl_file cl_nf_file cl_bf_file
+spec_cl_to_cl_md_rst() {
+  local spec print cur_ver mon day year version datestr cl_file cl_nf_file cl_bf_file suf
   spec="$1"
   print=false
   version=""
   cur_ver=""
-  cl_file=".cl.md"
-  cl_nf_file=".cl-nf.md"
-  cl_bf_file=".cl-bf.md"
+  if [ -n "${USE_MD:-}" ]; then
+    suf="md"
+  else
+    suf="rst"
+  fi
+  cl_file=".cl.$suf"
+  cl_nf_file=".cl-nf.$suf"
+  cl_bf_file=".cl-bf.$suf"
   { echo Changelog
     echo =========; } > "$cl_file"
   while read -r line ; do
@@ -319,7 +362,7 @@ spec_cl_to_cl_md() {
     elif [[ "$line" =~ bz.?([0-9]{7}) ]]; then
       while [[ "$line" =~ bz.?([0-9]{7}) ]]; do
         bz="${BASH_REMATCH[1]}"
-        format_bz_for_md "$bz" "$cl_nf_file" "$cl_bf_file"
+        format_bz_for_md_rst "$bz" "$cl_nf_file" "$cl_bf_file"
         line="${line/$bz}"
       done
     fi

@@ -834,23 +834,36 @@ ERROR: bz 2066876 status [POST] does not match clone 2072745 status [ON_QA]
 The clone check is not perfect, so be sure to check manually.
 
 ### rpm_release
+Use `USE_MD=1` to generate the new CHANGELOG text in Markdown.  By default, it
+will use reStructuredText (.rst).
 Use this to generate the following files:
-* cl-md - The new text to add to the CHANGELOG.md
+* new-cl.rst or .md - The new text to add to the CHANGELOG.rst or .md
 * cl-spec - The new text to add to the spec %changelog section
 * git-commit-msg - The git commit message
 
-For example - I have several BZ in POST that I am doing a new build for ITR 8.7.0.
-The new version will be 1.20.0.  NOTE that the version in CHANGELOG.md
+For example - I have several BZ in POST that I am doing a new build for ITR 8.8.0.
+The new version will be 1.22.0.  NOTE that the version in CHANGELOG.rst
 is different from the version in the spec file - so you will need to add
-the `-N` for the RELEASE for the spec file version.
-I want to update the CHANGELOG.md, the spec %changelog, and the git commit
+the `-N` for the RELEASE for the spec file version in cl-spec.
+I want to update the CHANGELOG.rst, the spec %changelog, and the git commit
 message with the information from all of these BZ, formatted in the correct
 manner for all of these.  You will need to edit all 3 files:
-* Edit CHANGELOG.md and add the contents of cl-md in the right place
+* Edit CHANGELOG.rst and add the contents of new-cl.rst in the right place
 * Edit the spec file to add cl-spec in the right place, and ensure the name
   and email are correct.
 * Edit the git-commit-msg with the correct git subject line.  You can then
   use this file with git commit -F
+
+Example:
+```
+ITR=8.8.0 ./bz-manage.sh rpm_release 1.22.0
+# edit CHANGELOG.rst - put the contents of new-cl.rst at the top
+# edit the spec file - put the contents of cl-spec at the top
+#   of %changelog - edit the name, email, and add the -N to the version
+# edit git-commit-msg - add a descriptive subject line
+git add CHANGELOG.rst, the spec file, sources, .gitignore ...
+git commit -F git-commit-msg
+```
 
 ## Parameters
 
@@ -858,7 +871,7 @@ Almost all parameters are passed as environment variables.  However, the `new`
 command takes all parameters on the command line - see above.
 
 ### ITR
-default "8.7.0" - the Internal Target Release of the BZ to manage
+default "8.8.0" - the Internal Target Release of the BZ to manage
 
 ### ITM
 Internal Target Milestone - used with `setitm`

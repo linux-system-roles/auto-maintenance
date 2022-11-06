@@ -159,7 +159,7 @@ fmt_summary() {
 # either md or rST
 fmt_section() {
   if [ -n "${USE_MD:-}" ]; then
-    echo "### $@"
+    echo "### $*"
   else
     echo "$@"
     echo "~~~~~~~~~~~~~~"
@@ -176,6 +176,8 @@ fmt_bz_for_cl_md_rst() {
   else
     # do some rst fixup
     # convert ` into ``
+    # shellcheck disable=SC2001
+    # shellcheck disable=SC2016
     summary="$(echo "$summary" | sed 's/\([^`]\)`\([^`]\)/\1``\2/g')"
     echo "- \`${summary} <${show_url}${bz}>\`_"
   fi
@@ -226,9 +228,7 @@ EOF
   if [ "$new_features" = false ]; then
     echo "- none" >> "$new_cl"
   fi
-  echo "" >> "$new_cl"
-  fmt_section "Bug Fixes" >> "$new_cl"
-  echo "" >> "$new_cl"
+  { echo "" ; fmt_section "Bug Fixes"; echo ""; } >> "$new_cl"
   fixes=false
   while IFS=\| read -r bz roles doc_text summary; do
     if [ "$doc_text" = "Bug Fix" ]; then

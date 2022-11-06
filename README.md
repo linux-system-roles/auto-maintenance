@@ -16,6 +16,7 @@ linux-system-roles repos.
   * [bz-manage.sh](#bz-managesh)
   * [check_jenkins.py](#check_jenkinspy)
   * [configure_squid](#configure_squid)
+  * [spec-to-changelog-rst.sh](#spec-to-changelog-rstsh)
 <!--te-->
 
 
@@ -1025,7 +1026,7 @@ have failed.  See also `print_task_tests_info`.
 The `configure_squid` directory stores the playbook that you can use to
 configure a Squid caching proxy server for caching RPM packages. The playbook
 copies the `squid.conf` file to the managed node. The `squid.conf` file 
-onfigures Squid to use SSL Bump to cache RPM packages over HTTPS and does some
+configures Squid to use SSL Bump to cache RPM packages over HTTPS and does some
 further configurations required for RPM packages caching. You can compare
 `squid.conf` with `squid.conf.default` to see what `squid.conf` adds.
 
@@ -1037,3 +1038,36 @@ EL 6 or to /etc/dnf/dnf.conf on EL > 6 and Fedora:
 proxy=http://<squid_server_ip>:3128
 sslverify=False
 ```
+
+# spec-to-changelog-rst.sh
+
+### Usage:
+
+spec-to-changelog-rst.sh SPEC_FILE OUTPUT_RST_FILE [ MAJOR_VER_NUM ]
+
+### Description:
+
+Generate the reStructuredText format changelog file from the changelogs of the spec file.
+
+### Details:
+
+  - Read changelog section in SPEC_FILE.
+  - Read the Bugzilla page specified with rhbz#.
+  - In the RPM version section (e.g., [1.20.1-1] - 2022-09-27),
+  put the title with the bugzilla url depending in "New Features" or
+  "Bug Fix" depending upon the bugzilla type.
+  - If there is a CHANGELOG.rst file in the current directory,
+  spec-to-changelog-rst.sh generates the changelogs newer than the
+  changelogs in the existing CHANGELOG.rst and merge the existing ones
+  into the newly generated changelog file.
+  - The output reStructuredText file is OUTPUT_RST_FILE.
+  - Note: By default, bug summaries belonging to RHEL 9 are put into the output.
+  E.g., bugs with (EL8) are skipped. The version could be altered if
+  MAJOR_VER_NUM is given.
+
+### How To Use:
+
+  - Change directory to the working dir, e.g., the directory the spec file exists.
+  - cp lsr_role2collection/COLLECTION_CHANGELOG.rst CHANGELOG.rst
+  - /path/to/spec-to-changelog-rst.sh linux-system-roles.spec /path/to/CHANGELOG.rst
+  - Note: /path/to/CHANGELOG.rst could be just ./CHANGELOG.rst.

@@ -511,9 +511,8 @@ will publish the collection, waiting until it is completed.
 * `--skip-check` - boolean - If set to `true`, check using galaxy-importer is
   skipped. By default, `false`.
 * `--skip-changelog` - boolean - By default, the script will attempt to generate
-  a collection changelog in Rst format from the individual role changelogs, or
-  convert an existing collection changelog from MD to Rst.  Use `--skip-changelog`
-  if you do not want to do any of this.
+  a collection changelog from the individual role changelogs.  Use
+  `--skip-changelog` if you do not want to do this.
 * `--debug` - boolean - By default, the script will only output informational
   messages.  Use `--debug` to see the details.
 * `--rpm` - string - Specifies the rpm file for the input collection. When --rpm
@@ -524,6 +523,9 @@ will publish the collection, waiting until it is completed.
   fails.  No default value.
 * `--extra-mapping` - string - same as the `--extra-mapping` argument to
   lsr_role2collection
+* `--changelog-rst` - boolean - by default, CHANGELOG.rst will not be created -
+  set this to create CHANGELOG.rst from docs/CHANGELOG.md.  You must not use
+  `--skip-changelog` if you want to use `--changelog-rst`.
 
 ## Version
 
@@ -834,21 +836,21 @@ ERROR: bz 2066876 status [POST] does not match clone 2072745 status [ON_QA]
 The clone check is not perfect, so be sure to check manually.
 
 ### rpm_release
-Use `USE_MD=1` to generate the new CHANGELOG text in Markdown.  By default, it
-will use reStructuredText (.rst).
+Use `USE_RST=1` to generate the new CHANGELOG text in rST.  By default, it
+will use Markdown (.md).
 Use this to generate the following files:
-* new-cl.rst or .md - The new text to add to the CHANGELOG.rst or .md
+* new-cl.md or .rst - The new text to add to the CHANGELOG.md or .rst
 * cl-spec - The new text to add to the spec %changelog section
 * git-commit-msg - The git commit message
 
 For example - I have several BZ in POST that I am doing a new build for ITR 8.8.0.
-The new version will be 1.22.0.  NOTE that the version in CHANGELOG.rst
+The new version will be 1.22.0.  NOTE that the version in CHANGELOG.md
 is different from the version in the spec file - so you will need to add
 the `-N` for the RELEASE for the spec file version in cl-spec.
-I want to update the CHANGELOG.rst, the spec %changelog, and the git commit
+I want to update the CHANGELOG.md, the spec %changelog, and the git commit
 message with the information from all of these BZ, formatted in the correct
 manner for all of these.  You will need to edit all 3 files:
-* Edit CHANGELOG.rst and add the contents of new-cl.rst in the right place
+* Edit CHANGELOG.md and add the contents of new-cl.md in the right place
 * Edit the spec file to add cl-spec in the right place, and ensure the name
   and email are correct.
 * Edit the git-commit-msg with the correct git subject line.  You can then
@@ -857,11 +859,11 @@ manner for all of these.  You will need to edit all 3 files:
 Example:
 ```
 ITR=8.8.0 ./bz-manage.sh rpm_release 1.22.0
-# edit CHANGELOG.rst - put the contents of new-cl.rst at the top
+# edit CHANGELOG.md - put the contents of new-cl.md at the top
 # edit the spec file - put the contents of cl-spec at the top
 #   of %changelog - edit the name, email, and add the -N to the version
 # edit git-commit-msg - add a descriptive subject line
-git add CHANGELOG.rst, the spec file, sources, .gitignore ...
+git add CHANGELOG.md, the spec file, sources, .gitignore ...
 git commit -F git-commit-msg
 ```
 

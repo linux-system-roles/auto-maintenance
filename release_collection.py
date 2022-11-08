@@ -678,7 +678,8 @@ def update_collection(args, galaxy, coll_rel):
             if not args.skip_changelog:
                 shutil.copy(orig_cl_file, coll_changelog_path)
                 # Convert CHANGELOG.md to CHANGELOG.rst
-                convert_md2rst(coll_dir)
+                if args.changelog_rst:
+                    convert_md2rst(coll_dir)
             create_collection_extra_files(args, coll_dir, galaxy)
             return
         update_galaxy_version(args, galaxy, versions_updated)
@@ -719,7 +720,8 @@ def update_collection(args, galaxy, coll_rel):
             shutil.copy(orig_cl_file, coll_changelog_path)
 
         # Convert CHANGELOG.md to CHANGELOG.rst
-        convert_md2rst(coll_dir)
+        if args.changelog_rst:
+            convert_md2rst(coll_dir)
     build_collection(args, coll_dir, galaxy)
 
 
@@ -997,6 +999,12 @@ def main():
             "name with collection format with the optional given namespace "
             "and collection as well as the given FQCN with other FQCN."
         ),
+    )
+    parser.add_argument(
+        "--changelog-rst",
+        default=False,
+        action="store_true",
+        help="If true, generate CHANGELOG.rst in collection root directory.",
     )
     args = parser.parse_args()
 

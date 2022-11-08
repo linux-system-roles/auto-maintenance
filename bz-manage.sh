@@ -158,11 +158,11 @@ fmt_summary() {
 # Format a section header like New Features or Bug Fixes for
 # either md or rST
 fmt_section() {
-  if [ -n "${USE_MD:-}" ]; then
-    echo "### $*"
-  else
+  if [ -n "${USE_RST:-}" ]; then
     echo "$@"
     echo "~~~~~~~~~~~~~~"
+  else
+    echo "### $*"
   fi
 }
 
@@ -171,15 +171,15 @@ fmt_bz_for_cl_md_rst() {
   local summary bz
   summary="$1"
   bz="$2"
-  if [ -n "${USE_MD:-}" ]; then
-    echo "- [${summary}](${show_url}$bz)"
-  else
+  if [ -n "${USE_RST:-}" ]; then
     # do some rst fixup
     # convert ` into ``
     # shellcheck disable=SC2001
     # shellcheck disable=SC2016
     summary="$(echo "$summary" | sed 's/\([^`]\)`\([^`]\)/\1``\2/g')"
     echo "- \`${summary} <${show_url}${bz}>\`_"
+  else
+    echo "- [${summary}](${show_url}$bz)"
   fi
 }
 
@@ -191,17 +191,17 @@ rpm_release() {
   #   need to edit for name, email
   # - git-commit-msg - in the format required by dist-git
   # - cl.$suf - the new entry for CHANGELOG - .md or .rst
-  # USE_MD will use .md for suffix and generate markdown - otherwise, .rst and rST
+  # USE_RST will use .rst for suffix and generate rST - otherwise, .md and markdown
   local version queryurl jq bz summary fix_summary roles doc_text datesec new_features fixes suf new_cl
   version="$1"; shift
   queryurl="${BASE_URL}&bug_status=${STATUS}"
   jq='.bugs[] | ((.id|tostring) + "|" + (.whiteboard|gsub("role:"; "")) + "|" + .cf_doc_type + "|" + .summary)'
   datesec=$(date +%s)
   get_bzs "$queryurl" "$jq" -r | sort -k 2 -t \| > bzs.raw
-  if [ -n "${USE_MD:-}" ]; then
-    suf="md"
-  else
+  if [ -n "${USE_RST:-}" ]; then
     suf="rst"
+  else
+    suf="md"
   fi
   new_cl="${NEW_CL:-new-cl.$suf}"
   cat > "$new_cl" <<EOF
@@ -327,10 +327,10 @@ spec_cl_to_cl_md_rst() {
   print=false
   version=""
   cur_ver=""
-  if [ -n "${USE_MD:-}" ]; then
-    suf="md"
-  else
+  if [ -n "${USE_RST:-}" ]; then
     suf="rst"
+  else
+    suf="md"
   fi
   cl_file=".cl.$suf"
   cl_nf_file=".cl-nf.$suf"

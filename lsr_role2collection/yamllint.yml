@@ -1,0 +1,8 @@
+# role2collection is currently done using ruamel rt with a long line length,
+# because we can't ensure converted lines will be wrapped preserving
+# Jinja and ansible syntax.  This means we trigger a lot of warnings like
+# this when importing into Galaxy:
+# roles/file.yml:61: yaml line too long (187 > 160 characters)
+# the only thing we can do is suppress these
+rules:
+  line-length: disable

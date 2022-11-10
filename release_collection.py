@@ -215,7 +215,13 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
 def process_ignore_and_lint_files(args, coll_dir):
     """Create collection ignore-VER.txt and .ansible-lint files from roles."""
     ignore_file_dir = os.path.join(coll_dir, "tests", "sanity")
-    ansible_lint = {}
+    # role2collection is currently done using ruamel rt with a long line length,
+    # because we can't ensure converted lines will be wrapped preserving
+    # Jinja and ansible syntax.  This means we trigger a lot of warnings like
+    # this when importing into Galaxy:
+    # roles/file.yml:61: yaml line too long (187 > 160 characters)
+    # the only thing we can do is suppress these
+    ansible_lint = {"skip_list": ["yaml[line-length]"]}
     for role_name in os.listdir(args.src_path):
         roledir = os.path.join(args.src_path, role_name)
         if (
@@ -241,6 +247,7 @@ def process_ignore_and_lint_files(args, coll_dir):
                     role_ansible_lint = yaml.safe_load(
                         open(os.path.join(roledir, file_name))
                     )
+                    # ensure we suppress line-length checks
                     for key, items in role_ansible_lint.items():
                         if key not in ansible_lint:
                             ansible_lint[key] = role_ansible_lint[key]
@@ -248,8 +255,7 @@ def process_ignore_and_lint_files(args, coll_dir):
                         for item in items:
                             if item not in ansible_lint[key]:
                                 ansible_lint[key].append(item)
-    if ansible_lint:
-        yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
+    yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
 
 
 def get_role_changelog(args, rolename, cur_ref, new_ref, commit_msgs):
@@ -388,6 +394,9 @@ def create_collection_extra_files(args, coll_dir, galaxy=None):
     collection_bindep_dest = os.path.join(coll_dir, "bindep.txt")
     collection_req_yml_dest = os.path.join(coll_dir, "requirements.yml")
     collection_aee_dest = os.path.join(coll_dir, "execution-environment.yml")
+    collection_yamllint = os.path.join("lsr_role2collection", "yamllint.yml")
+    collection_yamllint_dest = os.path.join(coll_dir, ".yamllint.yml")
+    shutil.copy(collection_yamllint, collection_yamllint_dest)
     # If --rpm, files such as galaxy.yml in coll_dir are being used.
     process_ignore_and_lint_files(args, coll_dir)
     if not args.rpm:
@@ -424,7 +433,7 @@ def create_collection_extra_files(args, coll_dir, galaxy=None):
 def build_collection(args, coll_dir, galaxy=None):
     create_collection_extra_files(args, coll_dir, galaxy)
     # removing dot files/dirs
-    keep_files = set([".ansible-lint"])
+    keep_files = set([".ansible-lint", ".yamllint.yml"])
     for file_name in os.listdir(coll_dir):
         if file_name in keep_files:
             continue

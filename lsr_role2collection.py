@@ -345,7 +345,6 @@ DOCS = (
 )
 
 TOX = (
-    ".ansible-lint",
     ".flake8",
     ".pre-commit-config.yaml",
     ".pydocstyle",
@@ -1009,6 +1008,29 @@ def add_rolename(filename, rolename):
     return with_rolename
 
 
+def process_ansible_lint(extra, dest, new_role):
+    """Fixup paths to refer to collection."""
+    yml = YAML(typ="rt")
+    yml.default_flow_style = False
+    yml.preserve_quotes = True
+    yml.width = 1024
+
+    with open(extra) as af_src:
+        ansible_lint = yml.load(af_src)
+        yml.indent(mapping=2, sequence=4, offset=2)
+        with open(dest, "w") as af_dest:
+            for key, items in list(ansible_lint.items()):
+                if key == "exclude_paths":
+                    for idx, item in list(enumerate(items)):
+                        if item.startswith("tests/"):
+                            new_item = item.replace("tests/", "tests/" + new_role + "/")
+                        else:
+                            # make relative to collection role
+                            new_item = "roles/" + new_role + "/" + item
+                        ansible_lint["exclude_paths"][idx] = new_item
+            yml.dump(ansible_lint, af_dest)
+
+
 config = {}
 
 
@@ -1651,16 +1673,23 @@ def role2collection():
                 lsr_copytree(extra, dest)
         # Other extra files.
         else:
+            do_copy = True
             if extra.name.endswith(".yml") and "playbook" in extra.name:
                 # some-playbook.yml is copied to docs/role dir.
                 dest = dest_path / "docs" / new_role
                 dest.mkdir(parents=True, exist_ok=True)
+            elif extra.name == ".ansible-lint":
+                # process .ansible-lint
+                dest = dest_path / "roles" / new_role / ".ansible-lint"
+                process_ansible_lint(extra, dest, new_role)
+                do_copy = False
             else:
                 # If the extra file 'filename' has no extension, it is copied to the collection dir as
                 # 'filename-ROLE'. If the extra file is 'filename.ext', it is copied to 'filename-ROLE.ext'.
                 dest = dest_path / add_rolename(extra.name, new_role)
-            logging.info(f"Copying extra {extra} to {dest}")
-            copy2(extra, dest, follow_symlinks=False)
+            if do_copy:
+                logging.info(f"Copying extra {extra} to {dest}")
+                copy2(extra, dest, follow_symlinks=False)
 
     dest = dest_path / "docs" / new_role
     if dest.is_dir():

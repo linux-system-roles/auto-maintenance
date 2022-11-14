@@ -105,9 +105,8 @@ def spec_add_changelog(content, collection_tarballs, lines):
     for line in lines:
         if line == "%changelog\n":
             current_version = re.sub(".*> - ", "", next(lines)).strip()
-            new_version = current_version[:-1] + str(
-                int(re.sub(".*-", "", current_version)) + 1
-            )
+            new_version = re.sub(
+                '(\d+)(?!.*\d)', lambda x: str(int(x.group(0)) + 1), current_version)
             changelog_date = datetime.datetime.now().strftime("%a %b %d %Y")
             meta_line = f"* {changelog_date} Sergei Petrosian <spetrosi@redhat.com> - {new_version}\n"
             comment_line = f"- Update {', '.join(collection_tarballs.keys())}\n\n"
@@ -134,7 +133,7 @@ def prepare_sources(repo, collection_tarballs):
         content = f.readlines()
     with open(sources_tempfile, "w") as f:
         for line in content:
-            if not any(coll in line for coll in collection_tarballs.values()):
+            if not any(coll.replace(".", "-") in line for coll in collection_tarballs.keys()):
                 f.write(line)
     shutil.move(sources_tempfile, os.path.join(repo, "sources"))
 

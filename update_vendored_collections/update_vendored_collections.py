@@ -87,6 +87,19 @@ def spec_replace_sources(content, collection_tarballs):
     return content
 
 
+def spec_replace_bundled_provides(content, collection_tarballs):
+    print("Replacing bundled provides in the spec file")
+    for collection, tarball in collection_tarballs.items():
+        version = re.sub(".tar.gz", "", re.sub(".*-", "", tarball))
+        content = re.sub(
+            "bundled\(ansible-collection\(" + collection + "\)\) = .*",
+            "bundled(ansible-collection(" + collection + ")) = " + version,
+            content,
+            flags=re.MULTILINE
+        )
+    return content
+
+
 def spec_add_changelog(content, collection_tarballs, lines):
     print("Adding changelog entry to the spec file")
     for line in lines:
@@ -156,6 +169,7 @@ def update_spec(collection_tarballs, repo):
         f.seek(0)
         lines = iter(f.readlines())
     content = spec_replace_sources(content, collection_tarballs)
+    content = spec_replace_bundled_provides(content, collection_tarballs)
     content = spec_add_changelog(content, collection_tarballs, lines)
     content = spec_bump_release(content)
     with open(os.path.join(repo, "linux-system-roles.spec"), "w") as f:

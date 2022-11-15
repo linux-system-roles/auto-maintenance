@@ -9,13 +9,13 @@ crypto_policies:
 firewall:
   ref: 1.4.0
 ha_cluster:
-  ref: 1.8.0
+  ref: 1.8.1
 kdump:
   ref: 1.2.5
 kernel_settings:
   ref: 1.1.10
 logging:
-  ref: 1.11.0
+  ref: 1.11.1
 metrics:
   ref: 1.8.0
 nbde_client:
@@ -23,11 +23,11 @@ nbde_client:
 nbde_server:
   ref: 1.2.0
 network:
-  ref: 1.10.0
+  ref: 1.10.1
 podman:
   ref: 1.0.0
 postfix:
-  ref: 1.3.0
+  ref: 1.3.1
 selinux:
   ref: 1.5.0
 ssh:
@@ -43,4 +43,4 @@ timesync:
 tlog:
   ref: 1.2.9
 vpn:
-  ref: 1.5.0
+  ref: 1.5.1

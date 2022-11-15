@@ -44,7 +44,7 @@ DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"test-harness linux-system-roles.github.io sa
                     sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
                     auto-maintenance image_builder sap-netweaver-preconfigure ci-testing \
                     meta_test tox-lsr tuned .github lsr-gh-action-py26 \
-                    ee_linux_system_roles ee_linux_automation .github"}
+                    ee_linux_system_roles ee_linux_automation .github enhancements"}
 declare -A EXARRAY
 for repo in $DEFAULT_EXCLIST ${EXCLIST:-}; do
     # EXARRAY is a "set" of excluded repos

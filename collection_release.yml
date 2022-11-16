@@ -3,7 +3,7 @@ ad_integration:
 certificate:
   ref: 1.1.7
 cockpit:
-  ref: 1.4.0
+  ref: 1.4.1
 crypto_policies:
   ref: 1.2.6
 firewall:

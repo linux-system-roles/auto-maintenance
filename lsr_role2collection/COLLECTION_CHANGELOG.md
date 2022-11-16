@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.30.2] - 2022-11-16
+---------------------
+
+### Bug Fixes
+
+- cockpit - make role work with ansible-core 2.14 - fix ansible-lint 6.x issues (#81)
+
+
 [1.30.1] - 2022-11-15
 ---------------------
 

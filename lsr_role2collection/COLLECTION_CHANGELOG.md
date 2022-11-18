@@ -1,6 +1,16 @@
 Changelog
 =========
 
+[1.30.3] - 2022-11-18
+---------------------
+
+### Bug Fixes
+
+- podman - ensure role works with podman 4.3
+- podman - ensure role works with ansible-core 2.14
+- podman - ensure role passes ansible-lint 6.x
+
+
 [1.30.2] - 2022-11-16
 ---------------------
 

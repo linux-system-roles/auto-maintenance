@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.30.4] - 2022-11-20
+---------------------
+
+### Bug Fixes
+
+- logging - cert cleanup needs to use getcert stop-tracking (#300)
+
+
 [1.30.3] - 2022-11-18
 ---------------------
 

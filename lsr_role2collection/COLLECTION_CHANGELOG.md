@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.30.5] - 2022-11-22
+---------------------
+
+### Bug Fixes
+
+- cockpit - ansible-core 2.14 support - remove another warn
+- vpn - only check for firewall ipsec service if managing firewall (#76)
+
+
 [1.30.4] - 2022-11-20
 ---------------------
 

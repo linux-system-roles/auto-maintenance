@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.31.0] - 2022-11-29
+---------------------
+
+### Bug Fixes
+
+- nbde_server - fix behavior of manage_firewall and manage_selinux; ansible-lint 6.x (#69)
+
+
 [1.30.5] - 2022-11-22
 ---------------------
 

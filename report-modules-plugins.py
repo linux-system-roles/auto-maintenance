@@ -549,15 +549,18 @@ def process_ansible_yml_path(yml_path, ctx):
         process_ansible_file(filepath, ctx)
 
 
-def process_role_meta_path(meta_path, ctx):
+def process_reqs_file(path, ctx):
     legacy_rqf = "requirements.yml"
     coll_rqf = "collection-requirements.yml"
     for rqf in [legacy_rqf, coll_rqf]:
-        reqs_file = os.path.join(meta_path, rqf)
+        reqs_file = os.path.join(path, rqf)
         if os.path.isfile(reqs_file):
             reqs = yaml.safe_load(open(reqs_file))
             if isinstance(reqs, dict):
-                ctx.role_reqs = reqs
+                if ctx.in_tests():
+                    ctx.role_test_reqs = reqs
+                else:
+                    ctx.role_reqs = reqs
                 ctx.add_dependencies()
                 if rqf == legacy_rqf:
                     logging.warning(
@@ -565,6 +568,10 @@ def process_role_meta_path(meta_path, ctx):
                         reqs_file,
                         coll_rqf,
                     )
+
+
+def process_role_meta_path(meta_path, ctx):
+    process_reqs_file(meta_path, ctx)
     meta_main = os.path.join(meta_path, "main.yml")
     if os.path.isfile(meta_main) and not os.path.islink(meta_main):
         process_yml_file(meta_main, ctx)
@@ -581,6 +588,7 @@ def process_playbooks_path(playbooks_path, ctx):
 def process_role_tests_path(tests_path, ctx):
     """Treat like a playbooks/ directory."""
     ctx.enter_tests()
+    process_reqs_file(tests_path, ctx)
     process_playbooks_path(tests_path, ctx)
     ctx.exit_tests()
 
@@ -752,7 +760,9 @@ class SearchCtx(object):
         self.in_collection_integration_tests = False
         self.errors = []
         self.dependencies = []  # collection and/or role dependencies
-        self.role_reqs = {}  # role meta/requirements.yml, if any
+        self.test_dependencies = []  # collection and/or role dependencies for tests
+        self.role_reqs = {}  # role meta/collection-requirements.yml, if any
+        self.role_test_reqs = {}  # role tests/collection-requirements.yml, if any
         self.manifest_json = {}
         self.galaxy_yml = {}
         self.rolevars = set()
@@ -766,6 +776,7 @@ class SearchCtx(object):
         self.collection_name.append(collection_name)
         self.local_plugins.insert(0, set())
         self.dependencies.insert(0, set())
+        self.test_dependencies.insert(0, set())
         self.pathname = pathname
 
     def exit_collection(self):
@@ -777,6 +788,8 @@ class SearchCtx(object):
             del self.local_plugins[0]
         if len(self.dependencies) > 0:
             del self.dependencies[0]
+        if len(self.test_dependencies) > 0:
+            del self.test_dependencies[0]
         self.pathname = None
         self.manifest_json = {}
         self.galaxy_yml = {}
@@ -789,6 +802,7 @@ class SearchCtx(object):
         self.role_name.append(role_name)
         self.local_plugins.insert(0, set())
         self.dependencies.insert(0, set())
+        self.test_dependencies.insert(0, set())
 
     def exit_role(self):
         if len(self.role_name) < 1:
@@ -801,9 +815,12 @@ class SearchCtx(object):
             del self.local_plugins[0]
         if len(self.dependencies) > 0:
             del self.dependencies[0]
+        if len(self.test_dependencies) > 0:
+            del self.test_dependencies[0]
         if len(self.role_name) == 0:
             self.role_pathname = None
         self.role_reqs = {}
+        self.role_test_reqs = {}
 
     def enter_tests(self):
         self.tests_stack.append(True)
@@ -1138,19 +1155,34 @@ class SearchCtx(object):
 
     def add_dependencies(self):
         for dep in self.manifest_json.get("dependencies", {}):
-            self.dependencies[0].add(dep)
+            if self.in_tests():
+                self.test_dependencies[0].add(dep)
+            else:
+                self.dependencies[0].add(dep)
         for dep in self.galaxy_yml.get("dependencies", {}):
-            self.dependencies[0].add(dep)
+            if self.in_tests():
+                self.test_dependencies[0].add(dep)
+            else:
+                self.dependencies[0].add(dep)
         for dep in self.role_reqs.get("collections", []):
             if isinstance(dep, dict):
                 self.dependencies[0].add(dep["name"])
             else:
                 self.dependencies[0].add(dep)
+        for dep in self.role_test_reqs.get("collections", []):
+            if isinstance(dep, dict):
+                self.test_dependencies[0].add(dep["name"])
+            else:
+                self.test_dependencies[0].add(dep)
 
     def is_dependency(self, coll_name):
         for dep_set in self.dependencies:
             if coll_name in dep_set:
                 return True
+        if self.in_tests():
+            for dep_set in self.test_dependencies:
+                if coll_name in dep_set:
+                    return True
         return False
 
 

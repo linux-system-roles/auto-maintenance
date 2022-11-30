@@ -111,7 +111,7 @@ for repo in $repos; do
                 if ! source "$@"; then
                     echo ERROR: command "$1" in "$(pwd)" failed
                 fi
-            elif ! eval "$@"; then
+            elif ! eval "$*"; then
                 echo ERROR: command in "$(pwd)" failed
             fi
         fi

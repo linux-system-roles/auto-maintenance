@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.31.1] - 2022-12-01
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - fix qnetd check mode
+- nbde_client - use fedora.linux_system_roles.nbde_server for tests (#86)
+
+
 [1.31.0] - 2022-11-29
 ---------------------
 

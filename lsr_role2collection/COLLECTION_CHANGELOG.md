@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.31.2] - 2022-12-06
+---------------------
+
+### Bug Fixes
+
+- logging - use logging_purge_confs in relp test (#303)
+
+
 [1.31.1] - 2022-12-01
 ---------------------
 

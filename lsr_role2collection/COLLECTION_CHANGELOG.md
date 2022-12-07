@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.31.3] - 2022-12-07
+---------------------
+
+### New Features
+
+- ad_integration - initial versioned release
+
+### Bug Fixes
+
+- storage - Thin pool test with large size volume fix (#310)
+
+
 [1.31.2] - 2022-12-06
 ---------------------
 

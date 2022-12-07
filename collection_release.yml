@@ -1,5 +1,5 @@
 ad_integration:
-  ref: 0.0.1
+  ref: 1.0.0
 certificate:
   ref: 1.1.7
 cockpit:
@@ -37,7 +37,7 @@ sshd:
   ref: v0.18.0
   repo: ansible-sshd
 storage:
-  ref: 1.9.2
+  ref: 1.9.3
 timesync:
   ref: 1.7.1
 tlog:

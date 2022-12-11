@@ -49,16 +49,16 @@ jobs:
             echo ::error "Did not find exactly 1 tarball to publish: ${_tarballs[*]}"
             exit 1
           fi
-          # Publish the collection
-          echo ::group::Publish Collection to Galaxy
-          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
-          echo ::endgroup::
-          # Push the updated collection files. This step should
-          # be last since the previous steps must succeed
+          # Push the updated collection files
           echo ::group::Push updates
           git config user.name systemroller
           git config user.email "systemroller@users.noreply.github.com"
           git commit -a -m "Collection version was updated"
           git push
+          echo ::endgroup::
+          # Publish the collection. This step should
+          # be last since the previous steps must succeed
+          echo ::group::Publish Collection to Galaxy
+          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
           echo ::endgroup::
           echo ::info Done

@@ -32,21 +32,32 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          OLDVER=$(python3 ./get_collection_version.py)
+          echo ::debug::"Old collection version is $OLDVER"
           # Ensure there is no dest_path before running release_collection.py
           dest_path=/var/tmp/collection
           rm -rf "$dest_path"
           echo ::group::Build Collection
           python3 ./release_collection.py --debug --dest-path "$dest_path"
           echo ::endgroup::
+          NEWVER=$(python3 ./get_collection_version.py)
           # We are up to date - exit
           if git diff --quiet; then
             echo ::info No roles have new releases - no collection will be published
             exit 0
+          elif [ "$OLDVER" == "$NEWVER" ]; then
+            echo ::error::"Collection version $OLDVER has not changed"
+            exit 1
+          else
+            echo ::debug::"New collection version $NEWVER will be released"
           fi
           # A new collection has been build - find the tarball
           _tarballs=( $(find "$dest_path" -maxdepth 1 -type f -name "*.tar.gz") )
           if [ "${#_tarballs[@]}" -ne 1 ]; then
             echo ::error "Did not find exactly 1 tarball to publish: ${_tarballs[*]}"
+            exit 1
+          elif [ "${_tarballs[0]}" != "$dest_path/fedora-linux_system_roles-$NEWVER.tar.gz" ]; then
+            echo ::error::"Tarball ${_tarballs[0]} is not in the form $dest_path/fedora-linux_system_roles-$NEWVER.tar.gz"
             exit 1
           fi
           # Push the updated collection files

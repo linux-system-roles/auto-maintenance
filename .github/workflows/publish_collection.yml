@@ -30,6 +30,7 @@ jobs:
 
       - name: Build and publish the collection
         shell: bash
+        id: build
         run: |
           set -euxo pipefail
           OLDVER=$(python3 ./get_collection_version.py)
@@ -38,7 +39,7 @@ jobs:
           dest_path=/var/tmp/collection
           rm -rf "$dest_path"
           echo ::group::Build Collection
-          python3 ./release_collection.py --debug --dest-path "$dest_path"
+          python3 ./release_collection.py --debug --save-current-changelog --dest-path "$dest_path"
           echo ::endgroup::
           NEWVER=$(python3 ./get_collection_version.py)
           # We are up to date - exit
@@ -73,3 +74,25 @@ jobs:
           ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
           echo ::endgroup::
           echo ::info Done
+          echo "commit=$(git show -s --format=format:%H)" >> $GITHUB_OUTPUT
+          echo "tagname=$NEWVER" >> $GITHUB_OUTPUT
+
+      - name: Create tag
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          commit_sha: ${{ steps.build.outputs.commit }}
+          github_token: ${{ secrets.GH_PUSH_TOKEN }}
+          custom_tag: ${{ steps.build.outputs.tagname }}
+          tag_prefix: ''
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ steps.build.outputs.tagname }}
+          release_name: Version ${{ steps.build.outputs.tagname }}
+          body_path: ./CURRENT_VER_CHANGELOG.md
+          draft: false
+          prerelease: false

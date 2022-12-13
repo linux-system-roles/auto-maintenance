@@ -45,6 +45,7 @@ jobs:
           # We are up to date - exit
           if git diff --quiet; then
             echo ::info No roles have new releases - no collection will be published
+            echo "updated=0" >> $GITHUB_OUTPUT
             exit 0
           elif [ "$OLDVER" == "$NEWVER" ]; then
             echo ::error::"Collection version $OLDVER has not changed"
@@ -73,8 +74,10 @@ jobs:
           echo ::info Done
           echo "commit=$(git show -s --format=format:%H)" >> $GITHUB_OUTPUT
           echo "tagname=$NEWVER" >> $GITHUB_OUTPUT
+          echo "updated=1" >> $GITHUB_OUTPUT
 
       - name: Create tag
+        if: ${{ steps.build.outputs.updated == 1 }}
         uses: mathieudutour/github-tag-action@v6.1
         with:
           commit_sha: ${{ steps.build.outputs.commit }}
@@ -84,6 +87,7 @@ jobs:
 
       - name: Create Release
         id: create_release
+        if: ${{ steps.build.outputs.updated == 1 }}
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token

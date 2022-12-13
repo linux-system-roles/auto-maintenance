@@ -1,6 +1,22 @@
 Changelog
 =========
 
+[1.32.0] - 2022-12-13
+---------------------
+
+### New Features
+
+- network - Support cloned MAC address
+- podman - add checking for subuid, subgid
+
+### Bug Fixes
+
+- ha_cluster - command warn is not supported in ansible-core 2.14
+- ha_cluster - fix ownership of cib.xml
+- ha_cluster - update for upcoming pcs release
+- ha_cluster - tests: add qnetd cleanup
+
+
 [1.31.3] - 2022-12-07
 ---------------------
 

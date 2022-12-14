@@ -1,6 +1,16 @@
 Changelog
 =========
 
+[1.32.1] - 2022-12-14
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - Allow enabled SBD on disabled cluster (#81)
+- logging - tests: specify empty inputs, outputs, flows with purge (#308)
+- tlog - Unconditionally enable the files provider. (#67)
+
+
 [1.32.0] - 2022-12-13
 ---------------------
 

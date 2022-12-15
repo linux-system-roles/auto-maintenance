@@ -5,11 +5,14 @@ import re
 import jenkins
 import json
 import os
+import signal
 
 # import pprint
 import requests
 import sys
 import yaml
+
+signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 
 JenkinsException = Exception
 NotFoundException = Exception

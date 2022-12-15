@@ -82,8 +82,14 @@ def check_versions_updated(cur_ref, new_ref, versions_updated):
     compare them, and indicate in versions_updated if the major,
     minor, and/or micro versions were updated.  One exception is
     when the major version is upgraded from 0 to 1 - in that case,
-    do not mark this as requiring a major version change."""
+    do not mark this as requiring a major version change.
+    Another special case is adding a new role - in that case, cur_ref
+    is None - we do not want to bump the major version, only the
+    minor version."""
 
+    if cur_ref is None:
+        versions_updated[1] = True
+        return
     try:
         cur_v = lsr_parse_version(cur_ref)
         new_v = lsr_parse_version(new_ref)

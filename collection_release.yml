@@ -39,7 +39,7 @@ sshd:
   ref: v0.18.0
   repo: ansible-sshd
 storage:
-  ref: 1.9.3
+  ref: 1.9.4
 timesync:
   ref: 1.7.1
 tlog:

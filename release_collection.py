@@ -700,7 +700,7 @@ def update_collection(args, galaxy, coll_rel):
         update_galaxy_version(args, galaxy, versions_updated)
         if not args.no_update:
             with open(args.collection_release_yml.name, "w") as crf:
-                yaml.safe_dump(coll_rel, crf, sort_keys=True)
+                yaml.safe_dump(coll_rel, crf, sort_keys=False)
 
     # If to-be-appended changelogs are found, update COLLECTION_CHANGELOG.md
     # and copy it to the collection docs dir.

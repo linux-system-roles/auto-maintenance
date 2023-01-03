@@ -706,14 +706,16 @@ def update_collection(args, galaxy, coll_rel):
     # and copy it to the collection docs dir.
     if not args.skip_changelog:
         if coll_changelog:
-            this_cl_file = "CURRENT_VER_CHANGELOG.md" if args.save_current_changelog else ""
+            this_cl_file = (
+                "CURRENT_VER_CHANGELOG.md" if args.save_current_changelog else ""
+            )
             clhandle, clname = tempfile.mkstemp(suffix=".cl", prefix="collection")
             with os.fdopen(clhandle, "w") as clf:
                 # Header
                 clf.write("Changelog\n=========\n\n")
                 # New changelogs
                 new_changelog = "[{}] - {}\n---------------------".format(
-                        galaxy["version"], datetime.now().date()
+                    galaxy["version"], datetime.now().date()
                 ) + compact_coll_changelog(coll_changelog)
                 clf.write(new_changelog + "\n")
                 if this_cl_file:
@@ -1027,7 +1029,7 @@ def main():
         "--save-current-changelog",
         default=False,
         action="store_true",
-        help="If true, save the changelog for the current collection version as CURRENT_VER_CHANGELOG.md"
+        help="If true, save the changelog for the current collection version as CURRENT_VER_CHANGELOG.md",
     )
     args = parser.parse_args()
 

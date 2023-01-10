@@ -1,0 +1,22 @@
+downstream_package_name: linux-system-roles
+
+specfile_path: linux-system-roles.spec
+
+files_to_sync:
+  - linux-system-roles.spec
+  - src: lsr_role2collection/COLLECTION_CHANGELOG.md
+    dest: CHANGELOG.md
+
+upstream_project_url: https://github.com/linux-system-roles/auto-maintenance
+
+actions:
+    post-upstream-clone:
+      - "wget https://src.fedoraproject.org/rpms/linux-system-roles/raw/rawhide/f/linux-system-roles.spec -O linux-system-roles.spec.in"
+      - "wget https://src.fedoraproject.org/rpms/linux-system-roles/raw/rawhide/f/extrasources.inc -O extrasources.inc"
+      - "./generate_spec_sources.py linux-system-roles.spec.in linux-system-roles.spec"
+    changelog-entry: "./generate_rpm_changelog.py"
+jobs:
+  - job: propose_downstream
+    trigger: release
+    dist_git_branches:
+      - rawhide

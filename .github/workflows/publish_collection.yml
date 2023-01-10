@@ -69,7 +69,7 @@ jobs:
           # Publish the collection. This step should
           # be last since the previous steps must succeed
           echo ::group::Publish Collection to Galaxy
-          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
+          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "$_tarball"
           echo ::endgroup::
           echo ::info Done
           echo "commit=$(git show -s --format=format:%H)" >> $GITHUB_OUTPUT

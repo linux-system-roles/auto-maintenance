@@ -30,35 +30,70 @@ jobs:
 
       - name: Build and publish the collection
         shell: bash
+        id: build
         run: |
           set -euxo pipefail
+          OLDVER=$(python3 ./get_collection_version.py)
+          echo ::debug::"Old collection version is $OLDVER"
           # Ensure there is no dest_path before running release_collection.py
           dest_path=/var/tmp/collection
           rm -rf "$dest_path"
           echo ::group::Build Collection
-          python3 ./release_collection.py --debug --dest-path "$dest_path"
+          python3 ./release_collection.py --debug --save-current-changelog --dest-path "$dest_path"
           echo ::endgroup::
+          NEWVER=$(python3 ./get_collection_version.py)
           # We are up to date - exit
           if git diff --quiet; then
             echo ::info No roles have new releases - no collection will be published
+            echo "updated=0" >> $GITHUB_OUTPUT
             exit 0
+          elif [ "$OLDVER" == "$NEWVER" ]; then
+            echo ::error::"Collection version $OLDVER has not changed"
+            exit 1
+          else
+            echo ::debug::"New collection version $NEWVER will be released"
           fi
           # A new collection has been build - find the tarball
-          _tarballs=( $(find "$dest_path" -maxdepth 1 -type f -name "*.tar.gz") )
-          if [ "${#_tarballs[@]}" -ne 1 ]; then
-            echo ::error "Did not find exactly 1 tarball to publish: ${_tarballs[*]}"
+          _tarball="$dest_path/fedora-linux_system_roles-$NEWVER.tar.gz"
+          if [ ! -f "${_tarball}" ]; then
+            echo ::error::"Did not find tarball to publish: ${_tarball}"
             exit 1
           fi
-          # Publish the collection
-          echo ::group::Publish Collection to Galaxy
-          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "${_tarballs[0]}"
-          echo ::endgroup::
-          # Push the updated collection files. This step should
-          # be last since the previous steps must succeed
+          # Push the updated collection files
           echo ::group::Push updates
           git config user.name systemroller
           git config user.email "systemroller@users.noreply.github.com"
           git commit -a -m "Collection version was updated"
           git push
           echo ::endgroup::
+          # Publish the collection. This step should
+          # be last since the previous steps must succeed
+          echo ::group::Publish Collection to Galaxy
+          ansible-galaxy collection publish -vv --token "${{ secrets.GALAXY_API_KEY }}" "$_tarball"
+          echo ::endgroup::
           echo ::info Done
+          echo "commit=$(git show -s --format=format:%H)" >> $GITHUB_OUTPUT
+          echo "tagname=$NEWVER" >> $GITHUB_OUTPUT
+          echo "updated=1" >> $GITHUB_OUTPUT
+
+      - name: Create tag
+        if: ${{ steps.build.outputs.updated == 1 }}
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          commit_sha: ${{ steps.build.outputs.commit }}
+          github_token: ${{ secrets.GH_PUSH_TOKEN }}
+          custom_tag: ${{ steps.build.outputs.tagname }}
+          tag_prefix: ''
+
+      - name: Create Release
+        id: create_release
+        if: ${{ steps.build.outputs.updated == 1 }}
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ steps.build.outputs.tagname }}
+          release_name: Version ${{ steps.build.outputs.tagname }}
+          body_path: ./CURRENT_VER_CHANGELOG.md
+          draft: false
+          prerelease: false

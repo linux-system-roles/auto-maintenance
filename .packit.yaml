@@ -20,3 +20,7 @@ jobs:
     trigger: release
     dist_git_branches:
       - rawhide
+  - job: koji_build
+    trigger: commit
+    dist_git_branches:
+      - rawhide

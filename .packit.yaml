@@ -23,4 +23,4 @@ jobs:
   - job: koji_build
     trigger: commit
     dist_git_branches:
-      - rawhide
+      - fedora-all

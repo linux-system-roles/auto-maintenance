@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.33.2] - 2023-01-14
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - Not request password to be specified when purging cluster (#92)
+
+
 [1.33.1] - 2022-12-17
 ---------------------
 

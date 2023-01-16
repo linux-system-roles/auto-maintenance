@@ -539,6 +539,10 @@ def compact_coll_changelog(input_changelog):
         output_changelog = "{}\n{}".format(
             output_changelog, gather_changes("", changes)
         )
+    else:
+        output_changelog = (
+            "{}\n\n### Other Changes\n\n- no user-visible changes\n"
+        ).format(output_changelog)
     return output_changelog
 
 
@@ -717,7 +721,7 @@ def update_collection(args, galaxy, coll_rel):
                 new_changelog = "[{}] - {}\n---------------------".format(
                     galaxy["version"], datetime.now().date()
                 ) + compact_coll_changelog(coll_changelog)
-                clf.write(new_changelog + "\n")
+                clf.write(new_changelog)
                 if this_cl_file:
                     with open(this_cl_file, "w") as tcl:
                         tcl.write(new_changelog)

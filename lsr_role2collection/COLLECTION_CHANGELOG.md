@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.33.5] - 2023-01-20
+---------------------
+
+### Bug Fixes
+
+- nbde_client - Do not report password in stacktrace or return value from module (#98)
+- nbde_client - Use daemon_reload with askpass path service (#96)
+
 [1.33.4] - 2023-01-19
 ---------------------
 

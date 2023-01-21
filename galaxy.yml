@@ -1,6 +1,6 @@
 namespace: "fedora"
 name: "linux_system_roles"
-version: "1.33.5"
+version: "1.33.6"
 description: "Ansible roles for linux system components management"
 
 authors:

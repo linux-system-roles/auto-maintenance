@@ -1,6 +1,30 @@
 Changelog
 =========
 
+[1.33.6] - 2023-01-21
+---------------------
+
+### Bug Fixes
+
+- ad_integration - ansible-lint 6.x fixes (#11)
+- certificate - ansible-lint 6.x fixes
+- cockpit - ansible-lint 6.x fixes
+- crypto_policies - ansible-lint 6.x fixes (#55)
+- firewall - ansible-lint 6.x fixes
+- firewall - cannot use distutils; use custom version
+- kernel_settings - ansible-lint 6.x fixes (#119)
+- kernel_settings - Cleanup non-inclusive words.
+- logging - ansible-lint 6.x fixes (#311)
+- metrics - fix pimeconf rule filesys vfs_rules support
+- metrics - ansible-lint 6.x fixes (#133)
+- nbde_server - ansible-lint 6.x fixes (#75)
+- podman - Ease permissions on kube spec dir and files (#44)
+- postfix - ansible-lint 6.x fixes (#65)
+- timesync - fixes for ansible-lint 6.x
+- tlog - ansible-lint 6.x fixes (#71)
+- vpn - Clean up non-inclusive words.
+- vpn - ansible-lint 6.x fixes (#86)
+
 [1.33.5] - 2023-01-20
 ---------------------
 

@@ -46,7 +46,7 @@ sshd:
   repo: ansible-sshd
   sourcenum: 15
 ssh:
-  ref: 1.1.11
+  ref: 1.1.12
   sourcenum: 16
 ha_cluster:
   ref: 1.8.5

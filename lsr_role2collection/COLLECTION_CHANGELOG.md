@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.33.8] - 2023-01-24
+---------------------
+
+### Bug Fixes
+
+- nbde_client - Fix nbde_client error handling (#101)
+- postfix - fix issues with jinja, ansible-lint (#70)
+
 [1.33.7] - 2023-01-22
 ---------------------
 

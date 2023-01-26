@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.33.11] - 2023-01-26
+---------------------
+
+### Bug Fixes
+
+- kernel_settings - Cleanup non-inclusive words.
+
 [1.33.10] - 2023-01-25
 ---------------------
 

@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.33.12] - 2023-01-27
+---------------------
+
+### Bug Fixes
+
+- nbde_server - fix some more Jinja constructs (#83)
+- podman - fix typo in README (#46)
+- selinux - Rewrite selinux_load_module.yml to use local_semodule  (#135)
+
 [1.33.11] - 2023-01-26
 ---------------------
 

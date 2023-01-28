@@ -69,3 +69,6 @@ ad_integration:
 rhc:
   ref: 1.0.0
   sourcenum: 23
+journald:
+  ref: 1.0.0
+  sourcenum: 24

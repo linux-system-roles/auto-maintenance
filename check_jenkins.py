@@ -467,6 +467,30 @@ def cancel_duplicate_tasks(server, task_nums, args):
                 found_keys.add(key)
 
 
+def cancel_pr_tasks(server, task_nums, args):
+    """Cancel tasks for given roles and prs."""
+    prs = set(args)
+    queue_info = server.get_queue_info()
+    for task in queue_info:
+        if task["task"]["name"] == job_name:
+            role, prnum = get_pr_info(task)
+            key = f"{role}:{prnum}"
+            if key in prs:
+                tsstr = datetime.datetime.fromtimestamp(
+                    task["inQueueSince"] / 1000
+                ).isoformat(timespec="seconds")
+                print(f"Cancelling pr {key} queued task {task['id']} {key} {tsstr}")
+                server.cancel_queue(task["id"])
+    for task, ts in task_iter(task_nums, server):
+        if task["result"] is None:
+            role, prnum = get_pr_info(task)
+            key = f"{role}:{prnum}"
+            if key in prs:
+                tsstr = ts.isoformat(timespec="seconds")
+                print(f"Cancelling pr {key} running task {task['id']} {key} {tsstr}")
+                server.stop_build(job_name, task["id"])
+
+
 def print_test_failures(server, task_nums, args):
     """Print test failures for tasks matching args."""
     role, prnum, label = None, None, None

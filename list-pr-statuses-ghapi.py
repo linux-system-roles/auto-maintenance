@@ -33,14 +33,14 @@ DEFAULT_EXCLUDES = [
     "tuned",
 ]
 
-DEFAULT_ANSIBLES = ["ansible-2.9", "ansible-2.12"]
+DEFAULT_ANSIBLES = ["ansible-2.9", "ansible-2.12", "ansible-2.13", "ansible-2.14"]
 
 DEFAULT_PLATFORMS = [
     "centos-6",
     "centos-7",
     "centos-8",
-    "fedora-34",
-    "fedora-35",
+    "fedora-36",
+    "fedora-37",
     "rhel-6",
     "rhel-7",
     "rhel-8-y",
@@ -62,6 +62,8 @@ def match_environment(env, status, args):
         env = "staging"
     elif env.endswith(" (el7)"):
         env = "el7"
+    elif env == "/(citool)":
+        env = "production"
     else:
         env = "production"
     return env in args.env
@@ -72,7 +74,7 @@ def match_ansible(ansible, args):
 
 
 def match_platform(platform, args):
-    return platform in args.platform
+    return args.platform is None or platform in args.platform
 
 
 def match_user(user, args):
@@ -143,7 +145,7 @@ def get_statuses(gh, args, repo, pr, updated_since):
         if seen_status is None or seen_status.updated_at < updated_at_conv:
             statuses.count += 1
             # e.g. fedora-33/ansible-2.9 OR fedora-33/ansible-2.9 (staging)
-            match = re.match(r"([^/]+)/(\S+)(.*)", status.context)
+            match = re.match(r"([^/]+)/([^ /]+)(.*)", status.context)
             if not match or not len(match.groups()) == 3:
                 logging.debug(f"unknown context {status.context}")
                 continue
@@ -295,8 +297,6 @@ def main():
         args.env = DEFAULT_ENVIRONMENTS
     if not args.ansible:
         args.ansible = DEFAULT_ANSIBLES
-    if not args.platform:
-        args.platform = DEFAULT_PLATFORMS
     if not args.token:
         with open(f"{os.environ['HOME']}/.config/gh/hosts.yml") as gh_conf:
             hsh = yaml.safe_load(gh_conf)
@@ -304,15 +304,18 @@ def main():
     no_status_error_time = datetime.timedelta(hours=8)
     pending_error_time = datetime.timedelta(hours=8)
     status_env = ["" if xx == "production" else " (staging)" for xx in args.env]
-    required_statuses = set(
-        [
-            f"{platform}/{ansible}{env}"
-            for platform, ansible, env in itertools.product(
-                args.platform, args.ansible, status_env
-            )
-            if not (platform.startswith("fedora-") and ansible.endswith("-2.9"))
-        ]
-    )
+    if args.platform:
+        required_statuses = set(
+            [
+                f"{platform}/{ansible}{env}"
+                for platform, ansible, env in itertools.product(
+                    args.platform, args.ansible, status_env
+                )
+                if not (platform.startswith("fedora-") and ansible.endswith("-2.9"))
+            ]
+        )
+    else:
+        required_statuses = []
 
     prs = []
     gh = GhApi(token=args.token)

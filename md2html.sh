@@ -40,9 +40,10 @@ for file in "$@"; do
       sed -i '1s/^/* toc\n{:toc}\n/' "${file}"
     fi
     # Set locale to UTF-8 because by default it is set to US-ASCII
+    # shellcheck disable=SC2086
     LC_ALL=C.UTF-8 $md2html_tool --extension parser-gfm \
       --input GFM \
-      "$toc_arg" \
+      $toc_arg \
       --output html "${file}" > "${file%.md}.html"
     if [ "$add_toc" -ne 0 ]; then
       sed -i '1,2d' "${file}"

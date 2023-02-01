@@ -480,7 +480,7 @@ def handle_item(item, filectx):
 
 def os_walk(from_path):
     if os.path.isdir(from_path) and not os.path.islink(from_path):
-        for (dirpath, _, filenames) in os.walk(from_path):
+        for dirpath, _, filenames in os.walk(from_path):
             for filename in filenames:
                 filepath = os.path.join(dirpath, filename)
                 yield filepath

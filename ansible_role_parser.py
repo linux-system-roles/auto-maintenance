@@ -91,7 +91,6 @@ def get_item_type(item):
 
 
 class LSRFileTransformerBase(object):
-
     # we used to try to not deindent comment lines in the Ansible yaml,
     # but this changed the indentation when comments were used in
     # literal strings, which caused test failures - so for now, we
@@ -249,7 +248,7 @@ class LSRTransformer(object):
             self.role_name = os.path.basename(self.role_path)
 
     def run(self):
-        for (dirpath, _, filenames) in os.walk(self.role_path):
+        for dirpath, _, filenames in os.walk(self.role_path):
             if self.is_role_dir:
                 role_dir, _ = get_role_dir(self.role_path, dirpath)
                 if not role_dir:

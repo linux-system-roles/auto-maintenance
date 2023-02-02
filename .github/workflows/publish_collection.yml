@@ -94,4 +94,5 @@ jobs:
         with:
           tag: ${{ steps.build.outputs.tagname }}
           name: Version ${{ steps.build.outputs.tagname }}
-          body: ./CURRENT_VER_CHANGELOG.md
+          bodyFile: ./CURRENT_VER_CHANGELOG.md
+          makeLatest: true

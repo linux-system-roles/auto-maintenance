@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.34.2] - 2023-02-03
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - Fence agent firewall port is restricted to x86_64 architecture. (#106)
+- selinux - Use selinux facts to compare module checksums before copying to a node (#144)
+
 [1.34.1] - 2023-02-02
 ---------------------
 

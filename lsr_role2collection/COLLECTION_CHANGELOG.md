@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.34.3] - 2023-02-04
+---------------------
+
+### Bug Fixes
+
+- selinux - Fix idempotency - Use lookup file + sha256 to get hash of local policy file
+
 [1.34.2] - 2023-02-03
 ---------------------
 

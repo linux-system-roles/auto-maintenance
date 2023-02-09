@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.34.4] - 2023-02-09
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - Fix stonith watchdog timeout; fix purging nodes from pacemaker (#105)
+- selinux - Use stat on localhost with become: false for module idempotency (#152)
+
 [1.34.3] - 2023-02-04
 ---------------------
 

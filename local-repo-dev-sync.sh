@@ -62,49 +62,54 @@ for repo in $repos; do
     fi
 
     echo Repo: "$repo"
-    # get a local clone of the repo
-    if [ ! -d "$LSR_BASE_DIR/$repo" ]; then
-        gh repo clone "$LSR_GH_ORG/$repo" -- -o upstream
-    fi
-    pushd "$LSR_BASE_DIR/$repo" > /dev/null
-    # should have a remote called upstream that points to lsr/repo
-    if ! git remote get-url upstream | grep -q "$LSR_GH_ORG/$repo"; then
-        echo Error: non-standard git remote config - upstream does not point
-        echo to "$LSR_GH_ORG/$repo"
-        git remote get-url upstream
-        echo please use git remote to configure upstream to point to "$LSR_GH_ORG/$repo"
-        exit 1
-    fi
-    if gh repo set-default xxx/xxx --view 2>&1 | grep -q "no default repository"; then
-        gh repo set-default "$LSR_GH_ORG/$repo"
-    fi
-    # make sure we have a fork of this under our personal space
-    # this will also create a git remote in the local repo if there
-    # is not already one - adds a remote called "origin" that points
-    # to our fork
-    if [ "${MAKE_FORK:-true}" = true ]; then
-        prot_save=$(gh config -h github.com get git_protocol)
-        gh config -h github.com set git_protocol ssh
-        gh repo fork --remote
-        gh config -h github.com set git_protocol "$prot_save"
-        if [[ "$(git remote get-url origin)" =~ .*:([^/]+)/([^/]+)$ ]]; then
-            origin_org="${BASH_REMATCH[1]}"
-            origin_repo="${BASH_REMATCH[2]/.git/}"
-        else
-            echo Error: origin remote points to unknown url "$(git remote get-url origin)"
+    if [ "${CLONE_IT:-true}" = true ]; then
+        # get a local clone of the repo
+        if [ ! -d "$LSR_BASE_DIR/$repo" ]; then
+            gh repo clone "$LSR_GH_ORG/$repo" -- -o upstream
+        fi
+        pushd "$LSR_BASE_DIR/$repo" > /dev/null
+        # should have a remote called upstream that points to lsr/repo
+        if ! git remote get-url upstream | grep -q "$LSR_GH_ORG/$repo"; then
+            echo Error: non-standard git remote config - upstream does not point
+            echo to "$LSR_GH_ORG/$repo"
+            git remote get-url upstream
+            echo please use git remote to configure upstream to point to "$LSR_GH_ORG/$repo"
             exit 1
         fi
-        if [ "${RENAME_FORK:-false}" = true ]; then
-            newname="${LSR_GH_ORG}"-"$repo"
-            if [ "$origin_repo" = "$newname" ]; then
-                : # already renamed
+        if gh repo set-default xxx/xxx --view 2>&1 | grep -q "no default repository"; then
+            gh repo set-default "$LSR_GH_ORG/$repo"
+        fi
+        # make sure we have a fork of this under our personal space
+        # this will also create a git remote in the local repo if there
+        # is not already one - adds a remote called "origin" that points
+        # to our fork
+        if [ "${MAKE_FORK:-true}" = true ]; then
+            prot_save=$(gh config -h github.com get git_protocol)
+            gh config -h github.com set git_protocol ssh
+            gh repo fork --remote
+            gh config -h github.com set git_protocol "$prot_save"
+            if [[ "$(git remote get-url origin)" =~ .*:([^/]+)/([^/]+)$ ]]; then
+                origin_org="${BASH_REMATCH[1]}"
+                origin_repo="${BASH_REMATCH[2]/.git/}"
             else
-                gh repo rename "$newname" -R "$origin_org/$origin_repo"
-                origin_repo="$newname"
+                echo Error: origin remote points to unknown url "$(git remote get-url origin)"
+                exit 1
+            fi
+            if [ "${RENAME_FORK:-false}" = true ]; then
+                newname="${LSR_GH_ORG}"-"$repo"
+                if [ "$origin_repo" = "$newname" ]; then
+                    : # already renamed
+                else
+                    gh repo rename "$newname" -R "$origin_org/$origin_repo"
+                    origin_repo="$newname"
+                fi
             fi
         fi
+        git fetch
     fi
-    git fetch
+    if [ -z "${origin_org:-}" ]; then
+        origin_org="$LSR_GH_ORG"
+    fi
     if [ -z "${EXARRAY[$repo]:-}" ]; then
         if [ -n "${stdincmds:-}" ] && ! eval "$stdincmds"; then
             echo ERROR: commands read from stdin failed in "$(pwd)"
@@ -119,7 +124,9 @@ for repo in $repos; do
             fi
         fi
     fi
-    popd > /dev/null
+    if [ "${CLONE_IT:-true}" = true ]; then
+        popd > /dev/null
+    fi
 done
 
 popd > /dev/null

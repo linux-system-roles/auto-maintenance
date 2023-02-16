@@ -1,6 +1,25 @@
 Changelog
 =========
 
+[1.35.0] - 2023-02-16
+---------------------
+
+### New Features
+
+- rhc - Implement "rhc_state: reconnect" (#43)
+- rhc - Implement "rhc_insights.remediation"
+- rhc - Implement rhc_environments (#48)
+- rhc - rhc_repository: setting default state of repo to enabled (#65)
+- rhc - Implemented "rhc_insights.tags" parameter
+- rhc - meta: stop supporting EL7 (#66)
+- rhc - Added "rhc_insights.autoupdate" parameter (#67)
+
+### Bug Fixes
+
+- ad_integration - Add `state: up` for the network role to activate the connection (#20)
+- rhc - Fix rhc_auth.activation_keys.keys (#54)
+- rhc - Fix rhc_insights.remediation when absent (#70)
+
 [1.34.5] - 2023-02-10
 ---------------------
 

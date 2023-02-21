@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.35.1] - 2023-02-21
+---------------------
+
+### Bug Fixes
+
+- network - initscripts: Configure output device in routes
+
 [1.35.0] - 2023-02-16
 ---------------------
 

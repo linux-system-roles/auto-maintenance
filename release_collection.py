@@ -286,6 +286,7 @@ def get_role_changelog(args, rolename, cur_ref, new_ref, commit_msgs):
         return ""
     _print = False
     with open(_changelogmd, "r") as cl_fd:
+        _prev = ""
         for _cl in cl_fd:
             cl = _cl.rstrip()
             if cl.startswith("[{}]".format(new_ref)):
@@ -294,16 +295,26 @@ def get_role_changelog(args, rolename, cur_ref, new_ref, commit_msgs):
             elif cl.startswith("[{}]".format(cur_ref)):
                 break
             elif _print:
-                if cl.lower() == "### new features":
-                    _changelog = "{}\n##### New Features".format(_changelog)
-                elif cl.lower() == "### bug fixes":
-                    _changelog = "{}\n##### Bug Fixes".format(_changelog)
-                elif cl.lower() == "### other changes":
-                    _changelog = "{}\n##### Other Changes".format(_changelog)
+                if cl.lower() == "- none":
+                    if _prev and _changelog.endswith(_prev + "\n"):
+                        _changelog = _changelog[: -len(_prev + "\n")]
+                    _prev = "none"
                 elif cl.startswith("["):
                     _changelog = "{}\n#### {}".format(_changelog, cl)
                 elif not cl.startswith("----"):
-                    _changelog = "{}\n{}".format(_changelog, cl)
+                    _matched = False
+                    for _title in args.changelog_sections:
+                        if cl.lower() == _title.lower():
+                            _prev = "\n##{}".format(_title)
+                            _changelog = "{}{}".format(_changelog, _prev)
+                            _matched = True
+                            break
+                    if not _matched:
+                        if _prev == "none":
+                            _prev = ""
+                        else:
+                            _changelog = "{}\n{}".format(_changelog, cl)
+
     logging.info("get_role_changelog - returning\n%s", _changelog)
     return _changelog
 
@@ -1034,6 +1045,15 @@ def main():
         default=False,
         action="store_true",
         help="If true, save the changelog for the current collection version as CURRENT_VER_CHANGELOG.md",
+    )
+    parser.add_argument(
+        "--changelog-sections",
+        default=["### New Features", "### Bug Fixes", "### Other Changes"],
+        action="append",
+        help=(
+            "List of the title of changelog sections; Default to "
+            "['### New Features', '### Bug Fixes', '### Other Changes']"
+        ),
     )
     args = parser.parse_args()
 

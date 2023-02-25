@@ -153,7 +153,7 @@ if [ "$skip" = false ]; then
               echo ""
               echo "REMOVE_ME: Recommend to itemize the change log entries in one of the following sections."
               echo "REMOVE_ME: Use Other Changes for CI, testing, and other non-feature/non-bug related items."
-              echo "REMOVE_ME: If a section has no entries, put '- none' in the section."
+              echo "REMOVE_ME: If a section has no entries, remove the section."
               echo "### New Features"
               echo ""
               echo "### Bug Fixes"

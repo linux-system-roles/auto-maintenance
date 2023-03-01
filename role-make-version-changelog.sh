@@ -157,8 +157,8 @@ if [ "$skip" = false ]; then
               echo "REMOVE_ME: - updates to documentation"
               echo "REMOVE_ME: - updates to examples"
               echo "REMOVE_ME: - deprecations (for example related to conscious language)"
-              echo "REMOVE_ME: For anything else, such as changes to tests or github actions,"
-              echo "REMOVE_ME: simply state '- no user-visible changes'"
+              echo "REMOVE_ME: Do not mention changes that not visible for users such as changes to tests or github actions."
+              echo "REMOVE_ME: If you need to cut a release without any user-visible changes, simply state as only item '- no user-visible changes' instead of adding more details."
 
               echo "### New Features"
               echo ""

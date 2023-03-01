@@ -157,7 +157,7 @@ if [ "$skip" = false ]; then
               echo "REMOVE_ME: - updates to documentation"
               echo "REMOVE_ME: - updates to examples"
               echo "REMOVE_ME: - deprecations (for example related to conscious language)"
-              echo "REMOVE_ME: If you have to release a role only with 'Other Changes' that do not fit them,"
+              echo "REMOVE_ME: For anything else, such as changes to tests or github actions,"
               echo "REMOVE_ME: simply state '- no user-visible changes'"
 
               echo "### New Features"

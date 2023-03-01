@@ -154,7 +154,6 @@ if [ "$skip" = false ]; then
               echo "REMOVE_ME: Recommend to itemize the change log entries in one of the following sections."
               echo "REMOVE_ME: If a section has no entries, it should be removed."
               echo "REMOVE_ME: Use 'Other Changes' for non-feature/non-bug related items."
-              echo "REMOVE_ME: The items should be only user-facing changes such as"
               echo "REMOVE_ME: - updates to documentation"
               echo "REMOVE_ME: - updates to examples"
               echo "REMOVE_ME: - deprecations (for example related to conscious language)"

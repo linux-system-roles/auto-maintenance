@@ -260,7 +260,10 @@ def process_ignore_and_lint_files(args, coll_dir):
                             continue
                         for item in items:
                             if item not in ansible_lint[key]:
-                                ansible_lint[key].append(item)
+                                if isinstance(ansible_lint[key], list):
+                                    ansible_lint[key].append(item)
+                                elif isinstance(ansible_lint[key], dict):
+                                    ansible_lint[key][item] = items[item]
     yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
 
 

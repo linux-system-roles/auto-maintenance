@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.35.2] - 2023-03-17
+---------------------
+
+### Bug Fixes
+
+- rhc - README: improve the role documentation a bit (#76)
+- rhc - workaround insights-client issue with /usr/bin/python
+
 [1.35.1] - 2023-02-21
 ---------------------
 

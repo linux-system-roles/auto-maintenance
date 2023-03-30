@@ -530,10 +530,7 @@ def print_test_results(server, task_nums, args):
         if task["result"] is None:
             task_label = get_pr_status_label(task)
             task_role, task_prnum = get_pr_info(task)
-            if (
-                role == task_role
-                and (prnum is None or prnum == task_prnum)
-            ):
+            if role == task_role and (prnum is None or prnum == task_prnum):
                 info = get_task_tests_info(server, int(task["id"]))
                 for test, data in info["tests"].items():
                     if test_pattern.search(test) is not None:

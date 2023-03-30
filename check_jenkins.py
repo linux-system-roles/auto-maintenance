@@ -517,6 +517,31 @@ def print_test_failures(server, task_nums, args):
                         )
 
 
+def print_test_results(server, task_nums, args):
+    """Print test failures for tasks matching args."""
+    role, prnum, test_pattern = None, None, None
+    if len(args) > 0:
+        role = args[0]
+    if len(args) > 1:
+        prnum = args[1]
+    if len(args) > 2:
+        test_pattern = re.compile(args[2])
+    for task, ts in task_iter(task_nums, server):
+        if task["result"] is None:
+            task_label = get_pr_status_label(task)
+            task_role, task_prnum = get_pr_info(task)
+            if (
+                role == task_role
+                and (prnum is None or prnum == task_prnum)
+            ):
+                info = get_task_tests_info(server, int(task["id"]))
+                for test, data in info["tests"].items():
+                    if test_pattern.search(test) is not None:
+                        print(
+                            f"{task_role} {task_prnum} {task_label} {test} {data['result']} {info['start']}"
+                        )
+
+
 if len(sys.argv) > 1:
     locals()[sys.argv[1]](server, task_nums, sys.argv[2:])
 else:

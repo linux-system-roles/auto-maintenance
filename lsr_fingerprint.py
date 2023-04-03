@@ -52,10 +52,9 @@ for d in dirs:
                             if oldpair in lines:
                                 with open(tmplpath) as ifp:
                                     lines = ifp.readlines()
-                                count = 0
                                 newlines = []
                                 changed = {}
-                                for line in lines:
+                                for lineno, line in enumerate(lines):
                                     newline = line.replace(oldpair, newpair)
                                     if newline != line:
                                         if len(changed) > 0:
@@ -64,14 +63,13 @@ for d in dirs:
                                             dup = False
                                         changed = {
                                             "path": tmplpath,
-                                            "linenumber": count,
+                                            "linenumber": lineno,
                                             "oldline": line.strip(),
                                             "newline": newline.strip(),
                                             "duplicate": dup,
                                         }
                                         changedlist.append(changed)
                                     newlines.append(newline)
-                                    count += 1
                                 with open(tmplpath, "w") as ofp:
                                     ofp.writelines(newlines)
             print(

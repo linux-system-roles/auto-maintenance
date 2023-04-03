@@ -35,10 +35,10 @@ dirs = [d for d in listdir(".") if isdir(d)]
 for d in dirs:
     for role in roles:
         if role["lsrrolename"] == d:
-            for root, dirs, files in walk(d):
-                for dir in dirs:
-                    if dir == "templates" or dir == "meta":
-                        dirpath = join(root, dir)
+            for root, subdirs, files in walk(d):
+                for subdir in subdirs:
+                    if subdir == "templates" or subdir == "meta":
+                        dirpath = join(root, subdir)
                         tmpls = [
                             f for f in listdir(dirpath) if isfile(join(dirpath, f))
                         ]

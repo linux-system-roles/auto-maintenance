@@ -54,11 +54,19 @@ for d in dirs:
                                     lines = ifp.readlines()
                                 count = 0
                                 newlines = ""
+                                changed = {}
                                 for line in lines:
                                     newline = line.replace(oldpair, newpair)
                                     if newline != line:
+                                        if len(changed) > 0:
+                                            raise Exception(
+                                                "Error: duplicate fingerprint '{0}' found in {1}:{2}".format(
+                                                    line.strip(),
+                                                    tmplpath,
+                                                    count,
+                                                )
+                                            )
                                         changed = {
-                                            "role": role,
                                             "path": tmplpath,
                                             "linenumber": count,
                                             "oldline": line.strip(),
@@ -69,10 +77,10 @@ for d in dirs:
                                     count += 1
                                 with open(tmplpath, "w") as ofp:
                                     ofp.writelines(newlines)
-
-if len(changedlist) > 0:
-    print("Done. Made the following changes:")
-    for changed in changedlist:
-        print("{0}:{1}".format(changed["path"], changed["linenumber"]))
-        print("  old line: {0}".format(changed["oldline"]))
-        print("  new line: {0}".format(changed["newline"]))
+            print(
+                "{0} role done. Made the following changes:".format(role["lsrrolename"])
+            )
+            for changed in changedlist:
+                print("{0}:{1}".format(changed["path"], changed["linenumber"]))
+                print("  old line: {0}".format(changed["oldline"]))
+                print("  new line: {0}".format(changed["newline"]))

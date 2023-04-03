@@ -33,6 +33,7 @@ roles = [
 changedlist = []
 # dirs in the current dir
 dirs = [d for d in listdir(".") if isdir(d)]
+exit_code = 0
 for d in dirs:
     for role in roles:
         if role["lsrrolename"] == d:

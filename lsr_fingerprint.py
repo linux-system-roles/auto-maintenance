@@ -86,6 +86,7 @@ for d in dirs:
                 )
                 if changed["duplicate"]:
                     print("  questionable line: {0}".format(changed["oldline"]))
+                    exit_code = 1
                 else:
                     print("  old line: {0}".format(changed["oldline"]))
                     print("  new line: {0}".format(changed["newline"]))

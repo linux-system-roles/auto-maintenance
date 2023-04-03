@@ -15,6 +15,7 @@ linux-system-roles repos.
   * [bz-manage.sh](#bz-managesh)
   * [check_jenkins.py](#check_jenkinspy)
   * [configure_squid](#configure_squid)
+  * [lsr_fingerprint.py](#lsr_fingerprintpy)
 <!--te-->
 
 
@@ -940,7 +941,7 @@ have failed.  See also `print_task_tests_info`.
 The `configure_squid` directory stores the playbook that you can use to
 configure a Squid caching proxy server for caching RPM packages. The playbook
 copies the `squid.conf` file to the managed node. The `squid.conf` file 
-onfigures Squid to use SSL Bump to cache RPM packages over HTTPS and does some
+configures Squid to use SSL Bump to cache RPM packages over HTTPS and does some
 further configurations required for RPM packages caching. You can compare
 `squid.conf` with `squid.conf.default` to see what `squid.conf` adds.
 
@@ -952,3 +953,16 @@ EL 6 or to /etc/dnf/dnf.conf on EL > 6 and Fedora:
 proxy=http://<squid_server_ip>:3128
 sslverify=False
 ```
+
+# lsr_fingerprint.py
+
+Introduced to modify fingerprint in spec file to be `system_role:$rolename`.
+
+`lsr_fingerprint.py` scans files in the `templates` dir under `./role["lsrrolename"]`,
+if the file contains a string `role["reponame"]:role["rolename"]`,
+replaces it with `system_role:role["lsrrolename"]`. Note: `role` is an entry
+of `roles` that is defined as an array of dictionaries in `lsr_fingerprint.py`.
+
+For example, in metrics, `performancecopilot:ansible-pcp` is replaced with
+`system_role:metrics`; in sshd, `willshersystems:ansible-sshd` is with
+`system_role:sshd`.

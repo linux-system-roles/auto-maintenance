@@ -14,6 +14,7 @@ E.g., in metrics, "performancecopilot:ansible-pcp" is replaced with
 "system_role:metrics" in roles/bpftrace/templates/bpftrace.conf.j2.
 """
 
+import sys
 from os import listdir, walk
 from os.path import join, isfile, isdir
 

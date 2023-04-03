@@ -30,11 +30,14 @@ roles = [
     },
 ]
 
+changedlist = []
 # dirs in the current dir
 dirs = [d for d in listdir(".") if isdir(d)]
 for d in dirs:
     for role in roles:
         if role["lsrrolename"] == d:
+            oldpair = "{0}:{1}".format(role["reponame"], role["rolename"])
+            newpair = "system_role:{0}".format(role["lsrrolename"])
             for root, subdirs, files in walk(d):
                 for subdir in subdirs:
                     if subdir == "templates" or subdir == "meta":
@@ -44,12 +47,32 @@ for d in dirs:
                         ]
                         for tmpl in tmpls:
                             tmplpath = join(dirpath, tmpl)
-                            with open(tmplpath) as fp:
-                                lines = fp.read()
-                            newlines = lines.replace(
-                                "{0}:{1}".format(role["reponame"], role["rolename"]),
-                                "system_role:{0}".format(role["lsrrolename"]),
-                            )
-                            if lines != newlines:
-                                with open(tmplpath, "w") as fp:
-                                    fp.write(newlines)
+                            with open(tmplpath) as ifp:
+                                lines = ifp.read()
+                            if lines.find(oldpair):
+                                with open(tmplpath) as ifp:
+                                    lines = ifp.readlines()
+                                count = 0
+                                newlines = ""
+                                for line in lines:
+                                    newline = line.replace(oldpair, newpair)
+                                    if newline != line:
+                                        changed = {
+                                            "role": role,
+                                            "path": tmplpath,
+                                            "linenumber": count,
+                                            "oldline": line.strip(),
+                                            "newline": newline.strip(),
+                                        }
+                                        changedlist.append(changed)
+                                    newlines = "{0}{1}".format(newlines, newline)
+                                    count += 1
+                                with open(tmplpath, "w") as ofp:
+                                    ofp.writelines(newlines)
+
+if len(changedlist) > 0:
+    print("Done. Made the following changes:")
+    for changed in changedlist:
+        print("{0}:{1}".format(changed["path"], changed["linenumber"]))
+        print("  old line: {0}".format(changed["oldline"]))
+        print("  new line: {0}".format(changed["newline"]))

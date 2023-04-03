@@ -90,3 +90,4 @@ for d in dirs:
                 else:
                     print("  old line: {0}".format(changed["oldline"]))
                     print("  new line: {0}".format(changed["newline"]))
+sys.exit(exit_code)

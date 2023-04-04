@@ -370,4 +370,15 @@ spec_cl_to_cl_md_rst() {
   make_cl_for_version "$cur_ver" "$datestr" "$cl_file" "$cl_nf_file" "$cl_bf_file"
 }
 
+# e.g.
+# 1234567   This is the bz summary
+get_bz_id_summary() {
+  local queryurl jq bz summary
+  queryurl="${BASE_URL}"
+  jq='.bugs[] | ((.id|tostring) + " " + .summary)'
+  get_bzs "${queryurl}" "$jq" -r | while read -r bz summary; do
+    echo "$bz   $summary"
+  done
+}
+
 "$@"

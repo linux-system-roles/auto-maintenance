@@ -72,3 +72,6 @@ rhc:
 journald:
   ref: 1.0.0
   sourcenum: 24
+postgresql:
+  ref: 1.0.0
+  sourcenum: 25

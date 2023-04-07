@@ -1,6 +1,22 @@
 Changelog
 =========
 
+[1.36.0] - 2023-04-07
+---------------------
+
+### New Features
+
+- ha_cluster - add support for resource and operation defaults
+- ha_cluster - Add possibility to load SBD watchdog kernel modules (#82)
+
+### Bug Fixes
+
+- ha_cluster - use pcs to setup qdevice certificates if available
+- kdump - Use ansible_os_family in template (#133)
+- ssh - Proper indent when lists are used in block (#80)
+- ssh - add vars files for Rocky 8/9 (links) (#81)
+- timesync - Update chrony.conf location for Debian (#187)
+
 [1.35.2] - 2023-03-17
 ---------------------
 

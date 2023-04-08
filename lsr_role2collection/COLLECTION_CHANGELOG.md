@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.36.1] - 2023-04-08
+---------------------
+
+### Bug Fixes
+
+- sshd - Fedora 38 has no longer non-standard hostkey permissions
+
 [1.36.0] - 2023-04-07
 ---------------------
 

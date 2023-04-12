@@ -13,6 +13,7 @@ actions:
     post-upstream-clone:
       - "wget https://src.fedoraproject.org/rpms/linux-system-roles/raw/rawhide/f/linux-system-roles.spec -O linux-system-roles.spec.in"
       - "wget https://src.fedoraproject.org/rpms/linux-system-roles/raw/rawhide/f/extrasources.inc -O extrasources.inc"
+      - "wget https://src.fedoraproject.org/rpms/linux-system-roles/raw/rawhide/f/ansible-packaging.inc -O ansible-packaging.inc"
       - "./generate_spec_sources.py linux-system-roles.spec.in linux-system-roles.spec"
     changelog-entry: "./generate_rpm_changelog.py"
 jobs:

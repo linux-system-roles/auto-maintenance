@@ -58,7 +58,7 @@ firewall:
   ref: 1.4.3
   sourcenum: 19
 cockpit:
-  ref: 1.4.3
+  ref: 1.4.4
   sourcenum: 20
 podman:
   ref: 1.1.3

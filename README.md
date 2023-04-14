@@ -303,8 +303,9 @@ You will need `docker` in order to use `galaxy-importer`.
 ```yaml
 ROLENAME:
   ref: TAG_OR_HASH_OR_BRANCH
-  org: github-organization
-  repo: github-repo
+  org: github-organization  # default is linux-system-roles
+  repo: github-repo  # default is ROLENAME
+  sourcenum: N
 ```
 Where `ROLENAME` is the name of the role as it will appear in the collection
 (under `NAMESPACE/COLLECTION_NAME/roles/`).  `ref` is the git tag in semantic
@@ -312,29 +313,44 @@ version format (preferred), commit hash, or branch to use (in the format used as
 the argument to `git clone -b` or `git checkout`).  `org` is the github
 organization (default `linux-system-roles`).  The `repo` is the name of the repo
 under the github organization, and the default is the `ROLENAME`, so only use
-this if you need to specify a different name for the role in the collection.
+this if you need to specify a different name for the role in the collection. The
+`sourcenum` is the source number in the RPM spec file.  For example,
+https://src.fedoraproject.org/rpms/linux-system-roles/blob/rawhide/f/linux-system-roles.spec#_93
+```
+%global rolename1 postfix
+%deftag 1 1.3.4
+```
+The `sourcenum` for the `postfix` role is 1.
+
 The `sshd` role currently uses both `org` and `repo`.
 
-To add a new role - add it with a `ref: null` e.g.
+To add a new role - add it with a `ref: null`, and `sourcenum` as the next
+available sourcenum value.
 ```yaml
 ad_integration:
   ref: null
+  sourcenum: 23
 ```
+
+*NOTE*: Please keep the file in order of `sourcenum`.
 
 Then the next time you run `release_collection.py`, it will know that this is a
 new role and will update the versions accordingly.
 
 Example:
 ```yaml
-certificate:
-  ref: 1.0.0
-kdump:
-  ref: 1.0.1
+tlog:
+  ref: 1.2.12
+  sourcenum: 8
 kernel_settings:
-  ref: 1.0.0
+  ref: 1.1.13
+  sourcenum: 9
+logging:
+  ref: 1.11.6
+  sourcenum: 10
 ```
 This will use e.g.
-`git clone https://github.com/linux-system-roles/certificate -b 1.0.0`, etc.
+`git clone https://github.com/linux-system-roles/tlog -b 1.2.12`, etc.
 
 Use [role-make-version-changelog.sh](#role-make-version-changelogsh) to create new
 tags/versions in each role.  If you use strict semantic versioning everywhere,

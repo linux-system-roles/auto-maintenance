@@ -303,8 +303,9 @@ You will need `docker` in order to use `galaxy-importer`.
 ```yaml
 ROLENAME:
   ref: TAG_OR_HASH_OR_BRANCH
-  org: github-organization
-  repo: github-repo
+  org: github-organization  # default is linux-system-roles
+  repo: github-repo  # default is ROLENAME
+  sourcenum: N
 ```
 Where `ROLENAME` is the name of the role as it will appear in the collection
 (under `NAMESPACE/COLLECTION_NAME/roles/`).  `ref` is the git tag in semantic
@@ -312,29 +313,44 @@ version format (preferred), commit hash, or branch to use (in the format used as
 the argument to `git clone -b` or `git checkout`).  `org` is the github
 organization (default `linux-system-roles`).  The `repo` is the name of the repo
 under the github organization, and the default is the `ROLENAME`, so only use
-this if you need to specify a different name for the role in the collection.
+this if you need to specify a different name for the role in the collection. The
+`sourcenum` is the source number in the RPM spec file.  For example,
+https://src.fedoraproject.org/rpms/linux-system-roles/blob/rawhide/f/linux-system-roles.spec#_93
+```
+%global rolename1 postfix
+%deftag 1 1.3.4
+```
+The `sourcenum` for the `postfix` role is 1.
+
 The `sshd` role currently uses both `org` and `repo`.
 
-To add a new role - add it with a `ref: null` e.g.
+To add a new role - add it with a `ref: null`, and `sourcenum` as the next
+available sourcenum value.
 ```yaml
 ad_integration:
   ref: null
+  sourcenum: 23
 ```
+
+*NOTE*: Please keep the file in order of `sourcenum`.
 
 Then the next time you run `release_collection.py`, it will know that this is a
 new role and will update the versions accordingly.
 
 Example:
 ```yaml
-certificate:
-  ref: 1.0.0
-kdump:
-  ref: 1.0.1
+tlog:
+  ref: 1.2.12
+  sourcenum: 8
 kernel_settings:
-  ref: 1.0.0
+  ref: 1.1.13
+  sourcenum: 9
+logging:
+  ref: 1.11.6
+  sourcenum: 10
 ```
 This will use e.g.
-`git clone https://github.com/linux-system-roles/certificate -b 1.0.0`, etc.
+`git clone https://github.com/linux-system-roles/tlog -b 1.2.12`, etc.
 
 Use [role-make-version-changelog.sh](#role-make-version-changelogsh) to create new
 tags/versions in each role.  If you use strict semantic versioning everywhere,
@@ -470,47 +486,71 @@ unclear how to determine what sort of changes have occurred in the role, it is
 up to the collection maintainer to investigate the role to determine how to
 change `Xc`, `Yc`, or `Zc`.
 
-# local-repo-dev-sync.sh
+# manage-role-repos.sh
 
 This script is useful for the linux-system-roles team to make changes to
-multiple roles.  For example, as a LSR admin you need to update the version of
-tox-lsr used in each repo.
+multiple roles.
 
 ## Prerequisites
 
-This script uses `hub` for cli/api interactions with github, and `jq` for
-parsing and formatting the output of `hub`.  You can install these on Fedora
-like `dnf -y install jq hub`.  The `hub` command also requires the use of your
-github api token.  See `man hub` for instructions.
+This script uses `gh` for cli/api interactions with github, and `jq` for
+parsing and formatting the output of `gh`.  You can install these on Fedora
+like `dnf -y install jq gh`.  The `gh` command also requires the use of your
+github api token.  See `man gh` for instructions.
 
 ## Usage
 
 Basic usage, with no arguments:
 ```
-./local-repo-dev-sync.sh
+LSR_BASE_DIR=~/linux-system-roles ./manage-role-repos.sh
 ```
 This will clone all of the repos under https://github.com/linux-system-roles
 (except those listed in `$EXCLIST` - see the script for the default list e.g. it
 excludes repos such as `test-harness`, `auto-maintenance`, etc.).  These will be
-cloned to `$HOME/linux-system-roles` using the `hub clone` command (if the
+cloned to `$HOME/linux-system-roles` using the `gh repo clone` command (if the
 directory does not already exist).  Each repo will be forked under your github
-user using the `hub fork` command (if you do not already have a fork).  Each
-local clone will have a git remote named `origin` for the source repo, and a git
-remote named after your github user id for your fork.  It will also do a `git
-fetch` to pull the latest code from the remotes (but it will not merge that code
-with your local branches - you must do that if desired).
+user using the `gh repo fork` command (if you do not already have a fork).  Each
+local clone will have a git remote named `upstream` for the source repo, and a
+git remote named `origin` for your fork.  It will also do a `git fetch` to pull
+the latest code from the remotes (but it will not merge that code with your
+local branches - you must do that if desired).
 
 ## Options
 
 Options are passed as environment variables.
 
-`LSR_BASE_DIR` - local directory holding clones of repos - default is
-`$HOME/linux-system-roles`
+`LSR_BASE_DIR` - local directory holding clones of repos - no default - it is
+recommended you use a temporary directory. If you do not specify this, the
+script assumes you want to perform some action e.g. `gh pr list` in each role
+that does not require a local clone, and will not clone the repo locally.
 
 `LSR_GH_ORG` - the github org to use as the origin of the clones/forks e.g. the
 ORG used in `https://github.com/ORG` - default is `linux-system-roles`
 
 `DEBUG` - turns on `set -x`
+
+`MAKE_FORK` - default `true` - this is only used if you also specified
+`LSR_BASE_DIR` - this will ensure that you have a fork of the role repo, for
+example, so that you can create working branches in your private repo in github
+and use that to submit PRs.  If you set this to `false`, then some actions may
+not work.
+
+`RENAME_FORK` - default `false` - if you use `true`, then the script will ensure
+that your private fork will be renamed `linux-system-roles-$ROLENAME`.
+
+`REPOS` - default none - a space delimited list of roles.  Use this if you want
+to operate only on the given roles.
+```
+# only manage the network and storage roles
+REPOS="network storage" ./manage-role-repos.sh
+```
+
+`EXCLIST` - default none - a space delimited list of roles.  Use this if you
+want to operate on all roles *except* the given roles.
+```
+# manage all roles except the network and storage roles
+EXCLIST="network storage" ./manage-role-repos.sh
+```
 
 ## Commands
 
@@ -521,83 +561,57 @@ You can pass commands to perform in each repo in these ways:
 For each repo, checkout the main branch and make sure it is up-to-date:
 
 ```
-LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh "git checkout main || git checkout master; git pull"
+LSR_BASE_DIR=~/working-lsr ./manage-role-repos.sh "git checkout main || git checkout master; git pull"
 ```
 
 The arguments will be passed to `eval` to be evaluated in the context of each
 repo.  This is useful if you need to just refresh your local copy of the repo,
-or perform a very simple task in each repo.
+or perform a very simple task in each repo.  Remember to escape
+shell variables that will be set in `manage-role-repos.sh`.
+
+To list the PRs in all repos that are not created by `systemroller`:
+```
+./manage-role-repos.sh gh pr list -R \$LSR_GH_ORG/\$repo --search -author:systemroller
+```
 
 ### stdin/here document
 
 You can do the same as above like this:
 
 ```
-LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh <<EOF
+LSR_BASE_DIR=~/working-lsr ./manage-role-repos.sh <<EOF
 git checkout main || git checkout master
 git pull
+echo \$repo
 EOF
 ```
 
 That is, you can pass in the commands to use in a `bash` `here` document.  This
 is useful when you have more complicated tasks to perform that takes multiple
 commands and/or involves shell logic/looping.  Whatever you specify in the here
-document will be passed to `eval` in each repo directory.
+document will be passed to `eval` in each repo directory.  Remember to escape
+shell variables that will be set in `manage-role-repos.sh`.
 
 ### shell script
 
-For really complex repo administration, you may want to write a shell script to be
-executed in each repo:
+For really complex repo administration, you may want to write a shell script to
+be executed in each repo:
 
 ```
-./local-repo-dev-sync.sh /path/to/myscript.sh
+./manage-role-repos.sh /path/to/myscript.sh
 ```
-
-### update tox-lsr version in each repo
-
-I need to update the version of tox-lsr in each repo, and submit a PR for that
-change.
-
-First, create a git commit file in the format expected by the `git commit -F`
-argument e.g.
-
+For example, to update changelog in every role:
 ```
-update tox-lsr version to 2.2.1
-
-Update the version of tox-lsr used in CI to 2.2.1
+BRANCH=changelog-20230417 LSR_BASE_DIR=~/working-lsr \
+  ./manage-role-repos.sh /path/to/role-make-version-changelog.sh
 ```
-
-This will be used for the git commit message and the hub pull-request message.
-Then
-
-```
-./local-repo-dev-sync.sh <<EOF
-set -euxo pipefail
-if git checkout main; then
-  mainbr=main
-elif git checkout master; then
-  mainbr=master
-else
-  echo ERROR: could not find branch main or master
-  exit 1
-fi
-git pull
-git checkout -b tox-lsr-2.2.1
-sed -i -e 's|TOX_LSR: "git+https://github.com/linux-system-roles/tox-lsr@2.2.0"|TOX_LSR: "git+https://github.com/linux-system-roles/tox-lsr@2.2.1"|' .github/workflows/tox.yml
-git commit -s -a -F /path/to/commit.txt
-git push $USER tox-lsr-2.2.1
-hub pull-request -F /path/to/commit.txt -b "\$mainbr"
-EOF
-```
-If your `$USER` is not the same as your github username, use your github
-username instead of `$USER`.
 
 # check_rpmspec_collection.sh
 
-This script is to be executed in the dist-git directory.
-It locally builds rpm packages with various combination of `ansible` and `collection_artifact` options,
-and checks whether the built rpm count is correct or not.
-Then, it verifies that `README.html` files are only in /usr/share/doc/ area.
+This script is to be executed in the dist-git directory. It locally builds rpm
+packages with various combination of `ansible` and `collection_artifact`
+options, and checks whether the built rpm count is correct or not. Then, it
+verifies that `README.html` files are only in /usr/share/doc/ area.
 
 Usage: ./check_rpmspec_collection.sh [ -h | --help ] | [ fedpkg | rhpkg [ branch_name ] ]
 
@@ -608,15 +622,15 @@ will guide you through the process.  It will show you the changes in the role
 since the last tag, and ask you what will be the new semantic version to use for
 the tag.  It will then put the changes in a file to use for the update to the
 CHANGELOG.md file for the new version, and put you in your editor to edit the
-file.  If you are using this in conjunction with `local-repo-dev-sync.sh`, it
+file.  If you are using this in conjunction with `manage-role-repos.sh`, it
 will push the changes to your repo and create a pull request for CHANGELOG.md.
 Once the CHANGELOG.md PR is merged, there is github action automation to tag the
 repo with the version, create a github release, and import the new version into
 Ansible Galaxy.  You must provide a branch for the PR, or if you are not using
-the script with `local-repo-dev-sync.sh`, you can create a branch in your local
+the script with `manage-role-repos.sh`, you can create a branch in your local
 clone directory.
 ```
-BRANCH=my_branch_name LSR_BASE_DIR=~/working-lsr ./local-repo-dev-sync.sh `pwd`/role-make-version-changelog.sh
+BRANCH=my_branch_name LSR_BASE_DIR=~/working-lsr ./manage-role-repos.sh `pwd`/role-make-version-changelog.sh
 ```
 NOTE: You must install and configure `gh` in order to create the pull request.
 If you want to have more control over the commit, commit msg, and PR, then you
@@ -635,7 +649,7 @@ changes to the role.  You will then be prompted to edit CHANGELOG.md for the
 release.  The body will be filled in by the commit messages from the commits
 since the last tag - you will need to edit these. When you are done, it will
 make a commit in your local repo.  If you are using it with
-`local-repo-dev-sync.sh`, and `gh` is installed and configured, it will push the
+`manage-role-repos.sh`, and `gh` is installed and configured, it will push the
 changes to your repo and create the PR.
 
 Use this script, and ensure the CHANGELOG.md PR is merged, and the repo is

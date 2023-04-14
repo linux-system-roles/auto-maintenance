@@ -8,7 +8,7 @@ if [ "${DEBUG:-false}" = true ]; then
 fi
 
 LSR_GH_ORG=${LSR_GH_ORG:-linux-system-roles}
-LSR_BASE_DIR=${LSR_BASE_DIR:-~/linux-system-roles}
+# only needed if operating on local code
 
 requiredcmds="gh jq"
 missingcmds=""
@@ -35,7 +35,7 @@ else
     exit 1
 fi
 
-if [ ! -d "$LSR_BASE_DIR" ]; then
+if [ -n "${LSR_BASE_DIR:-}" ] && [ ! -d "$LSR_BASE_DIR" ]; then
     mkdir -p "$LSR_BASE_DIR"
 fi
 
@@ -44,14 +44,16 @@ DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"test-harness linux-system-roles.github.io sa
                     sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
                     auto-maintenance image_builder sap-netweaver-preconfigure ci-testing \
                     meta_test tox-lsr tuned .github lsr-gh-action-py26 \
-                    ee_linux_system_roles ee_linux_automation .github enhancements"}
+                    ee_linux_system_roles ee_linux_automation"}
 declare -A EXARRAY
 for repo in $DEFAULT_EXCLIST ${EXCLIST:-}; do
     # EXARRAY is a "set" of excluded repos
     EXARRAY[$repo]=$repo
 done
 
-pushd "$LSR_BASE_DIR" > /dev/null
+if [ -n "${LSR_BASE_DIR:-}" ]; then
+    pushd "$LSR_BASE_DIR" > /dev/null
+fi
 if ! tty -s; then
     stdincmds="$(cat)"
 fi
@@ -62,7 +64,7 @@ for repo in $repos; do
     fi
 
     echo Repo: "$repo"
-    if [ "${CLONE_IT:-true}" = true ]; then
+    if [ -n "${LSR_BASE_DIR:-}" ]; then
         # get a local clone of the repo
         if [ ! -d "$LSR_BASE_DIR/$repo" ]; then
             gh repo clone "$LSR_GH_ORG/$repo" -- -o upstream
@@ -124,9 +126,7 @@ for repo in $repos; do
             fi
         fi
     fi
-    if [ "${CLONE_IT:-true}" = true ]; then
+    if [ -n "${LSR_BASE_DIR:-}" ]; then
         popd > /dev/null
     fi
 done
-
-popd > /dev/null

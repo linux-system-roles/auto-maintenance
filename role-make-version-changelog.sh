@@ -12,7 +12,7 @@ AUTOSKIP=${AUTOSKIP:-true}
 # Figure out what to use for the new tag
 # Figure out what to put in the release notes for the release
 
-repo=${repo:-$( git remote get-url origin | awk -F'/' '{print $NF}' )}
+repo=${repo:-$(git remote get-url origin | awk -F'/' '{print $NF}')}
 
 # To be used in conjunction with local-repo-dev-sync.sh
 # This script is called from every role
@@ -121,9 +121,11 @@ else
         git log --oneline --no-merges --reverse "${latest_tag}"..
         echo ""
         # see the changes?
-        read -r -p 'View changes (y)? (default: n) ' view_changes
+        read -r -p 'View changes (n/y/s)? (default: n) ' view_changes
         if [ "${view_changes:-n}" = y ]; then
             view_diffs "${latest_tag}"
+        elif [ "${view_changes:-n}" = s ]; then
+            skip=true
         fi
     fi
 fi
@@ -194,8 +196,8 @@ if [ "$skip" = false ]; then
         fi
         mv .tmp-changelog CHANGELOG.md
         git add CHANGELOG.md
-        echo "Version $new_tag - CHANGELOG.md [citest skip]" > .gitcommitmsg
-        { echo ""; cat "$rel_notes_file"; } >> .gitcommitmsg
+        { echo "docs(changelog): version $new_tag [citest skip]"; echo "";
+          echo "Create changelog update and release for version $new_tag"; } > .gitcommitmsg
         git commit -s -F .gitcommitmsg
         rm -f .gitcommitmsg "$rel_notes_file"
         if [ -n "${origin_org:-}" ]; then

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.36.3] - 2023-04-15
+---------------------
+
+### Bug Fixes
+
+- rhc - Do not pass fake creds when activation keys are specified (#92)
+
 [1.36.2] - 2023-04-12
 ---------------------
 

@@ -42,7 +42,7 @@ for d in dirs:
             newpair = "system_role:{0}".format(role["lsrrolename"])
             for root, subdirs, files in walk(d):
                 for subdir in subdirs:
-                    if subdir == "templates" or subdir == "meta":
+                    if subdir == "templates" or subdir == "meta" or subdir == "tests":
                         dirpath = join(root, subdir)
                         tmpls = [
                             f for f in listdir(dirpath) if isfile(join(dirpath, f))
@@ -69,6 +69,7 @@ for d in dirs:
                                             "oldline": line.strip(),
                                             "newline": newline.strip(),
                                             "duplicate": dup,
+                                            "test": subdir == "tests",
                                         }
                                         changedlist.append(changed)
                                     newlines.append(newline)
@@ -78,14 +79,16 @@ for d in dirs:
                 "{0} role done. Made the following changes:".format(role["lsrrolename"])
             )
             for changed in changedlist:
+                # allow duplicates in tests
+                dup = changed["duplicate"] and not changed["test"]
                 print(
                     "{0}{1}:{2}".format(
-                        "DUPLICATED - " if changed["duplicate"] else "",
+                        "DUPLICATED - " if dup else "",
                         changed["path"],
                         changed["linenumber"],
                     )
                 )
-                if changed["duplicate"]:
+                if dup:
                     print("  questionable line: {0}".format(changed["oldline"]))
                     exit_code = 1
                 else:

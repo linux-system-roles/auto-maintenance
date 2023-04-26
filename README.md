@@ -13,7 +13,7 @@ linux-system-roles repos.
   * [role-make-version-changelog.sh](#role-make-version-changelogsh)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
   * [bz-manage.sh](#bz-managesh)
-  * [check_jenkins.py](#check_jenkinspy)
+  * [manage_jenkins.py](#manage_jenkinspy)
   * [configure_squid](#configure_squid)
   * [lsr_fingerprint.py](#lsr_fingerprintpy)
 <!--te-->
@@ -806,9 +806,10 @@ change that value.
 
 There are other undocumented environment variables used, check the code for more details.
 
-# check_jenkins.py
+# manage_jenkins.py
 
-Check the test tasks in a jenkins server.
+Manage the test tasks in a jenkins server - list and view in various ways, and
+cancel tasks.
 
 ## Requirements
 
@@ -830,7 +831,7 @@ current: somename
 
 By default, it will print the queued tasks, the running tasks, and the completed tasks.
 ```
-> ./check_jenkins.py
+> ./manage_jenkins.py
 Queued tasks:
 QueueID  Queued Since        Role            PR  Platform               Queue Reason        
 3915644  2022-09-14T19:27:23 timesync        119 RHEL-9.2/ansible-2.13  waiting on executor 
@@ -855,7 +856,7 @@ TaskID   Started At          Role            PR  Platform               Duration
 It takes a long time to run.  You can shorten the duration by using the environment variable
 `MAX_TASK_AGE` (number of seconds of maximum task age) e.g.
 ```
-> MAX_TASK_AGE=7200 ./check_jenkins.py
+> MAX_TASK_AGE=7200 ./manage_jenkins.py
 Queued tasks:
 ...
 
@@ -865,7 +866,7 @@ e.g. to skip tasks older than 2 hours.
 You can also specify the argument `print_queued_tasks`, `print_running_tasks`, or `print_completed_tasks`
 if you just want to look at those tasks.
 ```
-> ./check_jenkins.py print_queued_tasks
+> ./manage_jenkins.py print_queued_tasks
 Queued tasks:
 QueueID  Queued Since        Role            PR  Platform               Queue Reason        
 3915644  2022-09-14T19:27:23 timesync        119 RHEL-9.2/ansible-2.13  waiting on executor 
@@ -873,7 +874,7 @@ QueueID  Queued Since        Role            PR  Platform               Queue Re
 ```
 Use `print_task_info TASK_NUM` to show a YAML representation of a task:
 ```
-> ./check_jenkins.py print_task_info 15967
+> ./manage_jenkins.py print_task_info 15967
 _class: hudson.model.FreeStyleBuild
 actions:
 - _class: hudson.model.ParametersAction
@@ -890,7 +891,7 @@ which isn't very useful unless you are debugging the script and/or Jenkins itsel
 Use this to see information about the task, including the individual tests
 statuses.
 ```
-> ./check_jenkins.py print_task_tests_info 12345
+> ./manage_jenkins.py print_task_tests_info 12345
 Role:nbde_client PR:80 Platform:RHEL-8.8.0-20220921.0 Arch:x86_64
 Node:production-3 IP:10.0.0.3 Workspace:/var/lib/jenkins/workspace/ci-test-jobname@6
 Stage                State      Result     GuestID                              Test Workdir
@@ -919,7 +920,7 @@ etc.
 
 If you just want to see the task output without having to use the web browser:
 ```
-./check_jenkins.py print_task_console 12345 30
+./manage_jenkins.py print_task_console 12345 30
 ... bunch of text here ...
 ```
 This will show the last 30 lines of the console.
@@ -928,7 +929,7 @@ This will show the last 30 lines of the console.
 
 This requires a valid `token`.  Cancel the running task given by the id.
 ```
-./check_jenkins.py cancel_tasks 18859 18858 ....
+./manage_jenkins.py cancel_tasks 18859 18858 ....
 ```
 
 ### cancel_duplicate_tasks
@@ -937,7 +938,15 @@ This requires a valid `token`. There is currently a bug in Jenkins that will
 create duplicate tasks.  Using this command will remove duplicate tasks from the
 queue and running tasks.
 ```
-./check_jenkins.py cancel_duplicate_tasks
+./manage_jenkins.py cancel_duplicate_tasks
+```
+
+### cancel_pr_tasks
+
+This requires a valid `token`.  Cancel the running task given by the PR in the
+form `role:number`.
+```
+./manage_jenkins.py cancel_pr_tasks storage:555
 ```
 
 ### print_test_failures
@@ -947,7 +956,7 @@ Platform is optional.  This is useful for roles that have a lot of long running
 tests, and you don't want to wait several hours to find out if any of the tests
 have failed.  See also `print_task_tests_info`.
 ```
-./check_jenkins.py print_test_failures network 535
+./manage_jenkins.py print_test_failures network 535
 ```
 
 # configure_squid

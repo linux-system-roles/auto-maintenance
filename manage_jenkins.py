@@ -88,7 +88,7 @@ def get_pr_status_label(task, short=True):
                     if label.endswith("/(citool)"):
                         label = label.replace("/(citool)", "")
                     if short:
-                        match = re.match(r"^(RHEL-\d+[.]\d+)[^/]+(/.+)$", label)
+                        match = re.match(r"^(RHEL-\d+[.]\d+)[^/]*(/.+)$", label)
                         if match:
                             label = match.group(1) + match.group(2)
                         else:
@@ -303,7 +303,7 @@ def get_task_tests_info(server, task_num):
     pat_pr = r"^ +lsr-github:github --pull-request= --pull-request=linux-system-roles:(?P<role>[^:]+):(?P<pr>[^:]+):.*$"
     rx_pr = re.compile(pat_pr)
     pat_test = (
-        r"^[|] dist-git-(?P<role>[^-]+)-[^/]+/tests/(?P<test>[^ ]+) +[|] +(?P<stage>[^ ]+) +[|]"
+        r"^[|] (?:dist-)?git-[^/]+/tests/(?P<test>[^ ]+) +[|] +(?P<stage>[^ ]+) +[|]"
         r" +(?P<state>[^ ]+) +[|] +(?P<result>[^ ]+) +[|] +(?P<arch>[^ ]+) +(?P<platform>[^ ]+) .*"
     )
     rx_test = re.compile(pat_test)
@@ -312,26 +312,26 @@ def get_task_tests_info(server, task_num):
     pat_workspace = r"^Building remotely on .* in workspace (?P<workspace>[^ ]+)$"
     rx_workspace = re.compile(pat_workspace)
     pat_work_test_dir = (
-        r"^.*dist-git-[^ ]+ working directory 'work-([^.]+.yml)([^']+)'.*$"
+        r"^.*(?:dist-)?git-[^ ]+ working directory 'work-([^.]+.yml)([^']+)'.*$"
     )
     rx_work_test_dir = re.compile(pat_work_test_dir)
     pat_provision_start = (
-        r"^.*\[(?P<ts_prov>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"^.*\[(?P<ts_prov>[0-9:]+)\] .*\[(?:dist-)?git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
         r"starting guest provisioning.*$"
     )
     rx_provision_start = re.compile(pat_provision_start)
     pat_guest_setup_start = (
-        r"^.*\[(?P<ts_setup>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"^.*\[(?P<ts_setup>[0-9:]+)\] .*\[(?:dist-)?git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
         r"starting guest setup.*$"
     )
     rx_guest_setup_start = re.compile(pat_guest_setup_start)
     pat_test_start = (
-        r"^.*\[(?P<ts_start>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"^.*\[(?P<ts_start>[0-9:]+)\] .*\[(?:dist-)?git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
         r"starting tests execution.*$"
     )
     rx_test_start = re.compile(pat_test_start)
     pat_test_end = (
-        r"^.*\[(?P<ts_end>[0-9:]+)\] .*\[dist-git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
+        r"^.*\[(?P<ts_end>[0-9:]+)\] .*\[(?:dist-)?git-[^/]+/tests/(?P<test>tests[^.]+[.]yml)\].* "
         r"cleanup finished.*$"
     )
     rx_test_end = re.compile(pat_test_end)
@@ -534,6 +534,32 @@ def print_test_results(server, task_nums, args):
                 info = get_task_tests_info(server, int(task["id"]))
                 for test, data in info["tests"].items():
                     if test_pattern.search(test) is not None:
+                        print(
+                            f"{task_role} {task_prnum} {task_label} {test} {data['result']} {info['start']}"
+                        )
+
+
+def print_pr_tests_info(server, task_nums, args):
+    """Print test failures for tasks matching args."""
+    role, prnum, test_pattern, result = None, None, None, None
+    if len(args) > 0:
+        role = args[0]
+    if len(args) > 1:
+        prnum = args[1]
+    if len(args) > 2:
+        test_pattern = re.compile(args[2])
+    if len(args) > 3:
+        result = args[3]
+    for task, ts in task_iter(task_nums, server):
+        if task["result"] is None:
+            task_label = get_pr_status_label(task)
+            task_role, task_prnum = get_pr_info(task)
+            if role == task_role and (prnum is None or prnum == task_prnum):
+                info = get_task_tests_info(server, int(task["id"]))
+                for test, data in info["tests"].items():
+                    if test_pattern.search(test) is not None and (
+                        result is None or result == data["result"]
+                    ):
                         print(
                             f"{task_role} {task_prnum} {task_label} {test} {data['result']} {info['start']}"
                         )

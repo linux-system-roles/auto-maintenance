@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.37.0] - 2023-04-28
+---------------------
+
+### New Features
+
+- ad_integration - Add 'ad_integration_force_rejoin' role variable (#29)
+
+### Bug Fixes
+
+- podman - fix: graphroot required in storage.conf on Fedora 37
+- podman - fix: Use match instead of in for test for jinja 2.7 support
+
 [1.36.4] - 2023-04-18
 ---------------------
 

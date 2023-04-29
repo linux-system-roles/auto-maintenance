@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.38.0] - 2023-04-29
+---------------------
+
+### New Features
+
+- sshd - feat: add support for FreeBSD, OpenBSD
+
 [1.37.0] - 2023-04-28
 ---------------------
 

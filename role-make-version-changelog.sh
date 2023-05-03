@@ -55,7 +55,12 @@ get_main_branch() {
     return 1
 }
 
-git fetch --all
+commit_to_file() {
+    git log --oneline --no-merges --reverse --pretty=format:"- %s%n%n%w(80,2,2)%b%n%n" -1 "$1" | \
+        awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2' >> "$2"
+}
+
+git fetch --all --force
 # get the main branch
 mainbr=$(get_main_branch)
 currbr=$(git branch --show-current)
@@ -130,50 +135,86 @@ else
     fi
 fi
 if [ "$skip" = false ]; then
-    echo "If you want to continue, enter the new tag in the form ${allow_v}X.Y.Z"
-    echo "where X, Y, and Z are integers corresponding to the semantic"
-    echo "version based on the changes above."
-    echo "Or, just press Enter to skip this role and go to the next role."
+    ver_major=$(echo "${latest_tag}" | cut -d'.' -f 1)
+    ver_minor=$(echo "${latest_tag}" | cut -d'.' -f 2)
+    ver_patch=$(echo "${latest_tag}" | cut -d'.' -f 3)
+    commits=$(git log --pretty=format:%s --no-merges "${latest_tag}"..)
+    if echo "$commits" | grep -q '^.*\!:.*'; then
+        ver_major=$((ver_major+=1))
+        ver_minor=0
+        ver_patch=0
+    elif echo "$commits" | grep -q '^feat.*'; then
+        ver_minor=$((ver_minor+=1))
+        ver_patch=0
+    else
+        ver_patch=$((ver_patch+=1))
+    fi
+    new_tag=${allow_v}$ver_major.$ver_minor.$ver_patch
     while true; do
-        read -r -p "Old tag is ${latest_tag:-EMPTY} - new tag? (or Enter to skip) " new_tag
-        if [ -z "$new_tag" ]; then
+        read -r -p "The script calculates the new tag based on the above
+conventional commits.
+The previous tag is $latest_tag.
+The new tag is $new_tag.
+You have three options:
+1. To continue with the sugested new tag $new_tag, enter 'y',
+2. To provide a different tag, enter the new tag in the following format:
+   ${allow_v}X.Y.Z, where X, Y, and Z are integers,
+3. To skip this role and go to the next role just press Enter. " new_tag_in
+        if [ -z "$new_tag_in" ]; then
             break
-        elif [[ "$new_tag" =~ ^"$allow_v"[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+        elif [[ "$new_tag_in" =~ ^"$allow_v"[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+            new_tag=$new_tag_in
+            break
+        elif [ "$new_tag_in" == y ]; then
             break
         else
-            echo ERROR: invalid tag "$new_tag"
+            echo ERROR: invalid input "$new_tag_in"
+            echo You must either input y or provide a new tag.
             echo Tag must be in format "$allow_v"X.Y.Z
             echo ""
         fi
     done
-    if [ -n "${new_tag}" ]; then
+    if [ -n "${new_tag_in}" ]; then
         read -r -p "Edit CHANGELOG.md - press Enter to continue"
         rel_notes_file=".release-notes-${new_tag}"
+        new_features_file=.new_features.md
+        bug_fixes_file=.bug_fixes.md
+        other_changes_file=.other_changes.md
+        for file in $new_features_file $bug_fixes_file $other_changes_file; do
+            if [ -s "$file" ]; then
+                rm "$file"
+            fi
+        done
+        # Need to groupp git log with echo because otherwise while read doesn't
+        # read the last commit because git log doesn't put newline at the end
+        (git log --no-merges --reverse --pretty=format:"%h" "${latest_tag}"..; echo) | while read -r commit; do
+            if [[ $(git log --oneline --no-merges --pretty=format:"%s" -1 "$commit") =~ ^feat.* ]]; then
+                commit_to_file "$commit" "$new_features_file"
+            elif [[ $(git log --oneline --no-merges --pretty=format:"%s" -1 "$commit") =~ ^fix.* ]]; then
+                commit_to_file "$commit" "$bug_fixes_file"
+            else
+                commit_to_file "$commit" "$other_changes_file"
+            fi
+        done
         if [ ! -f "$rel_notes_file" ]; then
             { echo "[$new_tag] - $( date +%Y-%m-%d )"
               echo "--------------------"
-              echo ""
-              echo "REMOVE_ME: Recommend to itemize the change log entries in one of the following sections."
-              echo "REMOVE_ME: If a section has no entries, it should be removed."
-              echo "REMOVE_ME: Use 'Other Changes' for non-feature/non-bug changes such as:"
-              echo "REMOVE_ME: - updates to documentation"
-              echo "REMOVE_ME: - updates to examples"
-              echo "REMOVE_ME: - deprecations (for example related to conscious language)"
-              echo "REMOVE_ME: Do not mention changes that not visible for users such as changes to tests or github actions."
-              echo "REMOVE_ME: If you need to cut a release without any user-visible changes, simply state as only item '- no user-visible changes' instead of adding more details."
-
-              echo "### New Features"
-              echo ""
-              echo "### Bug Fixes"
-              echo ""
-              echo "### Other Changes"; } > "$rel_notes_file"
-            if [ -n "$latest_tag" ]; then
-                git_range="${latest_tag}.."
-            else
-                git_range=HEAD
+              echo ""; } > "$rel_notes_file"
+            if [ -f "$new_features_file" ]; then
+                { echo "### New Features"
+                  echo ""
+                  cat $new_features_file; } >> "$rel_notes_file"
             fi
-            git log --oneline --no-merges --reverse --pretty=format:"- %B" "$git_range" | \
-                tr -d '\r' >> "$rel_notes_file"
+            if [ -f "$bug_fixes_file" ]; then
+                { echo "### Bug Fixes"
+                  echo ""
+                  cat $bug_fixes_file; } >> "$rel_notes_file"
+            fi
+            if [ -f "$other_changes_file" ]; then
+                { echo "### Other Changes"
+                  echo ""
+                  cat $other_changes_file; } >> "$rel_notes_file"
+            fi
         fi
         ${EDITOR:-vi} "$rel_notes_file"
         myheader="Changelog
@@ -199,7 +240,7 @@ if [ "$skip" = false ]; then
         { echo "docs(changelog): version $new_tag [citest skip]"; echo "";
           echo "Create changelog update and release for version $new_tag"; } > .gitcommitmsg
         git commit -s -F .gitcommitmsg
-        rm -f .gitcommitmsg "$rel_notes_file"
+        rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" "$bug_fixes_file" "$other_changes_file"
         if [ -n "${origin_org:-}" ]; then
             git push -u origin "$BRANCH"
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"

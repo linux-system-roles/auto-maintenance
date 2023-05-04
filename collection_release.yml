@@ -73,5 +73,5 @@ journald:
   ref: 1.0.3
   sourcenum: 24
 postgresql:
-  ref: 1.0.2
+  ref: 1.0.3
   sourcenum: 25

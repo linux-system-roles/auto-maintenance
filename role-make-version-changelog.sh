@@ -57,7 +57,7 @@ get_main_branch() {
 
 commit_to_file() {
     git log --oneline --no-merges --reverse --pretty=format:"- %s%n%n%w(80,2,2)%b%n%n" -1 "$1" | \
-        awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2' >> "$2"
+        awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2'
 }
 
 git fetch --all --force
@@ -149,11 +149,11 @@ if [ "$skip" = false ]; then
     else
         ver_patch=$((ver_patch+=1))
     fi
-    new_tag=${allow_v}$ver_major.$ver_minor.$ver_patch
+    new_tag="${allow_v}$ver_major.$ver_minor.$ver_patch"
     while true; do
         read -r -p "The script calculates the new tag based on the above
 conventional commits.
-The previous tag is $latest_tag.
+The previous tag is ${latest_tag:-EMPTY}.
 The new tag is $new_tag.
 You have three options:
 1. To continue with the sugested new tag $new_tag, enter 'y',
@@ -180,20 +180,22 @@ You have three options:
         new_features_file=.new_features.md
         bug_fixes_file=.bug_fixes.md
         other_changes_file=.other_changes.md
-        for file in $new_features_file $bug_fixes_file $other_changes_file; do
+        rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
             if [ -s "$file" ]; then
                 rm "$file"
             fi
         done
         # Need to groupp git log with echo because otherwise while read doesn't
         # read the last commit because git log doesn't put newline at the end
-        (git log --no-merges --reverse --pretty=format:"%h" "${latest_tag}"..; echo) | while read -r commit; do
-            if [[ $(git log --oneline --no-merges --pretty=format:"%s" -1 "$commit") =~ ^feat.* ]]; then
-                commit_to_file "$commit" "$new_features_file"
-            elif [[ $(git log --oneline --no-merges --pretty=format:"%s" -1 "$commit") =~ ^fix.* ]]; then
-                commit_to_file "$commit" "$bug_fixes_file"
+        { git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range"; echo ""; } | while read -r commit subject; do
+            if [[ "$subject" =~ ^feat.* ]]; then
+                commit_to_file "$commit" >> "$new_features_file"
+            elif [[ "$subject" =~ ^fix.* ]]; then
+                commit_to_file "$commit" >> "$bug_fixes_file"
+                have_bug_fixes=1
             else
-                commit_to_file "$commit" "$other_changes_file"
+                commit_to_file "$commit" >> "$other_changes_file"
+                have_other_changes=1
             fi
         done
         if [ ! -f "$rel_notes_file" ]; then
@@ -203,12 +205,14 @@ You have three options:
             if [ -f "$new_features_file" ]; then
                 { echo "### New Features"
                   echo ""
-                  cat $new_features_file; } >> "$rel_notes_file"
+                  cat $new_features_file
+                  if [ "${have_bug_fixes:-0}" = 1 ] || [ "${have_other_changes:-0}" = 1 ]; then echo ""; fi; } >> "$rel_notes_file"
             fi
             if [ -f "$bug_fixes_file" ]; then
                 { echo "### Bug Fixes"
                   echo ""
-                  cat $bug_fixes_file; } >> "$rel_notes_file"
+                  cat $bug_fixes_file
+                  if [ "${have_other_changes:-0}" = 1 ]; then echo ""; fi; } >> "$rel_notes_file"
             fi
             if [ -f "$other_changes_file" ]; then
                 { echo "### Other Changes"

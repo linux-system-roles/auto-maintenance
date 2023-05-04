@@ -55,7 +55,7 @@ get_main_branch() {
     return 1
 }
 
-commit_to_file() {
+format_commit() {
     git log --oneline --no-merges --reverse --pretty=format:"- %s%n%n%w(80,2,2)%b%n%n" -1 "$1" | \
         awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2'
 }
@@ -135,14 +135,36 @@ else
     fi
 fi
 if [ "$skip" = false ]; then
-    ver_major=$(echo "${latest_tag}" | cut -d'.' -f 1)
-    ver_minor=$(echo "${latest_tag}" | cut -d'.' -f 2)
-    ver_patch=$(echo "${latest_tag}" | cut -d'.' -f 3)
-    commits=$(git log --pretty=format:%s --no-merges "${latest_tag}"..)
-    if echo "$commits" | grep -q '^.*\!:.*'; then
-        ver_major=$((ver_major+=1))
+    if [[ "$latest_tag" =~ ^"$allow_v"([0-9]+)[.]([0-9]+)[.]([0-9]+)$ ]]; then
+        ver_major="${BASH_REMATCH[1]}"
+        ver_minor="${BASH_REMATCH[2]}"
+        ver_patch="${BASH_REMATCH[3]}"
+    elif [ -z "$latest_tag" ]; then
+        ver_major=0
         ver_minor=0
         ver_patch=0
+    else
+        echo ERROR: unexpected tag "$latest_tag"
+        exit 1
+    fi
+    if [ -z "$latest_tag" ]; then
+        commit_range=HEAD
+    else
+        commit_range="${latest_tag}.."
+    fi
+    commits=$(git log --pretty=format:%s --no-merges "$commit_range")
+    if echo "$commits" | grep -q '^.*\!:.*'; then
+        # Don't bump ver_major for prerelease versions (when ver_major=0)
+        if [[ "$ver_major" != 0 ]]; then
+            ver_major=$((ver_major+=1))
+            ver_minor=0
+            ver_patch=0
+        else
+            ver_major=0
+            ver_minor=$((ver_minor+=1))
+            ver_patch=0
+        fi
+
     elif echo "$commits" | grep -q '^feat.*'; then
         ver_minor=$((ver_minor+=1))
         ver_patch=0
@@ -181,43 +203,47 @@ You have three options:
         bug_fixes_file=.bug_fixes.md
         other_changes_file=.other_changes.md
         rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
-            if [ -s "$file" ]; then
-                rm "$file"
-            fi
-        done
-        # Need to groupp git log with echo because otherwise while read doesn't
-        # read the last commit because git log doesn't put newline at the end
+        # Echoing an empty line after git log because git log doesn't put
+        # newline at the end, otherwise while read doesn't read the last commit
         { git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range"; echo ""; } | while read -r commit subject; do
             if [[ "$subject" =~ ^feat.* ]]; then
-                commit_to_file "$commit" >> "$new_features_file"
+                format_commit "$commit" >> "$new_features_file"
             elif [[ "$subject" =~ ^fix.* ]]; then
-                commit_to_file "$commit" >> "$bug_fixes_file"
+                format_commit "$commit" >> "$bug_fixes_file"
                 have_bug_fixes=1
             else
-                commit_to_file "$commit" >> "$other_changes_file"
+                format_commit "$commit" >> "$other_changes_file"
                 have_other_changes=1
             fi
         done
         if [ ! -f "$rel_notes_file" ]; then
-            { echo "[$new_tag] - $( date +%Y-%m-%d )"
-              echo "--------------------"
-              echo ""; } > "$rel_notes_file"
+            {   echo "[$new_tag] - $( date +%Y-%m-%d )"
+                echo "--------------------"
+                echo ""
+            } > "$rel_notes_file"
             if [ -f "$new_features_file" ]; then
-                { echo "### New Features"
-                  echo ""
-                  cat $new_features_file
-                  if [ "${have_bug_fixes:-0}" = 1 ] || [ "${have_other_changes:-0}" = 1 ]; then echo ""; fi; } >> "$rel_notes_file"
+                {   echo "### New Features"
+                    echo ""
+                    cat $new_features_file
+                    if [ "${have_bug_fixes:-0}" = 1 ] || [ "${have_other_changes:-0}" = 1 ]; then
+                        echo ""
+                    fi
+                } >> "$rel_notes_file"
             fi
             if [ -f "$bug_fixes_file" ]; then
-                { echo "### Bug Fixes"
-                  echo ""
-                  cat $bug_fixes_file
-                  if [ "${have_other_changes:-0}" = 1 ]; then echo ""; fi; } >> "$rel_notes_file"
+                {   echo "### Bug Fixes"
+                    echo ""
+                    cat $bug_fixes_file
+                    if [ "${have_other_changes:-0}" = 1 ]; then
+                    echo ""
+                    fi
+                } >> "$rel_notes_file"
             fi
             if [ -f "$other_changes_file" ]; then
-                { echo "### Other Changes"
-                  echo ""
-                  cat $other_changes_file; } >> "$rel_notes_file"
+                {   echo "### Other Changes"
+                    echo ""
+                    cat $other_changes_file
+                } >> "$rel_notes_file"
             fi
         fi
         ${EDITOR:-vi} "$rel_notes_file"

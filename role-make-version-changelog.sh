@@ -55,8 +55,10 @@ get_main_branch() {
     return 1
 }
 
+# Format commit as a gfm markdown bullet point
+# Keep a single new line at the end
 format_commit() {
-    git log --oneline --no-merges --reverse --pretty=format:"- %s%n%n%w(80,2,2)%b%n%n" -1 "$1" | \
+    git log --oneline --no-merges --reverse --pretty=format:"- %s%n%n%w(0,2,2)%b%n" -1 "$1" | \
         awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2'
 }
 
@@ -210,10 +212,8 @@ You have three options:
                 format_commit "$commit" >> "$new_features_file"
             elif [[ "$subject" =~ ^fix.* ]]; then
                 format_commit "$commit" >> "$bug_fixes_file"
-                have_bug_fixes=1
             else
                 format_commit "$commit" >> "$other_changes_file"
-                have_other_changes=1
             fi
         done < <(git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range"; echo "")
         if [ ! -f "$rel_notes_file" ]; then
@@ -225,18 +225,12 @@ You have three options:
                 {   echo "### New Features"
                     echo ""
                     cat $new_features_file
-                    if [ "${have_bug_fixes:-0}" = 1 ] || [ "${have_other_changes:-0}" = 1 ]; then
-                        echo ""
-                    fi
                 } >> "$rel_notes_file"
             fi
             if [ -f "$bug_fixes_file" ]; then
                 {   echo "### Bug Fixes"
                     echo ""
                     cat $bug_fixes_file
-                    if [ "${have_other_changes:-0}" = 1 ]; then
-                    echo ""
-                    fi
                 } >> "$rel_notes_file"
             fi
             if [ -f "$other_changes_file" ]; then

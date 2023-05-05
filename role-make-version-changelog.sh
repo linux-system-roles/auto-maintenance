@@ -205,7 +205,7 @@ You have three options:
         rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
         # Echoing an empty line after git log because git log doesn't put
         # newline at the end, otherwise while read doesn't read the last commit
-        { git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range"; echo ""; } | while read -r commit subject; do
+        while read -r commit subject; do
             if [[ "$subject" =~ ^feat.* ]]; then
                 format_commit "$commit" >> "$new_features_file"
             elif [[ "$subject" =~ ^fix.* ]]; then
@@ -215,7 +215,7 @@ You have three options:
                 format_commit "$commit" >> "$other_changes_file"
                 have_other_changes=1
             fi
-        done
+        done < <(git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range"; echo "")
         if [ ! -f "$rel_notes_file" ]; then
             {   echo "[$new_tag] - $( date +%Y-%m-%d )"
                 echo "--------------------"
@@ -270,7 +270,8 @@ You have three options:
         { echo "docs(changelog): version $new_tag [citest skip]"; echo "";
           echo "Create changelog update and release for version $new_tag"; } > .gitcommitmsg
         git commit -s -F .gitcommitmsg
-        rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" "$bug_fixes_file" "$other_changes_file"
+        rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" \
+            "$bug_fixes_file" "$other_changes_file"
         if [ -n "${origin_org:-}" ]; then
             git push -u origin "$BRANCH"
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"

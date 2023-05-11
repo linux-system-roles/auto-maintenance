@@ -422,7 +422,7 @@ def create_collection_extra_files(args, coll_dir, galaxy=None):
     if not args.rpm:
         if galaxy:
             with open(os.path.join(coll_dir, "galaxy.yml"), "w") as galaxy_fd:
-                yaml.safe_dump(galaxy, galaxy_fd)
+                yaml.safe_dump(galaxy, galaxy_fd, explicit_start=True)
         else:
             shutil.copy(args.galaxy_yml.name, coll_dir)
         shutil.copy(args.collection_release_yml.name, coll_dir)

@@ -530,8 +530,9 @@ class LSRFileTransformer(LSRFileTransformerBase):
             logging.debug(f"\ttask role module {role_module_name}")
             # assumes task is an orderreddict
             idx = tuple(task).index(role_module_name)
-            val = task.pop(role_module_name)
+            val = task[role_module_name]
             task.insert(idx, self.prefix + role_module_name, val)
+            del task[role_module_name]
 
     def other_cb(self, item):
         """do something with the other non-task information in an item

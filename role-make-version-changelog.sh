@@ -202,8 +202,9 @@ You have three options:
         bug_fixes_file=.bug_fixes.md
         other_changes_file=.other_changes.md
         rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
-        # Echoing an empty line after git log because git log doesn't put
-        # newline at the end, otherwise while read doesn't read the last commit
+        reverse_commits=$(git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range")
+        # printf an empty line after git log because git log doesn't put it,
+        # otherwise while read doesn't read the last line
         while read -r commit subject; do
             if [[ "$subject" =~ ^feat.* ]]; then
                 format_commit "$commit" >> "$new_features_file"
@@ -212,7 +213,7 @@ You have three options:
             else
                 format_commit "$commit" >> "$other_changes_file"
             fi
-        done < <(git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range"; echo "")
+        done < <(printf '%s\n' "$reverse_commits")
         if [ ! -f "$rel_notes_file" ]; then
             {   echo "[$new_tag] - $( date +%Y-%m-%d )"
                 echo "--------------------"

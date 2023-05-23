@@ -141,18 +141,15 @@ if [ "$skip" = false ]; then
         ver_major="${BASH_REMATCH[1]}"
         ver_minor="${BASH_REMATCH[2]}"
         ver_patch="${BASH_REMATCH[3]}"
+        commit_range="${latest_tag}.."
     elif [ -z "$latest_tag" ]; then
         ver_major=0
         ver_minor=0
         ver_patch=0
+        commit_range=HEAD
     else
         echo ERROR: unexpected tag "$latest_tag"
         exit 1
-    fi
-    if [ -z "$latest_tag" ]; then
-        commit_range=HEAD
-    else
-        commit_range="${latest_tag}.."
     fi
     commits=$(git log --pretty=format:%s --no-merges "$commit_range")
     if echo "$commits" | grep -q '^.*\!:.*'; then

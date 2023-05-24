@@ -23,7 +23,7 @@ view_diffs() {
     action=""
     while [ "$action" != "q" ]; do
         action=""
-        for hsh in $(git log --pretty=format:%h --no-merges --reverse "${tag}.."); do
+        for hsh in $(git log --pretty=tformat:%h --no-merges --reverse "${tag}.."); do
             git show --stat "$hsh"
             read -r -p 'View full diff (y)? Start over (s)? Quit viewing diffs (q)? Next commit (n)? (default: n) ' action
             if [ "$action" = y ]; then
@@ -151,8 +151,9 @@ if [ "$skip" = false ]; then
         echo ERROR: unexpected tag "$latest_tag"
         exit 1
     fi
-    commits=$(git log --pretty=format:%s --no-merges "$commit_range")
-    if echo "$commits" | grep -q '^.*\!:.*'; then
+    rev_commits_file=.rev_commits
+    git log --no-merges --reverse --pretty=tformat:"%h %s" "$commit_range" > $rev_commits_file
+    if grep -q '^.*\!:.*' $rev_commits_file; then
         # Don't bump ver_major for prerelease versions (when ver_major=0)
         if [[ "$ver_major" != 0 ]]; then
             ver_major=$((ver_major+=1))
@@ -163,8 +164,7 @@ if [ "$skip" = false ]; then
             ver_minor=$((ver_minor+=1))
             ver_patch=0
         fi
-
-    elif echo "$commits" | grep -q '^feat.*'; then
+    elif grep -q '^feat.*' $rev_commits_file; then
         ver_minor=$((ver_minor+=1))
         ver_patch=0
     else
@@ -202,9 +202,6 @@ You have three options:
         bug_fixes_file=.bug_fixes.md
         other_changes_file=.other_changes.md
         rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
-        reverse_commits=$(git log --no-merges --reverse --pretty=format:"%h %s" "$commit_range")
-        # printf an empty line after git log because git log doesn't put it,
-        # otherwise while read doesn't read the last line
         while read -r commit subject; do
             if [[ "$subject" =~ ^feat.* ]]; then
                 format_commit "$commit" >> "$new_features_file"
@@ -213,7 +210,7 @@ You have three options:
             else
                 format_commit "$commit" >> "$other_changes_file"
             fi
-        done < <(printf '%s\n' "$reverse_commits")
+        done < $rev_commits_file
         if [ ! -f "$rel_notes_file" ]; then
             {   echo "[$new_tag] - $( date +%Y-%m-%d )"
                 echo "--------------------"
@@ -263,7 +260,7 @@ You have three options:
           echo "Create changelog update and release for version $new_tag"; } > .gitcommitmsg
         git commit -s -F .gitcommitmsg
         rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" \
-            "$bug_fixes_file" "$other_changes_file"
+            "$bug_fixes_file" "$other_changes_file" "$rev_commits_file"
         if [ -n "${origin_org:-}" ]; then
             git push -u origin "$BRANCH"
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"

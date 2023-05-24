@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.38.2] - 2023-05-24
+---------------------
+
+### Bug Fixes
+
+- rhc - fix: fix filename with insights-client tags
+- tlog - fix: Switch SSSD files provider to Proxy Provider
+
 [1.38.1] - 2023-05-04
 ---------------------
 

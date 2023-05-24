@@ -62,6 +62,24 @@ format_commit() {
         awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2'
 }
 
+if ! type -p npm > /dev/null 2>&1; then
+    echo npm command not found
+    echo On Fedora, try 'sudo dnf install npm -y'
+    exit 1
+fi
+
+if ! npm list @commitlint/cli --global > /dev/null 2>&1; then
+    echo npm package @commitlint/cli not found
+    echo On Fedora, try 'sudo npm install --global @commitlint/cli'
+    exit 1
+fi
+
+# config-conventional must be installed in the current dir due to
+# https://github.com/conventional-changelog/commitlint/issues/613
+if ! npm list @commitlint/config-conventional > /dev/null 2>&1; then
+    npm install @commitlint/config-conventional
+fi
+
 git fetch --all --force
 # get the main branch
 mainbr=$(get_main_branch)
@@ -137,6 +155,23 @@ else
     fi
 fi
 if [ "$skip" = false ]; then
+    echo ""
+    echo Verifying if all commits comply with the conventional commits format
+    if ! commitlint_run=$(npx commitlint --from "$latest_tag" --to HEAD); then
+        echo ""
+        echo "$commitlint_run"
+        echo ""
+        echo Commits validation for conventional commits format failed
+        echo You must checkout the main branch and run interactive rebase:
+        echo $ git checkout main
+        echo $ git rebase -i "$latest_tag"
+        echo Reword the commits that did not pass by marking them with "r"
+        echo Then perform a force push
+        exit 1
+    else
+        echo Success
+        echo ""
+    fi
     if [[ "$latest_tag" =~ ^"$allow_v"([0-9]+)[.]([0-9]+)[.]([0-9]+)$ ]]; then
         ver_major="${BASH_REMATCH[1]}"
         ver_minor="${BASH_REMATCH[2]}"

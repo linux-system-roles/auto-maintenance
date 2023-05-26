@@ -216,8 +216,8 @@ conventional commits.
 The previous tag is ${latest_tag:-EMPTY}.
 The new tag is $new_tag.
 You have three options:
-1. To continue with the sugested new tag $new_tag, enter 'y',
-2. To provide a different tag, enter the new tag in the following format:
+1. To continue with the suggested new tag $new_tag and edit CHANGELOG.md, enter 'y',
+2. To provide a different tag, and edit CHANGELOG.md enter the new tag in the following format:
    ${allow_v}X.Y.Z, where X, Y, and Z are integers,
 3. To skip this role and go to the next role just press Enter. " new_tag_in
         if [ -z "$new_tag_in" ]; then
@@ -235,7 +235,6 @@ You have three options:
         fi
     done
     if [ -n "${new_tag_in}" ]; then
-        read -r -p "Edit CHANGELOG.md - press Enter to continue"
         rel_notes_file=".release-notes-${new_tag}"
         new_features_file=.new_features.md
         bug_fixes_file=.bug_fixes.md

@@ -68,17 +68,19 @@ if ! type -p npm > /dev/null 2>&1; then
     exit 1
 fi
 
-if ! npm list @commitlint/cli --global > /dev/null 2>&1; then
-    echo npm package @commitlint/cli not found
-    echo On Fedora, try 'sudo npm install --global @commitlint/cli'
-    exit 1
-fi
+export npm_config_prefix="$HOME/.local"
+export npm_config_global=True
 
-# config-conventional must be installed in the current dir due to
+if ! npm list @commitlint/cli > /dev/null 2>&1; then
+    npm install @commitlint/cli
+fi
+# There is a bug with config-conventional
 # https://github.com/conventional-changelog/commitlint/issues/613
+# workaround by setting NODE_PATH below
 if ! npm list @commitlint/config-conventional > /dev/null 2>&1; then
     npm install @commitlint/config-conventional
 fi
+export NODE_PATH="$npm_config_prefix/lib/node_modules/@commitlint/config-conventional/node_modules"
 
 git fetch --all --force
 # get the main branch

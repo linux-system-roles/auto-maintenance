@@ -159,7 +159,9 @@ fi
 if [ "$skip" = false ]; then
     echo ""
     echo Verifying if all commits comply with the conventional commits format
-    if ! commitlint_run=$(npx commitlint --from "$latest_tag" --to HEAD); then
+    if [ -n "$latest_tag" ] && \
+        ! commitlint_run=$(npx commitlint --from "$latest_tag" --to HEAD) && \
+        [ "${ALLOW_BAD_COMMITS:-false}" = false ]; then
         echo ""
         echo "$commitlint_run"
         echo ""

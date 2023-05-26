@@ -203,7 +203,7 @@ if [ "$skip" = false ]; then
             ver_minor=$((ver_minor+=1))
             ver_patch=0
         fi
-    elif grep -q '^feat.*' $rev_commits_file; then
+    elif grep -q '^[a-z0-9][a-z0-9]* feat.*' $rev_commits_file; then
         ver_minor=$((ver_minor+=1))
         ver_patch=0
     else

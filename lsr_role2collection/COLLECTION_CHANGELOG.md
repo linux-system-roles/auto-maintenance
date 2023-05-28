@@ -1,6 +1,21 @@
 Changelog
 =========
 
+[1.39.0] - 2023-05-28
+---------------------
+
+### New Features
+
+- kdump - feat: Add support for auto_reset_crashkernel and dracut_args
+- selinux - feat: Use `restorecon -T 0` on Fedora and RHEL > 8
+
+### Bug Fixes
+
+- kdump - fix: do not use /etc/sysconfig/kdump
+- kdump - fix: use grubby to update crashkernel=auto if needed
+- metrics - fix: make role work on ansible-core 2.15
+- podman - fix: make role work on ansible-core 2.15
+
 [1.38.3] - 2023-05-27
 ---------------------
 

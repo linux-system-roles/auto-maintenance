@@ -5,12 +5,18 @@
 
 set -euo pipefail
 
-AUTOSKIP=${AUTOSKIP:-true}
+AUTOSKIP="${AUTOSKIP:-true}"
 # Find the last tag in each role
 # Look at the git commits since that tag
 # Look at the actual changes since that tag
 # Figure out what to use for the new tag
 # Figure out what to put in the release notes for the release
+
+# By default, if there are commits that do not follow the conventional
+# commits format, the script will exit with an error.  You can set
+# ALLOW_BAD_COMMITS=true to continue to edit the CHANGELOG to deal with
+# the bad commits.
+ALLOW_BAD_COMMITS="${ALLOW_BAD_COMMITS:-false}"
 
 repo=${repo:-$(git remote get-url origin | awk -F'/' '{print $NF}')}
 

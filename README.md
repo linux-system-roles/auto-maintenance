@@ -620,37 +620,50 @@ Usage: ./check_rpmspec_collection.sh [ -h | --help ] | [ fedpkg | rhpkg [ branch
 This script is used to create a new version, tag, and release for a role.  It
 will guide you through the process.  It will show you the changes in the role
 since the last tag, and ask you what will be the new semantic version to use for
-the tag.  It will then put the changes in a file to use for the update to the
-CHANGELOG.md file for the new version, and put you in your editor to edit the
-file.  If you are using this in conjunction with `manage-role-repos.sh`, it
-will push the changes to your repo and create a pull request for CHANGELOG.md.
-Once the CHANGELOG.md PR is merged, there is github action automation to tag the
-repo with the version, create a github release, and import the new version into
-Ansible Galaxy.  You must provide a branch for the PR, or if you are not using
-the script with `manage-role-repos.sh`, you can create a branch in your local
-clone directory.
+the tag.  If the commits are in Conventional Commits format, it will
+automatically determine the new semantic version of the role and prompt you to
+use it, or provide your own version.  It will then put the changes in a file to
+use for the update to the CHANGELOG.md file for the new version, and put you in
+your editor to edit the file.  If you are using this in conjunction with
+`manage-role-repos.sh`, it will push the changes to your repo and create a pull
+request for CHANGELOG.md. Once the CHANGELOG.md PR is merged, there is github
+action automation to tag the repo with the version, create a github release, and
+import the new version into Ansible Galaxy.  You must provide a branch for the
+PR, or if you are not using the script with `manage-role-repos.sh`, you can
+create a branch in your local clone directory.
 ```
 BRANCH=my_branch_name LSR_BASE_DIR=~/working-lsr ./manage-role-repos.sh `pwd`/role-make-version-changelog.sh
 ```
+If the role has commits that do not follow the Conventional Commits, format, but
+you still want to create a new release, use `ALLOW_BAD_COMMITS=true`, and then
+you may need to provide your own new version if the script was unable to
+determine the new version from the bad commits.
+If the role has no changes since the last tag, the script will skip processing
+the role.  If you do not want to do this, use `AUTOSKIP=false`, and you will be
+prompted for a new version/tag.
+
 NOTE: You must install and configure `gh` in order to create the pull request.
 If you want to have more control over the commit, commit msg, and PR, then you
 can clone the repo manually, create the branch, and run
 `role-make-version-changelog.sh` in the local repo clone directory.  This will
 not push or create a PR.
 
-This script is highly interactive.  Since we are using semantic versioning,
-there must be some sort of human interaction to decide which X, Y, or Z version
-number to update.  The script will show you the commits since the last tag, and
-will optionally show you the detailed changes.  It will then prompt for the new
-tag.  If you hit Enter/Return here, it will skip tagging, so hit Enter/Return if
-you do not want to make a new tag/release.  If you do want to make a new
-release, enter a tag/version in the form of `X.Y.Z`, based on the semantic
-changes to the role.  You will then be prompted to edit CHANGELOG.md for the
-release.  The body will be filled in by the commit messages from the commits
-since the last tag - you will need to edit these. When you are done, it will
-make a commit in your local repo.  If you are using it with
-`manage-role-repos.sh`, and `gh` is installed and configured, it will push the
-changes to your repo and create the PR.
+This script is highly interactive.  Since we are using semantic versioning, we
+use Conventional Commits format to determine the semantic changes from the
+commits in the log.  The script will use this to determine the new version
+number, and prompt you to use this version, or you can provide your own version.
+The script will show you the commits since the last tag, and will optionally
+show you the detailed changes.  It will then prompt for the new version which
+will also be used as the git tag.  If you enter 'y' here, it will use the new
+version automatically determined from the Conventional Commits.  You can also
+provide your own version here, or hit Enter/Return to skip and go to the next
+role.  If you do want to provide your own version, enter a tag/version in the
+form of `X.Y.Z`, based on the semantic changes to the role.  You will then be
+prompted to edit CHANGELOG.md for the release.  The body will be filled in by
+the commit messages from the commits since the last tag - you will need to edit
+these. When you are done, it will make a commit in your local repo.  If you are
+using it with `manage-role-repos.sh`, and `gh` is installed and configured, it
+will push the changes to your repo and create the PR.
 
 Use this script, and ensure the CHANGELOG.md PR is merged, and the repo is
 tagged and released, before you run

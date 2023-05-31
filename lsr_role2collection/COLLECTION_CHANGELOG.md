@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.40.0] - 2023-05-31
+---------------------
+
+### New Features
+
+- network - feat: Support ipv4_ignore_auto_dns and ipv6_ignore_auto_dns settings
+- storage - feat: User-specified mount point owner and permissions
+
+### Bug Fixes
+
+- nbde_server - fix: README.md headers should not be more than 72 characters
+- storage - fix: Allow using raid_chunk_size for RAID pools and volumes
+
 [1.39.0] - 2023-05-28
 ---------------------
 

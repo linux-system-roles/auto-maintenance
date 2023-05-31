@@ -11,10 +11,10 @@ kdump:
   ref: 1.3.0
   sourcenum: 4
 network:
-  ref: 1.11.4
+  ref: 1.12.0
   sourcenum: 5
 storage:
-  ref: 1.9.8
+  ref: 1.10.0
   sourcenum: 6
 metrics:
   ref: 1.8.5
@@ -29,7 +29,7 @@ logging:
   ref: 1.11.8
   sourcenum: 10
 nbde_server:
-  ref: 1.3.6
+  ref: 1.3.7
   sourcenum: 11
 nbde_client:
   ref: 1.2.13

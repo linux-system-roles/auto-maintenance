@@ -7,43 +7,22 @@ set -euo pipefail
 
 AUTOSKIP="${AUTOSKIP:-true}"
 # Find the last tag in each role
-# Look at the git commits since that tag
-# Look at the actual changes since that tag
-# Figure out what to use for the new tag
-# Figure out what to put in the release notes for the release
+# Look at the merged PRs since that tag
+# Automatically figure out what version to use for the new tag
+# Automatically figure out what to put in the release notes for the release
 
-# By default, if there are commits that do not follow the conventional
+# By default, if there are PR titles that do not follow the conventional
 # commits format, the script will exit with an error.  You can set
-# ALLOW_BAD_COMMITS=true to continue to edit the CHANGELOG to deal with
-# the bad commits.
-ALLOW_BAD_COMMITS="${ALLOW_BAD_COMMITS:-false}"
+# ALLOW_BAD_PRS=true to continue to edit the CHANGELOG to deal with
+# the bad PR titles.
+ALLOW_BAD_PRS="${ALLOW_BAD_PRS:-false}"
 
-repo=${repo:-$(git remote get-url origin | awk -F'/' '{print $NF}')}
+repo_entries="$(gh repo view --json name,owner)"
+repo=${repo:-$(echo "$repo_entries" | jq -r .name)}
+owner=${owner:-$(echo "$repo_entries" | jq -r .owner.login)}
 
 # To be used in conjunction with local-repo-dev-sync.sh
 # This script is called from every role
-
-view_diffs() {
-    local tag="$1"
-    local action
-    action=""
-    while [ "$action" != "q" ]; do
-        action=""
-        for hsh in $(git log --pretty=tformat:%h --no-merges --reverse "${tag}.."); do
-            git show --stat "$hsh"
-            read -r -p 'View full diff (y)? Start over (s)? Quit viewing diffs (q)? Next commit (n)? (default: n) ' action
-            if [ "$action" = y ]; then
-                git show "$hsh"
-            elif [ "$action" = s ] || [ "$action" = q ]; then
-                break
-            fi
-            action=""
-        done
-        if [ -z "${action}" ]; then
-            break
-        fi
-    done
-}
 
 get_main_branch() {
     local br
@@ -59,13 +38,6 @@ get_main_branch() {
     fi
     echo UNKNOWN
     return 1
-}
-
-# Format commit as a gfm markdown bullet point
-# Keep a single new line at the end
-format_commit() {
-    git log --oneline --no-merges --reverse --pretty=format:"- %s%n%n%w(0,2,2)%b%n" -1 "$1" | \
-        awk 'NF > 0 {blank=0} NF == 0 {blank++} blank < 2'
 }
 
 if ! type -p npm > /dev/null 2>&1; then
@@ -114,91 +86,124 @@ else
 fi
 echo Using branch "$BRANCH" for the changelog commit/PR
 
-# get latest tag
-latest_tag=$(git describe --tags --abbrev=0 2> /dev/null || :)
-# special case for network and sshd
-allow_v=""
-case "$latest_tag" in
-v*)
-    if [ "$repo" = ansible-sshd ] || [ "$repo" = sshd ]; then
-        # sshd uses a leading v
-        allow_v=v
-    else
-        # network had a case where there where two tags for the
-        # latest - one with leading v and one without - git describe
-        # would return the one with the leading v - so had to strip
-        # it off
-        latest_tag="${latest_tag//v}"
-    fi
-    ;;
-esac
+# get latest release
+releases_latest=$(gh api repos/"$owner"/"$repo"/releases/latest -q '.tag_name,.published_at' 2> /dev/null || :)
 skip=false
-if [ -z "$latest_tag" ]; then
+pr_titles_file=".pr_titles.txt"
+prs_file=".prs.json"
+commitlint_errors_file=".commitlint_errors.txt"
+if [[ "$releases_latest" == *"Not Found"* ]]; then
     # repo and LSR_GH_ORG are referenced but not assigned.
     # shellcheck disable=SC2154
     echo Repo for "${LSR_GH_ORG:-linux-system-roles}" "$repo" has no tags - create one below or skip
+    latest_tag=""
+    tag_range=""
 else
-    # get the number of commits since latest tag
-    count=$(git log --oneline --no-merges --reverse "${latest_tag}".. | wc -l)
-    if [ "${count:-0}" = 0 ]; then
-        echo There are no commits since latest tag "$latest_tag"
-        echo ""
-        if [ "$AUTOSKIP" = true ]; then
-            echo Autoskip enabled - skipping tag/release for role "$repo"
-            skip=true
+    latest_tag="$(echo "$releases_latest" | sed -n 1p)"
+    tag_range="closed:>$(echo "$releases_latest" | sed -n 2p)"
+fi
+# Note that first: 100 is a maximum, it would work only if there are <100 PRs since last tag
+prs_query="$(cat <<EOF
+query {
+  search(query: "repo:$owner/$repo is:pr is:merged $tag_range", type: ISSUE, first: 100) {
+    issueCount
+    edges {
+      node {
+        ... on PullRequest {
+          number
+          title
+          body
+          mergedAt
+        }
+      }
+    }
+  }
+}
+EOF
+)"
+gh api graphql -f query="$prs_query" -q '.data.search' > $prs_file
+count=$(jq '.issueCount' "$prs_file")
+if [ "${count:-0}" = 0 ]; then
+    echo There are no merged PRs since latest tag "$latest_tag"
+    echo ""
+    if [ "$AUTOSKIP" = true ]; then
+        echo Autoskip enabled - skipping tag/release for role "$repo"
+        skip=true
+    fi
+else
+    echo Pull requests since latest tag "$latest_tag":
+    echo ""
+    : > $pr_titles_file
+    pr_descriptions=()
+    # loop through pr_list in reverse to populate changelog in chronological order
+    for ((i="$count"-1; i>=0; i--)); do
+        pr_entry="$(jq '.edges['$i'].node' $prs_file)"
+        pr_title="$(echo "$pr_entry" | jq -r '.title')"
+        pr_num="$(echo "$pr_entry" | jq -r '.number')"
+        pr_body="$(echo "$pr_entry" | jq -r '.body')"
+        echo "$pr_title" >> "$pr_titles_file"
+        if [ -n "$pr_body" ]; then
+            # Indent pr_body 2 spaces to act as a bullet content for pr_title
+            pr_body_ind="$(echo "$pr_body"  | awk '{ print "  " $0 }')"
+            printf -v pr_description -- "- %s (#%s)\n\n%s\n" "$pr_title" "$pr_num" "$pr_body_ind"
+        else
+            printf -v pr_description -- "- %s (#%s)\n" "$pr_title" "$pr_num"
         fi
-    else
-        echo Commits since latest tag "$latest_tag"
-        echo ""
-        # get the commits since the tag
-        git log --oneline --no-merges --reverse "${latest_tag}"..
-        echo ""
-        # see the changes?
-        read -r -p 'View changes (n/y/s)? (default: n) ' view_changes
-        if [ "${view_changes:-n}" = y ]; then
-            view_diffs "${latest_tag}"
-        elif [ "${view_changes:-n}" = s ]; then
-            skip=true
-        fi
+        pr_descriptions+=("$pr_description")
+    done
+    cat $pr_titles_file
+    echo ""
+    # see the changes?
+    read -r -p 'Skip this role? (y/n)? (default: n) ' skip_role
+    if [ "${skip_role:-n}" = y ]; then
+        skip=true
     fi
 fi
 if [ "$skip" = false ]; then
-    echo ""
-    echo Verifying if all commits comply with the conventional commits format
-    if [ -n "$latest_tag" ] && \
-        ! commitlint_run=$(npx commitlint --from "$latest_tag" --to HEAD) && \
-        [ "${ALLOW_BAD_COMMITS:-false}" = false ]; then
+    if [ -s "$pr_titles_file" ] && [ "${ALLOW_BAD_PRS}" = false ]; then
         echo ""
-        echo "$commitlint_run"
-        echo ""
-        echo Commits validation for conventional commits format failed
-        echo You must checkout the main branch and run interactive rebase:
-        echo $ git checkout main
-        echo $ git rebase -i "$latest_tag"
-        echo Reword the commits that did not pass by marking them with "r"
-        echo Then perform a force push
-        exit 1
-    else
-        echo Success
-        echo ""
+        echo Verifying if all PR titles comply with the conventional commits format
+        : > $commitlint_errors_file
+        while read -r pr_title; do
+            echo "$pr_title" | npx commitlint >> $commitlint_errors_file || :
+        done < $pr_titles_file
+        if [ -s "$commitlint_errors_file" ]; then
+            echo ERROR: the following PR titles failed commitlint the check:
+            cat "$commitlint_errors_file"
+            exit 1
+        else
+            echo Success
+        fi
     fi
+    # special case for network and sshd
+    allow_v=""
+    case "$latest_tag" in
+    v*)
+        if [ "$repo" = ansible-sshd ] || [ "$repo" = sshd ]; then
+            # sshd uses a leading v
+            allow_v=v
+        else
+            # network had a case where there where two tags for the
+            # latest - one with leading v and one without - git describe
+            # would return the one with the leading v - so had to strip
+            # it off
+            latest_tag="${latest_tag//v}"
+        fi
+        ;;
+    esac
     if [[ "$latest_tag" =~ ^"$allow_v"([0-9]+)[.]([0-9]+)[.]([0-9]+)$ ]]; then
         ver_major="${BASH_REMATCH[1]}"
         ver_minor="${BASH_REMATCH[2]}"
         ver_patch="${BASH_REMATCH[3]}"
-        commit_range="${latest_tag}.."
     elif [ -z "$latest_tag" ]; then
         ver_major=0
         ver_minor=0
         ver_patch=0
-        commit_range=HEAD
     else
         echo ERROR: unexpected tag "$latest_tag"
         exit 1
     fi
-    rev_commits_file=.rev_commits
-    git log --no-merges --reverse --pretty=tformat:"%h %s" "$commit_range" > $rev_commits_file
-    if grep -q '^.*\!:.*' $rev_commits_file; then
+    if grep -q '^.*\!:.*' $pr_titles_file; then
         # Don't bump ver_major for prerelease versions (when ver_major=0)
         if [[ "$ver_major" != 0 ]]; then
             ver_major=$((ver_major+=1))
@@ -209,7 +214,7 @@ if [ "$skip" = false ]; then
             ver_minor=$((ver_minor+=1))
             ver_patch=0
         fi
-    elif grep -q '^[a-z0-9][a-z0-9]* feat.*' $rev_commits_file; then
+    elif grep -q '^feat.*' $pr_titles_file; then
         ver_minor=$((ver_minor+=1))
         ver_patch=0
     else
@@ -217,8 +222,7 @@ if [ "$skip" = false ]; then
     fi
     new_tag="${allow_v}$ver_major.$ver_minor.$ver_patch"
     while true; do
-        read -r -p "The script calculates the new tag based on the above
-conventional commits.
+        read -r -p "The script calculates the new tag based on PR titles types.
 The previous tag is ${latest_tag:-EMPTY}.
 The new tag is $new_tag.
 You have three options:
@@ -241,20 +245,20 @@ You have three options:
         fi
     done
     if [ -n "${new_tag_in}" ]; then
-        rel_notes_file=".release-notes-${new_tag}"
+        rel_notes_file=".release-notes-${new_tag}.md"
         new_features_file=.new_features.md
         bug_fixes_file=.bug_fixes.md
         other_changes_file=.other_changes.md
         rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
-        while read -r commit subject; do
-            if [[ "$subject" =~ ^feat.* ]]; then
-                format_commit "$commit" >> "$new_features_file"
-            elif [[ "$subject" =~ ^fix.* ]]; then
-                format_commit "$commit" >> "$bug_fixes_file"
+        for pr_description in "${pr_descriptions[@]}"; do
+            if echo "$pr_description" | sed -n 1p | grep '^- feat.*'; then
+                echo "$pr_description" >> "$new_features_file"
+            elif echo "$pr_description" | sed -n 1p | grep '^- fix.*'; then
+                echo "$pr_description" >> "$bug_fixes_file"
             else
-                format_commit "$commit" >> "$other_changes_file"
+                echo "$pr_description" >> "$other_changes_file"
             fi
-        done < $rev_commits_file
+        done
         if [ ! -f "$rel_notes_file" ]; then
             {   echo "[$new_tag] - $( date +%Y-%m-%d )"
                 echo "--------------------"
@@ -279,6 +283,9 @@ You have three options:
                 } >> "$rel_notes_file"
             fi
         fi
+        # When PR are edited using GH web UI, DOS carriage return ^M appears
+        # in PR title and body
+        sed -i "s/$(printf '\r')\$//" "$rel_notes_file"
         ${EDITOR:-vi} "$rel_notes_file"
         myheader="Changelog
 ========="
@@ -304,7 +311,8 @@ You have three options:
           echo "Create changelog update and release for version $new_tag"; } > .gitcommitmsg
         git commit -s -F .gitcommitmsg
         rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" \
-            "$bug_fixes_file" "$other_changes_file" "$rev_commits_file"
+            "$bug_fixes_file" "$other_changes_file" "$pr_titles_file" \
+            "$commitlint_errors_file" "$prs_file"
         if [ -n "${origin_org:-}" ]; then
             git push -u origin "$BRANCH"
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"

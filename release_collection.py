@@ -31,8 +31,87 @@ import json
 
 from pkg_resources import parse_version
 
+try:
+    import markdown
+
+    HAVE_MARKDOWN = True
+except ImportError:
+    HAVE_MARKDOWN = False
+
 DEFAULT_GIT_SITE = "https://github.com"
 DEFAULT_GIT_ORG = "linux-system-roles"
+CHANGELOG_HEADER = "Changelog\n=========\n\n"
+
+if HAVE_MARKDOWN:
+
+    class LSRMarkdown(markdown.Markdown):
+        def convert(self, source):
+            self.lines = source.split("\n")
+            return self.parser.parseDocument(self.lines).getroot()
+
+    class ChangelogManager(object):
+        def __init__(self):
+            # The keys of this dict are "New Features", "Bug Fixes",
+            # and "Other Changes".  The value for each of these is a
+            # dict.  The dict key is the rolename.  The dict value is the
+            # list of changelog entries.
+            self.updates = {}
+
+        def addRoleChangelog(self, args, rolename, commit_msgs, cur_ref, new_ref):
+            """Add a changelog for the role since the given tag."""
+            if comp_versions(cur_ref, new_ref) >= 0:
+                return
+            if commit_msgs:
+                # make a fake changelog since there are no new changelog entries
+                self.updates.setdefault("Bug Fixes", {}).setdefault(
+                    rolename, []
+                ).extend(commit_msgs)
+                return
+            elif cur_ref is None:
+                # just new feature new role
+                self.updates.setdefault("New Features", {}).setdefault(
+                    rolename, []
+                ).insert(0, "New Role")
+            changelogmd = os.path.join(args.src_path, rolename, "CHANGELOG.md")
+            if not os.path.exists(changelogmd):
+                return
+            data = open(changelogmd, encoding="utf-8").read()
+            root = LSRMarkdown().convert(data)
+            cur_tag_match = "[" + cur_ref + "]"
+            new_tag_match = "[" + new_ref + "]"
+            gathering = False
+            current_hdr = None
+            for elem in root:
+                if elem.tag == "h2":  # tag + date
+                    if elem.text.startswith(new_tag_match):
+                        gathering = True
+                    if elem.text.startswith(cur_tag_match):
+                        return
+                elif not gathering:
+                    continue
+                elif elem.tag == "h3":  # New Features, etc.
+                    current_hdr = elem.text
+                elif elem.tag == "ul":  # The list of entries
+                    for entry in elem:
+                        if entry.text != "none":
+                            self.updates.setdefault(current_hdr, {}).setdefault(
+                                rolename, []
+                            ).insert(0, entry.text)
+
+        def formatChangelogUpdate(self, tag, date):
+            """Generate a new changelog update."""
+            if not self.updates:
+                return None
+            rv = f"{CHANGELOG_HEADER}[{tag}] - {date}\n---------------------\n"
+            hdrs = [hdr for hdr in ("New Features", "Bug Fixes") if hdr in self.updates]
+            for hdr in hdrs:
+                rv = rv + f"\n### {hdr}\n\n"
+                for rolename in sorted(self.updates[hdr]):
+                    for entry in self.updates[hdr][rolename]:
+                        rv = rv + f"- {rolename} - {entry}\n"
+            if not hdrs:
+                rv = rv + "\n### Other Changes\n\n- no user-visible changes\n"
+            return rv + "\n"
 
 
 def run_cmd(cmdlist, cwd=None, env=None):
@@ -187,7 +266,7 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
                 "--oneline",
                 "--no-merges",
                 "--reverse",
-                "--pretty=format:- %s",
+                "--pretty=format:%s",
             ]
             if cur_ref:
                 log_cmd.append(f"{cur_ref}..")
@@ -265,61 +344,6 @@ def process_ignore_and_lint_files(args, coll_dir):
                                 elif isinstance(ansible_lint[key], dict):
                                     ansible_lint[key][item] = items[item]
     yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
-
-
-def get_role_changelog(args, rolename, cur_ref, new_ref, commit_msgs):
-    """
-    Retrieve the matched changelogs from CHANGELOG.md and
-    return them as a string.
-    """
-    _changelog = ""
-    if comp_versions(cur_ref, new_ref) >= 0:
-        return _changelog
-    _changelog = "### {}\n".format(rolename)
-    if commit_msgs:
-        # make a fake changelog for compact_coll_changelog
-        _changelog = "{}\n##### Bug Fixes\n\n{}".format(_changelog, commit_msgs)
-        return _changelog
-    elif cur_ref is None:
-        # make a fake changelog for compact_coll_changelog for new role
-        _changelog = "{}\n##### New Features\n\n- New Role".format(_changelog)
-        return _changelog
-    _changelogmd = os.path.join(args.src_path, rolename, "CHANGELOG.md")
-    if not os.path.exists(_changelogmd):
-        return ""
-    _print = False
-    with open(_changelogmd, "r") as cl_fd:
-        _prev = ""
-        for _cl in cl_fd:
-            cl = _cl.rstrip()
-            if cl.startswith("[{}]".format(new_ref)):
-                _print = True
-                _changelog = "{}\n#### {}".format(_changelog, cl)
-            elif cl.startswith("[{}]".format(cur_ref)):
-                break
-            elif _print:
-                if cl.lower() == "- none":
-                    if _prev and _changelog.endswith(_prev + "\n"):
-                        _changelog = _changelog[: -len(_prev + "\n")]
-                    _prev = "none"
-                elif cl.startswith("["):
-                    _changelog = "{}\n#### {}".format(_changelog, cl)
-                elif not cl.startswith("----"):
-                    _matched = False
-                    for _title in args.changelog_sections:
-                        if cl.lower() == _title.lower():
-                            _prev = "\n##{}".format(_title)
-                            _changelog = "{}{}".format(_changelog, _prev)
-                            _matched = True
-                            break
-                    if not _matched:
-                        if _prev == "none":
-                            _prev = ""
-                        else:
-                            _changelog = "{}\n{}".format(_changelog, cl)
-
-    logging.info("get_role_changelog - returning\n%s", _changelog)
-    return _changelog
 
 
 def role_to_collection(
@@ -474,92 +498,6 @@ def build_collection(args, coll_dir, galaxy=None):
         logging.info("ansible-galaxy is skipped since it is not available.")
 
 
-NF = "New Features"
-BF = "Bug Fixes"
-
-
-def gather_changes(vstr, changes):
-    output = ""
-    if vstr:
-        output = "{}\n---------------------".format(vstr)
-    if changes[NF]:
-        output = "{}\n### New Features\n\n".format(output)
-        for c in changes[NF]:
-            output = "{}{}".format(output, c)
-    if changes[BF]:
-        output = "{}\n### Bug Fixes\n\n".format(output)
-        for c in changes[BF]:
-            output = "{}{}".format(output, c)
-    return output
-
-
-def compact_coll_changelog(input_changelog):
-    """ """
-    output_changelog = ""
-    enabled = False
-    in_code = False
-    vmatched = False
-    changes = {}
-    changes[NF] = []
-    changes[BF] = []
-    vstr = ""
-    tag = ""
-    role = ""
-    for _cl in input_changelog.splitlines():
-        cl = _cl.rstrip()
-        if cl == "" or cl.startswith("#### [") or cl == "- none":
-            continue
-        if cl == "##### Other Changes":
-            enabled = False
-            continue
-        if cl.startswith("```"):
-            in_code = not in_code  # toggle
-            continue
-        _mobj = re.match(r"\[\d*[.]\d*[.]\d*\] - \d{4}-\d{2}-\d{2}", cl)
-        if _mobj:
-            vmatched = True
-            enabled = False
-            if vstr and (changes[NF] or changes[BF]):
-                output_changelog = "{}\n{}".format(
-                    output_changelog, gather_changes(vstr, changes)
-                )
-            changes[NF] = []
-            changes[BF] = []
-            vstr = _mobj[0]
-            continue
-        _mobj = re.match(r"-*", cl)
-        if vmatched and _mobj[0]:
-            vmatched = False
-            enabled = True
-        else:
-            if cl == "##### New Features" or cl == "##### New features":
-                tag = NF
-            elif cl == "##### Bug Fixes" or cl == "##### Bug fixes":
-                tag = BF
-            else:
-                # ### ROLENAME
-                _mobj = re.match(r"### (.*)", cl)
-                if _mobj and _mobj.group(1):
-                    role = _mobj.group(1)
-                    enabled = True
-                elif enabled and not in_code:
-                    # Retrieves itemized changes
-                    _mobj = re.match(r"- (.*)", cl)
-                    if _mobj and _mobj.group(1):
-                        change = _mobj.group(1)
-                        if tag and role:
-                            changes[tag].append("- {0} - {1}\n".format(role, change))
-    if changes[NF] or changes[BF]:
-        output_changelog = "{}\n{}".format(
-            output_changelog, gather_changes("", changes)
-        )
-    else:
-        output_changelog = (
-            "{}\n\n### Other Changes\n\n- no user-visible changes\n"
-        ).format(output_changelog)
-    return output_changelog
-
-
 def conv_md2rest(changelog_md_path, changelog_rest_path):
     """
     Convert the md format to the reStructuredText format
@@ -626,9 +564,10 @@ def update_collection(args, galaxy, coll_rel):
             )
     os.makedirs(coll_dir, exist_ok=True)
     collection_readme = os.path.join("lsr_role2collection", "collection_readme.md")
+    if not args.skip_changelog:
+        cl_manager = ChangelogManager()
     # major, minor, micro, hash
     versions_updated = [False, False, False, False]
-    coll_changelog = ""
     for rolename in args.include:
         if not args.skip_git:
             if args.use_commit_hash and rolename not in args.use_commit_hash_role:
@@ -656,16 +595,23 @@ def update_collection(args, galaxy, coll_rel):
                 )
             # If a version update is detected, retrieve the new changelogs from CHANGELOG.md
             if not args.skip_changelog:
-                if comp_versions(cur_ref, coll_rel[rolename]["ref"]) < 0:
-                    logging.info(
-                        "The role %s is updated. Updating the changelog.", rolename
-                    )
+                new_ref = coll_rel[rolename]["ref"]
+                if comp_versions(cur_ref, new_ref) < 0:
                     if prev_tag is None:
                         prev_tag = cur_ref
-                    _changelog = get_role_changelog(
-                        args, rolename, prev_tag, coll_rel[rolename]["ref"], commit_msgs
+                    logging.info(
+                        "The role [%s] is updated. Getting changelog entries from [%s] to [%s].",
+                        rolename,
+                        prev_tag,
+                        new_ref,
                     )
-                    coll_changelog = "{}\n{}".format(coll_changelog, _changelog)
+                    cl_manager.addRoleChangelog(
+                        args, rolename, commit_msgs, prev_tag, new_ref
+                    )
+                else:
+                    logging.info(
+                        "No updates for role [%s] since [%s]", rolename, cur_ref
+                    )
         role_to_collection(
             args,
             rolename,
@@ -723,36 +669,19 @@ def update_collection(args, galaxy, coll_rel):
     # If to-be-appended changelogs are found, update COLLECTION_CHANGELOG.md
     # and copy it to the collection docs dir.
     if not args.skip_changelog:
-        if coll_changelog:
-            this_cl_file = (
-                "CURRENT_VER_CHANGELOG.md" if args.save_current_changelog else ""
-            )
-            clhandle, clname = tempfile.mkstemp(suffix=".cl", prefix="collection")
-            with os.fdopen(clhandle, "w") as clf:
-                # Header
-                clf.write("Changelog\n=========\n\n")
-                # New changelogs
-                new_changelog = "[{}] - {}\n---------------------".format(
-                    galaxy["version"], datetime.now().date()
-                ) + compact_coll_changelog(coll_changelog)
-                clf.write(new_changelog)
-                if this_cl_file:
-                    with open(this_cl_file, "w") as tcl:
-                        tcl.write(new_changelog)
-                with open(orig_cl_file, "r") as origclf:
-                    _clogs = origclf.read()
-                    _clogs = re.sub(
-                        "^Changelog\n=========\n", "", _clogs, flags=re.MULTILINE
-                    )
-                    clf.write(_clogs)
-                clf.flush()
-                # Overwrite the original changelog with the new one.
-                logging.info(
-                    f"{orig_cl_file} is updated. Please merge to the master branch"
-                )
-                shutil.copy(clname, orig_cl_file)
-                # Copy the new changelog to the docs dir in collection
-                shutil.copy(clname, coll_changelog_path)
+        new_changelog_str = cl_manager.formatChangelogUpdate(
+            galaxy["version"], datetime.now().date()
+        )
+        if new_changelog_str:
+            changelog_str = open(orig_cl_file).read()
+            changelog_str = changelog_str.replace(CHANGELOG_HEADER, new_changelog_str)
+            open(orig_cl_file, "w").write(changelog_str)
+            if args.save_current_changelog:
+                # used for the release notes for the github release
+                changelog_str = new_changelog_str.replace(CHANGELOG_HEADER, "")
+                open("CURRENT_VER_CHANGELOG.md", "w").write(changelog_str)
+            # Copy the new changelog to the docs dir in collection
+            shutil.copy(orig_cl_file, coll_changelog_path)
         else:
             shutil.copy(orig_cl_file, coll_changelog_path)
 
@@ -1048,15 +977,6 @@ def main():
         default=False,
         action="store_true",
         help="If true, save the changelog for the current collection version as CURRENT_VER_CHANGELOG.md",
-    )
-    parser.add_argument(
-        "--changelog-sections",
-        default=["### New Features", "### Bug Fixes", "### Other Changes"],
-        action="append",
-        help=(
-            "List of the title of changelog sections; Default to "
-            "['### New Features', '### Bug Fixes', '### Other Changes']"
-        ),
     )
     args = parser.parse_args()
 

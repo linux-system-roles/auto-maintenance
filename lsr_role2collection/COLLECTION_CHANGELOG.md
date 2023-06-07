@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.41.0] - 2023-06-07
+---------------------
+
+### New Features
+
+- storage - feat: Add support for setting stripe size for LVM RAID (#357)
+
 [1.40.0] - 2023-05-31
 ---------------------
 

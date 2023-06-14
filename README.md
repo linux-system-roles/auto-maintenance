@@ -10,7 +10,9 @@ linux-system-roles repos.
   * [lsr_role2collection.py](#lsr_role2collectionpy)
   * [release_collection.py](#release_collectionpy)
   * [check_rpmspec_collection.sh](#check_rpmspec_collectionsh)
+  * [manage-role-repos.sh](#manage-role-repossh)
   * [role-make-version-changelog.sh](#role-make-version-changelogsh)
+  * [role-merge-prs.sh](#role-merge-prssh)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
   * [bz-manage.sh](#bz-managesh)
   * [manage_jenkins.py](#manage_jenkinspy)
@@ -569,9 +571,9 @@ repo.  This is useful if you need to just refresh your local copy of the repo,
 or perform a very simple task in each repo.  Remember to escape
 shell variables that will be set in `manage-role-repos.sh`.
 
-To list the PRs in all repos that are not created by `systemroller`:
+To list all non-draft PRs in all repos:
 ```
-./manage-role-repos.sh gh pr list -R \$LSR_GH_ORG/\$repo --search -author:systemroller
+./manage-role-repos.sh gh pr list -R \$LSR_GH_ORG/\$repo --search draft:false
 ```
 
 ### stdin/here document
@@ -668,6 +670,39 @@ will push the changes to your repo and create the PR.
 Use this script, and ensure the CHANGELOG.md PR is merged, and the repo is
 tagged and released, before you run
 [release_collection.py](#release_collectionpy).
+
+# role-merge-prs.sh
+
+Used in conjunction with `manage-role-repos.sh`.  This will list the non-draft
+PRs for a role and prompt for merging one of them.  The list will include the
+checks and tests status for the PR.  You can use `v NUM` to view the PR in the
+UI and see the tests and checks details.  Enter `NUM`, where `NUM` is the PR
+number, to merge the PR and delete the branch.  This uses `gh pr merge NUM -r
+-d` to merge the PR.  If merging requires admin rights to override the checks,
+and you are an admin, you can use `a NUM` to merge.  This uses `gh pr merge NUM
+-r -d --admin`.
+By default, the list will only include PRs authored by you.  Use `AUTHOR=@all`
+to view PRs from all authors. Use `AUTHOR=username` to view those PRs authored
+by the given username.
+
+Examples:
+
+`./manage-role-repos.sh ./role-merge-prs.sh` - View all non-draft PRs authored
+by myself
+
+`AUTHOR=@all ./manage-role-repos.sh ./role-merge-prs.sh` - View all non-draft
+PRs
+
+`AUTHOR=richm ./manage-role-repos.sh ./role-merge-prs.sh` - View all non-draft
+PRs authored by richm
+
+* `AUTHOR` - default is `@me` - look for PRs authored by this username.  Use
+  `@all` to list all PRs.
+* `DELETE_BRANCH` - default is `true` - use `false` if you do not want to delete
+  the PR branch after merging (the `gh pr merge` flag `-d` is used to delete the
+  branch)
+* `MERGE_TYPE` - default is `r` (rebase and merge) - Use `m` for merge commit,
+  `s` for squash and merge, or `ask` which will prompt you for the merge type.
 
 # list-pr-statuses-ghapi.py
 

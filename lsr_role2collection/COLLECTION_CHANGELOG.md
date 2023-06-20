@@ -1,6 +1,119 @@
 Changelog
 =========
 
+[1.42.0] - 2023-06-20
+---------------------
+
+### New Features
+
+- sshd - Remove apt role dependency
+- sshd - Make the role more container friendly
+- sshd - fix type in AcceptEnv for RedHat7
+- sshd - Add Fedora support
+- sshd - Verify SSHd config early
+- sshd - DebianBanner support
+- sshd - Fedora HostKey\(s\)
+- sshd - Added ubuntu 16.04 config
+- sshd - show xenial support on galaxy
+- sshd - Support for OpenBSD
+- sshd - Don't fail without package manager
+- sshd - vars: SUSE: Add default variables for SUSE based distributions
+- sshd - clean Archlinux support to match the current package \(openssh-7.4p1-2\)
+- sshd - Add note about UsePAM on RHEL 7
+- sshd - Add Debian 9 \(stretch\) vars
+- sshd - change `ansible_pkg_mgr` for package
+- sshd - Removes tags
+- sshd - Makes handler use listen: option
+- sshd - Add StreamLocalBindUnlink option
+- sshd - Remove Deprecated options in default SSH config
+- sshd - Add CoreOS support
+- sshd - expose sshd\_config template backup option with sshd\_backup variable
+- sshd - Add missing options
+- sshd - Add Ubuntu\_18.yml
+- sshd - Adds ability to install a systemd service
+- sshd - Adds on/off toggle
+- sshd - Make role work with chroot connections on EL 7.
+- sshd - Backup of sshd\_config dependent on variable
+- sshd - Remove 'UsePrivilegeSeparation' from Fedora defaults
+- sshd - Updates syntax to Ansible 2.7 era
+- sshd - AIX support \(including new AIX handler\)
+- sshd - Remove duplicate GatewayPorts
+- sshd - Add vars for openSUSE Leap 15 and CentOS 8
+- sshd - add debian 10 \(buster\) support
+- sshd - Add Gentoo support \(with secure sshd defaults\)
+- sshd - Add new options from OpenSSH 8.3p1 \(including CASignatureAlgorithms\)
+- sshd - OpenBSD and ansible\_distribution\_major\_version
+- sshd - exit\_host on ansible \>= 2.8
+- sshd - Minimum version is now Ansible 2.8
+- sshd - Create CODE\_OF\_CONDUCT.md
+- sshd - Use ansible\_distribution\_major\_version in variables
+- sshd - Support /etc/sysconfig/sshd to override crypto policies and handle more advanced use cases
+- sshd - Implement more natural match blocks and test them
+- sshd - examples: Provide simple example playbook
+- sshd - UsePrivilegeSeparation is deprecated since 2017/OpenSSH 7.5 - https://www.openssh.com/txt/release-7.5
+- sshd - \[FreeBSD\] Add Subsystem to \_sshd\_defaults
+- sshd - use state: absent instead of state: missing
+- sshd - Update meta data and README
+- sshd - Support for appending a snippet to configuration file
+- sshd - Rename sshd\_namespace\_append to sshd\_config\_namespace
+- sshd - Add configuration options from OpenSSH 8.6p1
+- sshd - Add support for RHEL 9 and adjust tests for it
+- sshd - Add Debian 11 \(bullseye\) support
+- sshd - Drop support for Ansible 2.8 by bumping the Ansible version to 2.9
+- sshd - Make the role FIPS-aware
+- sshd - Make sure Include is in the main configuration file when drop-in directory is used
+- sshd - Unbreak FIPS detection and stabilize failing tests and GH actions
+- sshd - add parameter RSAMinSize
+- sshd - Make drop-in config file functionality configurable by user
+- sshd - None
+- sshd - 
+- sshd - Add support for managing selinux and firewall on RHEL-based systems (#211)
+- sshd - Add support for Alpine OS (#212)
+- sshd - feat: add support for FreeBSD, OpenBSD
+- sshd - feat: Fix alpine tests by adding a new configuration options (#240)
+- sshd - feat: debian 12 support and small config fixes for debian (#238)
+
+### Bug Fixes
+
+- sshd - Don't install openssh-sftp-server on Debian
+- sshd - fix type in AcceptEnv
+- sshd - Fix issues - not reloading with default sshd\_allow\_reload value
+- sshd - Do not manage /var/run/sshd on CentOS7 fixes \#27
+- sshd - Update example so not to break old SSH versions and add a warning
+- sshd - Fix for CentOS 6 l\_value issue
+- sshd - fix deprecation warning for sshd\_packages
+- sshd - Fix sshd service state
+- sshd - Fixed sshd\_match blocks
+- sshd - Remove circular symlink in tests dir
+- sshd - Ansible23 fixes
+- sshd - Fix Arch Linux var file
+- sshd - Fix for ansible\_virtualization\_type not being defined in Ansible \> 2.5
+- sshd - Amazon var name should be sshd\_defaults
+- sshd - Fixes bad option in systemd service file
+- sshd - Remove deprecated options
+- sshd - Fix variable loading.
+- sshd - Resolve lint errors
+- sshd - Travis fixes
+- sshd - Cleanup lint issues, update documentation, fix typos
+- sshd - Disable broken ansible-lint-actions
+- sshd - Remove extra blank line
+- sshd - subsystem appears to be ignored
+- sshd - README: Fix missing code block termination
+- sshd - README: Document missing exported variable
+- sshd - Fix issues found by linters - enable all tests on all repos - remove suppressions
+- sshd - Fix variable precedence when invoked through legacy "roles:"
+- sshd - Fix wrong template file
+- sshd - Use {{ ansible\_managed | comment }} to fix multi-line ansible\_managed
+- sshd - README: fix meta/make\_option\_lists link
+- sshd - Fix runtime directory check condition
+- sshd - Remove kvm from virtualization platforms
+- sshd - Ensure values are cast to correct type
+- sshd - Allow user to override variables
+- sshd - Update source template to match generated files
+- sshd - Improve manual pages processing in tests to accommodate Alpine's busybox man (#213)
+- sshd - Update tests to not use configuration options available in system defaults (#213)
+- sshd - Fedora 38 has no longer non-standard hostkey permissions
+
 [1.41.1] - 2023-06-09
 ---------------------
 

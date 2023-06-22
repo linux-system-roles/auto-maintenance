@@ -78,7 +78,8 @@ for repo in $repos; do
             echo please use git remote to configure upstream to point to "$LSR_GH_ORG/$repo"
             exit 1
         fi
-        if gh repo set-default xxx/xxx --view 2>&1 | grep -q "no default repository"; then
+        def_repo="$(gh repo set-default xxx/xxx --view 2>&1)"
+        if [ -z "$def_repo" ] || [[ "$def_repo" =~ "no default repository" ]]; then
             gh repo set-default "$LSR_GH_ORG/$repo"
         fi
         # make sure we have a fork of this under our personal space

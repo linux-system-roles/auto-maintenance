@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.42.2] - 2023-06-22
+---------------------
+
+### Bug Fixes
+
+- firewall - fix: Don't install python(3)-firewall it's a dependency of firewalld (#148)
+
 [1.42.1] - 2023-06-21
 ---------------------
 

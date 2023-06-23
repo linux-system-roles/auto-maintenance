@@ -35,7 +35,7 @@ nbde_client:
   ref: 1.2.13
   sourcenum: 12
 certificate:
-  ref: 1.1.12
+  ref: 1.1.13
   sourcenum: 13
 crypto_policies:
   ref: 1.2.10
@@ -46,7 +46,7 @@ sshd:
   repo: ansible-sshd
   sourcenum: 15
 ssh:
-  ref: 1.1.16
+  ref: 1.2.0
   sourcenum: 16
 ha_cluster:
   ref: 1.9.3

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.44.0] - 2023-06-23
+---------------------
+
+### New Features
+
+- ssh - feat: add ssh_backup option with default true (#91)
+
 [1.43.0] - 2023-06-23
 ---------------------
 

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.43.0] - 2023-06-23
+---------------------
+
+### New Features
+
+- storage - feat: Add support for filesystem online resize (#356)
+
 [1.42.2] - 2023-06-22
 ---------------------
 

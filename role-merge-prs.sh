@@ -40,11 +40,11 @@ list_prs() {
 }
 
 get_check_summary() {
-    local pr total success failure pending cancelled error
+    local pr total success failure pending cancelled error conclusion state name
     pr="$1"
     gh pr view "$pr" -R "$origin_org/$repo" --json statusCheckRollup \
-      --template '{{range .statusCheckRollup}}{{print .conclusion}} {{print .state}}{{"\n"}}{{end}}' | {
-    while read -r conclusion state; do
+      --template '{{range .statusCheckRollup}}{{print (or .conclusion "<nil>")}} {{print (or .state "<nil>")}} {{println .name}}{{end}}' | {
+    while read -r conclusion state name; do
         if [ "$conclusion" = '<nil>' ] && [ "$state" = '<nil>' ]; then
             pending=$(("${pending:-0}" + 1))
         elif [ "$conclusion" = '<nil>' ] && [ "$state" = PENDING ]; then
@@ -60,7 +60,7 @@ get_check_summary() {
         elif [ "$conclusion" = NEUTRAL ]; then  # usually a python check if python code did not change
             success=$(("${success:-0}" + 1))
         else
-            echo ERROR: unknown conclusion "$conclusion" state "$state" 1>&2
+            echo ERROR: check "$name" has unknown conclusion "$conclusion" state "$state" 1>&2
             exit 1
         fi
         total=$(("${total:-0}" + 1))

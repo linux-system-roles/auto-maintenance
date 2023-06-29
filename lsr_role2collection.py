@@ -42,6 +42,7 @@ ALL_ROLE_DIRS = [
     "defaults",
     "examples",
     "files",
+    "filter_plugins",
     "handlers",
     "library",
     "meta",
@@ -277,6 +278,8 @@ class LSRTransformer(object):
 
     def run(self):
         for dirpath, _, filenames in os.walk(self.role_path):
+            if dirpath.endswith("/files") or dirpath.endswith("/templates"):
+                continue
             if self.is_role_dir:
                 role_dir, _ = get_role_dir(self.role_path, dirpath)
                 if not role_dir:

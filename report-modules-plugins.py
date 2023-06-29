@@ -76,20 +76,7 @@ TASK_LIST_KWS = [
 
 # these are collection tests/ sub-directories that we know we do not
 # need to process
-SKIP_COLLECTION_TEST_DIRS = ["unit", "pytests"]
-
-
-def get_role_dir(role_path, dirpath):
-    """role_path is the path to a directory containing a role i.e. a directory
-    containing a tasks/main.yml and one or more directories in ROLE_DIRS."""
-    if role_path == dirpath:
-        return None
-    dir_pth = Path(dirpath)
-    relpath = dir_pth.relative_to(role_path)
-    base_dir = relpath.parts[0]
-    if base_dir in ROLE_DIRS:
-        return base_dir
-    return None
+SKIP_COLLECTION_TEST_DIRS = ["unit", "pytests", "files"]
 
 
 def get_role_name(role_path):
@@ -600,7 +587,9 @@ def process_integration_tests(integration_path, ctx):
     directory"""
     ctx.in_collection_integration_tests = True
     for dirname, itempath in os_listdir(integration_path):
-        if dirname == "targets":
+        if dirname == "files":
+            continue
+        elif dirname == "targets":
             process_roles_path(itempath, ctx)
         else:
             process_ansible_yml_path(itempath, ctx)
@@ -620,7 +609,7 @@ def process_role(role_path, is_real_role, ctx):
     if os.path.isdir(dirpath) and not os.path.islink(dirpath):
         process_ansible_yml_path(dirpath, ctx)
     for dirname in ROLE_DIRS:
-        if dirname == "defaults":
+        if dirname == "defaults" or dirname == "files":
             continue
         dirpath = os.path.join(role_path, dirname)
         if not os.path.isdir(dirpath) or os.path.islink(dirpath):

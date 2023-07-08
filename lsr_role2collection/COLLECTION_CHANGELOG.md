@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.45.0] - 2023-07-08
+---------------------
+
+### New Features
+
+- certificate - feat: Allow setting certificate and key files mode (#175)
+
 [1.44.0] - 2023-06-23
 ---------------------
 

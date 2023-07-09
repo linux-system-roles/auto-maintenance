@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.45.1] - 2023-07-09
+---------------------
+
+### Bug Fixes
+
+- storage - fix: Test issue when creating fs /w invalid param (#367)
+
 [1.45.0] - 2023-07-08
 ---------------------
 

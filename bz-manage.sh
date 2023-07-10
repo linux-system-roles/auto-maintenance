@@ -8,7 +8,27 @@ fi
 get_bzs() {
   # shellcheck disable=SC2086
   # jq arguments $3 are unquoted to allow full expansion
-  bugzilla query --from-url "$1" --json | jq ${3:-} "${2:-.bugs[].id}"
+  local url jq_expression field_num
+  url="$1"; shift
+  if [ "${RELEASE_PLUS:-false}" = true ]; then
+    # find unused field num in url
+    field_num=1
+    while true; do
+      if [[ "$url" =~ \&f"${field_num}"= ]]; then
+        ((field_num++))
+        continue
+      else
+        break
+      fi
+    done
+    url="${url}&f${field_num}=flagtypes.name&o${field_num}=substring&v${field_num}=release%2B"
+  fi
+  if [ -n "${1:-}" ]; then
+    jq_expression="$1"; shift
+  else
+    jq_expression=".bugs[].id"
+  fi
+  bugzilla query --from-url "$url" --json | jq "$@" "$jq_expression"
 }
 
 COMPONENT=${COMPONENT:-rhel-system-roles}
@@ -197,7 +217,7 @@ rpm_release() {
   queryurl="${BASE_URL}&bug_status=${STATUS}"
   jq='.bugs[] | ((.id|tostring) + "|" + (.whiteboard|gsub("role:"; "")) + "|" + .cf_doc_type + "|" + .summary)'
   datesec=$(date +%s)
-  get_bzs "$queryurl" "$jq" -r | sort -k 2 -t \| > bzs.raw
+  RELEASE_PLUS="${RELEASE_PLUS:-true}" get_bzs "$queryurl" "$jq" -r | sort -k 2 -t \| > bzs.raw
   if [ -n "${USE_RST:-}" ]; then
     suf="rst"
   else
@@ -595,6 +615,14 @@ Thank you" \
       fi
     done
   done
+}
+
+list_bzs() {
+  local queryurl showurl jq bz summary
+  queryurl="${BASE_URL}&bug_status=${STATUS}"
+  showurl="https://bugzilla.redhat.com/show_bug.cgi?id="
+  jq='.bugs[] | ("'"$showurl"'" + (.id|tostring) + " " + .whiteboard + " " + .summary)'
+  get_bzs "${queryurl}" "$jq" -r
 }
 
 "$@"

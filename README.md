@@ -801,6 +801,8 @@ The clone check is not perfect, so be sure to check manually.
 ### rpm_release
 Use `USE_RST=1` to generate the new CHANGELOG text in rST.  By default, it
 will use Markdown (.md).
+Use `RELEASE_PLUS=false` to list all BZs, even if they do not have `release+`.
+By default, will only list BZs that have `release+`.
 Use this to generate the following files:
 * new-cl.md or .rst - The new text to add to the CHANGELOG.md or .rst
 * cl-spec - The new text to add to the spec %changelog section
@@ -847,6 +849,17 @@ When run, the script searches all PRs from the ITM and other filters provided an
 4. If a BZ has `required_doc_text` not set to `+` or `-` and GitHub PR not attached:
     - Print the current doc text and type, and ask user if they want to post a comment asking to attach a GH PR or enter the Doc Text.
 
+### list_bzs
+
+Generate a list of BZs to stdout.  e.g. to list all BZs in POST state that have
+been acked for 9.3.0:
+```
+# ITR=9.3.0 STATUS=POST RELEASE_PLUS=true ./bz-manage.sh list_bzs
+https://bugzilla.redhat.com/show_bug.cgi?id=2179460 role:selinux use restorecon -T 0 on supported platforms
+https://bugzilla.redhat.com/show_bug.cgi?id=2180902 role:certificate add mode parameter to change permissions for cert files
+https://bugzilla.redhat.com/show_bug.cgi?id=2211187 role:kdump support auto_reset_crashkernel, dracut_args, deprecate /etc/sysconfig/kdump
+```
+
 ## Parameters
 
 Almost all parameters are passed as environment variables.  However, the `new`
@@ -868,6 +881,12 @@ have the specified STATUS - the primary exception is `reset_dev_wb`.
 ### LIMIT
 By default, the limit on the number of BZ returned by a query is 100.  Use LIMIT to
 change that value.
+
+### RELEASE_PLUS
+By default, will list all BZs.  If you only want to look for BZs that have
+`release+`, use `RELEASE_PLUS=true`.  Note that `rpm_release` by default is the
+opposite, because you typically want BZs that have `release+` for that
+particular query.
 
 There are other undocumented environment variables used, check the code for more details.
 

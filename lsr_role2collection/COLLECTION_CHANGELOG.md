@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.46.0] - 2023-07-11
+---------------------
+
+### New Features
+
+- network - feat: Support "no-aaaa" DNS option (#619)
+- network - feat: add AlmaLinux to RHEL compat distro list (#618)
+
 [1.45.1] - 2023-07-09
 ---------------------
 

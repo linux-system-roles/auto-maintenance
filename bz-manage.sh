@@ -8,7 +8,6 @@ fi
 get_bzs() {
   # shellcheck disable=SC2086
   # jq arguments $3 are unquoted to allow full expansion
-  # echo "bugzilla query --from-url \"$1\" --json | jq ${3:-} \"${2:-.bugs[].id}\""
   bugzilla query --from-url "$1" --json | jq ${3:-} "${2:-.bugs[].id}"
 }
 
@@ -443,18 +442,22 @@ bz_mod_doc_text() {
       echo ""
       echo "Doc Type and Text suggested from the GH PR:"
       print_doc_text "$gh_pr_type" "$gh_pr_desc"
-      read -r -p 'Do you want to update the BZ with the suggested Doc Text and Type (y/n)? (default: n) ' update_bz </dev/tty
-      if [ "${update_bz:-n}" = n ]; then
-        return
-      elif [ "${update_bz:-n}" = y ]; then
-        comment="Updating Doc Type and Text with info from the attached PR $gh_pr"
-        echo "BZ#$bz: $comment"
-        bugzilla modify --private \
-          --field cf_doc_type="$gh_pr_type" \
-          --field cf_release_notes="$gh_pr_desc" \
-          --comment "$comment" \
-          "$bz"
-      fi
+      while read -r -p 'Do you want to update the BZ with the suggested Doc Text and Type (y/n)? (default: n) ' update_bz </dev/tty; do
+        if [ "${update_bz:-n}" = n ]; then
+          return
+        elif [ "${update_bz:-n}" = y ]; then
+          comment="Updating Doc Type and Text with info from the attached PR $gh_pr"
+          echo "BZ#$bz: $comment"
+          bugzilla modify --private \
+            --field cf_doc_type="$gh_pr_type" \
+            --field cf_release_notes="$gh_pr_desc" \
+            --comment "$comment" \
+            "$bz"
+          return
+        else
+          echo "$update_bz is not y or n"
+        fi
+      done
     else
       echo "BZ#$bz already has Doc Text that equals GitHub PR description"
     fi
@@ -462,9 +465,8 @@ bz_mod_doc_text() {
 }
 
 process_count_prs() {
-  bz=$1
-  func=$2
-  args=$3
+  bz="$1"; shift
+  func="$1"; shift
   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   jq_count_prs="select(.id == $bz)\
 | [.external_bugs[]\
@@ -472,8 +474,9 @@ process_count_prs() {
 | length"
   gh_pr_count=$(jq -r "$jq_count_prs" "$query_file")
   if [ "$gh_pr_count" -eq 1 ]; then
-    # shellcheck disable=SC2086
-    $func $args
+    # eval to re-evaluate arguments for the $func function
+    # shellcheck disable=SC2294
+    eval "$func" "$@"
   elif [ "$gh_pr_count" -gt 1 ]; then
     echo "BZ#$bz has $gh_pr_count GH PRs attached, you may choose info from what PR to use"
     for ((i=0;i<gh_pr_count;i++)); do
@@ -484,16 +487,21 @@ process_count_prs() {
       echo "($i) Doc Type and Text suggested from GH PR $gh_pr:"
       print_doc_text "$gh_pr_type" "$gh_pr_desc"
     done
-    read -r -p "What PR do you want to use for Doc Text and Type? (type a number from 0 to $((gh_pr_count-1)), or s to skip)? (default: s) " update_gh </dev/tty
-    if [ "${update_gh:-s}" = s ]; then
-      return
-    else
-      jq_gh_pr="\"https://github.com/\" + ([.external_bugs[]\
-| select((.type.type == \"GitHub\") and (.ext_bz_bug_id | contains(\"pull\")))][$update_gh] .ext_bz_bug_id | tostring)"
-      gh_pr=$(jq -r "$jq_gh_pr" "$query_file")
-      # shellcheck disable=SC2086
-      $func $args
-    fi
+    while read -r -p "What PR do you want to use for Doc Text and Type? (type a number from 0 to $((gh_pr_count-1)), or s to skip)? (default: s) " update_gh </dev/tty; do
+      if [ "${update_gh:-s}" = s ]; then
+        return
+      elif [ "${update_gh:-s}" -ge 0 ] && [ "${update_gh:-s}" -le "$((gh_pr_count-1))" ]; then
+        jq_gh_pr="\"https://github.com/\" + ([.external_bugs[]\
+  | select((.type.type == \"GitHub\") and (.ext_bz_bug_id | contains(\"pull\")))][$update_gh] .ext_bz_bug_id | tostring)"
+        gh_pr=$(jq -r "$jq_gh_pr" "$query_file")
+        # eval to re-evaluate arguments for the $func function
+        # shellcheck disable=SC2294
+        eval "$func" "$@"
+        return
+      else
+        echo "$update_gh is not a valid integer"
+      fi
+    done
   fi
 }
 
@@ -519,8 +527,10 @@ update_doc_text() {
 [(.external_bugs[] | select(.type.type == \"GitHub\") | select(.ext_bz_bug_id | contains(\"pull\")) | .ext_bz_bug_id | tostring)][0]\
 + \"|\" + .cf_doc_type"
   jq -r "$jq" "$query_file" | while IFS=\| read -r bz gh_pr doc_type; do
-    process_count_prs "$bz" bz_mod_doc_text "$gh_pr $bz $query_file"
-    done
+    # With the last argument, provide arguments to use for the function
+    # shellcheck disable=SC2016
+    process_count_prs "$bz" bz_mod_doc_text '$gh_pr $bz $query_file'
+  done
 
   # II. If a BZ has required_doc_text unset and GH PR set:
   # Add doc text from PR description
@@ -536,8 +546,10 @@ update_doc_text() {
   jq="(.id | tostring) + \" https://github.com/\" + \
 [(.external_bugs[] | select(.type.type == \"GitHub\") | .ext_bz_bug_id | tostring)][0]"
   jq -r "$jq" "$query_file" | while read -r bz gh_pr; do
-    process_count_prs "$bz" bz_add_doc_text "$gh_pr $bz"
-    done
+    # With the last argument, provide arguments to use for the function
+    # shellcheck disable=SC2016
+    process_count_prs "$bz" bz_add_doc_text '$gh_pr $bz'
+  done
 
   # III. If a BZ has required_doc_text not set to + or - and GitHub PR unset:
   # Print the current doc text and type,
@@ -567,18 +579,22 @@ update_doc_text() {
     else
       echo "BZ#$bz doesn't have required_doc_text set and doesn't have GitHub PR provided"
     fi
-    read -r -p "Do you want to post a comment asking to attach a GH PR or enter a doc text (y/n)? (default: n) " update_bz </dev/tty
-    if [ "${update_bz:-n}" = n ]; then
-        continue
-    elif [ "$update_bz" = y ]; then
-      echo "BZ#$bz: Posting a comment asking to attach a GH PR or enter a doc text"
-      bugzilla modify --private \
-        --comment "Hello @$bz_assignee,
+    while read -r -p "Do you want to post a comment asking $bz_assignee to attach a GH PR or enter a doc text (y/n)? (default: n) " update_bz </dev/tty; do
+      if [ "${update_bz:-n}" = n ]; then
+        break
+      elif [ "$update_bz" = y ]; then
+        echo "BZ#$bz: Posting a comment asking to attach a GH PR or enter a doc text"
+        bugzilla modify --private \
+          --comment "Hello @$bz_assignee,
 Please attach a related GitHub PR to this bug so that we can collect a Doc Text from it, or provide a Doc Text yourself.
 Thank you" \
-        "$bz"
-    fi
+          "$bz"
+        break
+      else
+        echo "$update_bz is not y or n"
+      fi
     done
+  done
 }
 
 "$@"

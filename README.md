@@ -830,6 +830,23 @@ git add CHANGELOG.md, the spec file, sources, .gitignore ...
 git commit -F git-commit-msg
 ```
 
+### update_doc_text
+
+Update Doc Types and Texts in Bugzilla based on the [conventional commits format](https://linux-system-roles.github.io/contribute.html#pr-description-format).
+
+For example, to run against BZs with ITR 9.3.0, enter `ITR=9.3.0 sh ./bz-manage.sh update_doc_text`.
+
+When run, the script searches all PRs from the ITM and other filters provided and does the following:
+
+1. If a BZ has a `required_doc_text` flag set to `+` or `-`, the BZ is skipped. `+` indicates that the doc text has already been verified by a tech writer. `-` indicates that no release note is required.
+2. If a BZ has `required_doc_text?` set and GitHub PR attached:
+    1. If the existing Doc Text is empty, automatically add Doc Text from PR description.
+    2. Else, print the current Doc Text and Doc Type, print the GH PR info, and ask users if they want to update the Doc Text.
+3. If a BZ has `required_doc_text` unset and GH PR attached:
+    - Automatically add Doc Text from PR description
+4. If a BZ has `required_doc_text` not set to `+` or `-` and GitHub PR not attached:
+    - Print the current doc text and type, and ask user if they want to post a comment asking to attach a GH PR or enter the Doc Text.
+
 ## Parameters
 
 Almost all parameters are passed as environment variables.  However, the `new`

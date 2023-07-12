@@ -500,7 +500,7 @@ process_count_prs() {
   elif [ "$gh_pr_count" -gt 1 ]; then
     echo "BZ#$bz has $gh_pr_count GH PRs attached, you may choose info from what PR to use"
     for ((i=0;i<gh_pr_count;i++)); do
-      jq_gh_pr="\"https://github.com/\" + ([.external_bugs[]\
+      jq_gh_pr="select(.id == $bz) | \"https://github.com/\" + ([.external_bugs[]\
 | select((.type.type == \"GitHub\") and (.ext_bz_bug_id | contains(\"pull\")))][$i] .ext_bz_bug_id | tostring)"
       gh_pr=$(jq -r "$jq_gh_pr" "$query_file")
       get_pr_info "$gh_pr"
@@ -511,8 +511,8 @@ process_count_prs() {
       if [ "${update_gh:-s}" = s ]; then
         return
       elif [ "${update_gh:-s}" -ge 0 ] && [ "${update_gh:-s}" -le "$((gh_pr_count-1))" ]; then
-        jq_gh_pr="\"https://github.com/\" + ([.external_bugs[]\
-  | select((.type.type == \"GitHub\") and (.ext_bz_bug_id | contains(\"pull\")))][$update_gh] .ext_bz_bug_id | tostring)"
+        jq_gh_pr="select(.id == $bz) | \"https://github.com/\" + ([.external_bugs[]\
+| select((.type.type == \"GitHub\") and (.ext_bz_bug_id | contains(\"pull\")))][$update_gh] .ext_bz_bug_id | tostring)"
         gh_pr=$(jq -r "$jq_gh_pr" "$query_file")
         # eval to re-evaluate arguments for the $func function
         # shellcheck disable=SC2294

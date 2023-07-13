@@ -675,12 +675,20 @@ tagged and released, before you run
 
 Used in conjunction with `manage-role-repos.sh`.  This will list the non-draft
 PRs for a role and prompt for merging one of them.  The list will include the
-checks and tests status for the PR.  You can use `v NUM` to view the PR in the
-UI and see the tests and checks details.  Enter `NUM`, where `NUM` is the PR
-number, to merge the PR and delete the branch.  This uses `gh pr merge NUM -r
--d` to merge the PR.  If merging requires admin rights to override the checks,
-and you are an admin, you can use `a NUM` to merge.  This uses `gh pr merge NUM
--r -d --admin`.
+checks and tests status for the PR.  Actions:
+
+* `NUM` - Enter the PR number to merge it.  Uses `gh pr merge NUM -r -d`
+* `l` - Refresh the list
+* `w` - View the list of PRs in a browser
+* `v NUM` - View the PR in a browser
+* `a NUM` - Merge PR with admin override.  This uses `gh pr merge NUM -r -d --admin`
+* `t NUM` - View detailed status of tests/checks not reporting SUCCESS
+* `ci NUM` - Add `[citest]` comment to PR to trigger CI testing
+* `s NUM /path/to/script` - Run a script against a PR.  The role name and PR
+  number are passed to the script.  This can be used to perform whatever action
+  you want against the PR e.g. check logs for specific errors.
+* Press Enter by itself to skip to the next role
+
 By default, the list will only include PRs authored by you.  Use `AUTHOR=@all`
 to view PRs from all authors. Use `AUTHOR=username` to view those PRs authored
 by the given username.

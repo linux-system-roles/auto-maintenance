@@ -8,15 +8,15 @@ set -euo pipefail
 repo=${repo:-$(git remote get-url origin | awk -F'/' '{print $NF}')}
 
 AUTHOR="${AUTHOR:-"@me"}"
-declare -a searchargs=( "--search" "draft:false" )
+declare -a searchargs=("--search" "draft:false")
 if [ "$AUTHOR" != "@all" ]; then
-    searchargs=( "--author" "$AUTHOR" )
+    searchargs=("--author" "$AUTHOR")
 fi
 
 declare -a mergeargs=()
 DELETE_BRANCH="${DELETE_BRANCH:-true}"
 if [ "$DELETE_BRANCH" = true ]; then
-    mergeargs+=( "-d" )
+    mergeargs+=("-d")
 fi
 # gh pr merge arguments:
 #  -m, --merge                   Merge the commits with the base branch
@@ -25,7 +25,7 @@ fi
 # ask - prompt user for merge type
 MERGE_TYPE="${MERGE_TYPE:-r}"
 if [ "$MERGE_TYPE" != ask ]; then
-    mergeargs+=( "-$MERGE_TYPE" )
+    mergeargs+=("-$MERGE_TYPE")
 fi
 
 # Typically used in conjunction with manage-role-repos.sh
@@ -39,33 +39,63 @@ list_prs() {
     gh pr list -R "$origin_org/$repo" "${searchargs[@]}" "$@"
 }
 
-get_check_summary() {
-    local pr total success failure pending cancelled error conclusion state name
+get_checks() {
+    local pr total success failure pending cancelled error conclusion state name status display_name
     pr="$1"
     gh pr view "$pr" -R "$origin_org/$repo" --json statusCheckRollup \
-      --template '{{range .statusCheckRollup}}{{print (or .conclusion "<nil>")}} {{print (or .state "<nil>")}} {{println .name}}{{end}}' | {
-    while read -r conclusion state name; do
+      --template '{{range .statusCheckRollup}}{{print (or .conclusion "<nil>")}}#{{print (or .state "<nil>")}}#{{print .name}}#{{println .context}}{{end}}' | \
+    while IFS="#" read -r conclusion state name context; do
         if [ "$conclusion" = '<nil>' ] && [ "$state" = '<nil>' ]; then
-            pending=$(("${pending:-0}" + 1))
+            status=PENDING
         elif [ "$conclusion" = '<nil>' ] && [ "$state" = PENDING ]; then
-            pending=$(("${pending:-0}" + 1))
+            status=PENDING
         elif [ "$conclusion" = FAILURE ] || [ "$state" = FAILURE ]; then
-            failure=$(("${failure:-0}" + 1))
+            status=FAILURE
         elif [ "$conclusion" = SUCCESS ] || [ "$state" = SUCCESS ]; then
-            success=$(("${success:-0}" + 1))
+            status=SUCCESS
         elif [ "$conclusion" = CANCELLED ] || [ "$state" = CANCELLED ]; then
-            cancelled=$(("${cancelled:-0}" + 1))
+            status=CANCELLED
         elif [ "$conclusion" = ERROR ] || [ "$state" = ERROR ]; then
-            error=$(("${error:-0}" + 1))
+            status=ERROR
         elif [ "$conclusion" = NEUTRAL ]; then  # usually a python check if python code did not change
-            success=$(("${success:-0}" + 1))
+            status=SUCCESS
         else
             echo ERROR: check "$name" has unknown conclusion "$conclusion" state "$state" 1>&2
             exit 1
         fi
+        if [ "$name" != '<nil>' ]; then
+            display_name="$name"
+        elif [ "$context" != '<nil>' ]; then
+            display_name="$context"
+        fi
+        echo "${display_name}#${status}"
+    done
+}
+
+get_check_detail() {
+    local pr name status
+    pr="$1"; shift
+    get_checks "$pr" | while IFS="#" read -r name status; do
+        # shellcheck disable=SC1009
+        # shellcheck disable=SC1072
+        # shellcheck disable=SC1073
+        if [ "$status" "$@" ]; then
+            echo name "$name" status "$status"
+        fi
+    done
+}
+
+get_check_summary() {
+    local pr
+    pr="$1"
+    get_checks "$pr" | {
+    local -A counts
+    local total status name
+    while IFS="#" read -r name status; do
+        counts[$status]=$(("${counts[$status]:-0}" + 1))
         total=$(("${total:-0}" + 1))
     done
-    echo "${total:-0} ${success:-0} ${failure:-0} ${pending:-0}" "${cancelled:-0}" "${error:-0}"
+    echo "${total:-0} ${counts[SUCCESS]:-0} ${counts[FAILURE]:-0} ${counts[PENDING]:-0} ${counts[CANCELLED]:-0} ${counts[ERROR]:-0}"
     }
 }
 
@@ -114,10 +144,14 @@ while [ "$done" = false ]; do
             show_pr "$pr"
         done
         echo ""
-        echo Enter a PR number to merge it.  Enter \"w\" to list the PRs in a web browser.
-        echo Enter \"l\" to list again.  Enter \"v NUM\" to view the PR in a web browser.
-        echo Enter \"a NUM\" to use --admin to merge with admin privileges.
-        echo Or just hit Enter to skip to the next role.
+        cat <<EOF
+Actions:
+Enter a PR number to merge it     | "w" to list PRs in browser
+"l" to refresh the list           | "v NUM" to view the PR in browser
+"a NUM" to merge with admin priv. | "ci NUM" to add "[citest]" comment to PR
+"t NUM" to view test/check detail | "s NUM /path/to/script" to run script
+Press Enter to skip to next role
+EOF
         read -r -p "Action? " input
         if [[ "$input" =~ ^[0-9]+$ ]]; then
             gh pr merge "$input" -R "$origin_org/$repo" "${mergeargs[@]}"
@@ -133,6 +167,12 @@ while [ "$done" = false ]; do
             gh pr merge "${BASH_REMATCH[1]}" -R "$origin_org/$repo" --admin "${mergeargs[@]}"
             echo merged - sleeping to refresh pr list
             sleep 5
+        elif [[ "$input" =~ ^ci\ ([0-9]+)$ ]]; then
+            gh pr comment "${BASH_REMATCH[1]}" --body "[citest]" -R "$origin_org/$repo"
+        elif [[ "$input" =~ ^t\ ([0-9]+)$ ]]; then
+            get_check_detail "${BASH_REMATCH[1]}" "!=" SUCCESS
+        elif [[ "$input" =~ ^s\ ([0-9]+)\ (.+)$ ]]; then
+            "${BASH_REMATCH[2]}" "$repo" "${BASH_REMATCH[1]}"
         elif [ -z "$input" ]; then
             done=true
         else

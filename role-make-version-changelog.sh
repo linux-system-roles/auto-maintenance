@@ -165,7 +165,7 @@ if [ "$skip" = false ]; then
         echo Verifying if all PR titles comply with the conventional commits format
         : > $commitlint_errors_file
         while read -r pr_title; do
-            echo "$pr_title" | npx commitlint >> $commitlint_errors_file || :
+            echo "$pr_title" | npx commitlint >> $commitlint_errors_file 2>&1 || :
         done < $pr_titles_file
         if [ -s "$commitlint_errors_file" ]; then
             echo ERROR: the following PR titles failed commitlint the check:
@@ -203,7 +203,7 @@ if [ "$skip" = false ]; then
         echo ERROR: unexpected tag "$latest_tag"
         exit 1
     fi
-    if grep -q '^.*\!:.*' $pr_titles_file; then
+    if grep -q '^.*!:.*' $pr_titles_file; then
         # Don't bump ver_major for prerelease versions (when ver_major=0)
         if [[ "$ver_major" != 0 ]]; then
             ver_major=$((ver_major+=1))

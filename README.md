@@ -1043,6 +1043,34 @@ have failed.  See also `print_task_tests_info`.
 ./manage_jenkins.py print_test_failures network 535
 ```
 
+# check-fact-gather-results.sh
+
+Used to see if fact gathering in roles is working correctly.  Roles should
+gather only the subset of facts required for the role, and should only gather
+facts if those facts are not already present in `ansible_facts`.  The script
+parses the ansible logs from test runs looking for a task
+`TASK .*$role : Ensure ansible_facts used by role`
+or in the case of the network role
+`TASK .*network : Ensure ansible_facts used by role are present`
+If facts were gathered, the result of the task will be `ok`, otherwise, it will
+be `skipping` if the facts were already present. By default, Ansible will gather
+facts as the first thing it does when you run a playbook.  You will see this in
+the Ansible log as `TASK [Gathering Facts]`. If the test uses
+`gather_facts: false`, or if the user specifies the env. var.
+`ANSIBLE_GATHERING=explicit` (or the equivalent Ansible config), then you will
+not see this in the logs.
+For the normal case, the script looks to see if the `Ensure ansible_facts` task
+has a result of `skipping`, except in a few special cases.
+If running without fact gathering, the script looks to see if the
+`Ensure ansible_facts` task has a result of `ok`, except in a few special cases,
+and if the test has already gathered facts in a previous task (which are special
+cases noted in the script).
+
+If you specify a link, this link is assumed to be a Beaker job result XML file.  Every
+log specified in this file will be scanned.
+If you specify a role name and a PR number, every log specified in the PR CI results
+will be scanned.
+
 # configure_squid
 
 The `configure_squid` directory stores the playbook that you can use to

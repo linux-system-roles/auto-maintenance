@@ -1,6 +1,47 @@
 Changelog
 =========
 
+[1.47.0] - 2023-07-20
+---------------------
+
+### New Features
+
+- ha_cluster - feat: cluster and quorum can have distinct passwords (#134)
+- podman - feat: add support for quadlet, secrets (#78)
+- postgresql - feat: Enable support for Postgresql 15 (#44)
+
+### Bug Fixes
+
+- ad_integration - fix: facts being gathered unnecessarily (#46)
+- certificate - fix: facts being gathered unnecessarily (#187)
+- certificate - fix: Re-issue certificate if key size changes (#188)
+- cockpit - fix: facts being gathered unnecessarily (#116)
+- crypto_policies - fix: facts being gathered unnecessarily (#84)
+- firewall - fix: facts being gathered unnecessarily (#156)
+- firewall - fix: unmask firewalld on run, disable conflicting services (#154)
+- firewall - fix: make enabling/disabling non-existent services not fail in check mode (#153)
+- ha_cluster - fix: facts being gathered unnecessarily (#139)
+- ha_cluster - fix: various minor fixes (#137)
+- journald - fix: facts being gathered unnecessarily (#31)
+- kdump - fix: facts being gathered unnecessarily (#152)
+- kernel_settings - fix: facts being gathered unnecessarily (#163)
+- logging - fix: facts being gathered unnecessarily (#341)
+- nbde_client - fix: facts being gathered unnecessarily (#127)
+- nbde_server - fix: facts being gathered unnecessarily (#110)
+- podman - fix: facts being gathered unnecessarily (#80)
+- postfix - fix: facts being gathered unnecessarily (#96)
+- postgresql - fix: facts being gathered unnecessarily (#43)
+- rhc - fix: facts being gathered unnecessarily (#124)
+- rhc - fix: enable remediation only on RHEL >= 8.4 (#116)
+- selinux - fix: facts being gathered unnecessarily (#180)
+- ssh - fix: facts being gathered unnecessarily (#106)
+- ssh - fix: Fix rendering Match/Host defaults when user provides their own (#104)
+- storage - fix: facts being gathered unnecessarily (#374)
+- storage - fix: RAID volume pre cleanup  (#169)
+- timesync - fix: facts being gathered unnecessarily (#202)
+- tlog - fix: facts being gathered unnecessarily (#97)
+- vpn - fix: facts being gathered unnecessarily (#120)
+
 [1.46.0] - 2023-07-11
 ---------------------
 

@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.48.0] - 2023-07-20
+---------------------
+
+### New Features
+
+- systemd - New Role - manage systemd units
+
+[1.47.1] - 2023-07-20
+---------------------
+
+### Bug Fixes
+
+- network - fix: facts being gathered unnecessarily (#628)
+
 [1.47.0] - 2023-07-20
 ---------------------
 

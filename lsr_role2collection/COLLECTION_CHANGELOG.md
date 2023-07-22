@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.48.1] - 2023-07-22
+---------------------
+
+### Bug Fixes
+
+- firewall - fix: reload on resetting to defaults (#159)
+
 [1.48.0] - 2023-07-20
 ---------------------
 

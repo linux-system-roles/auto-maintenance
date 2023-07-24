@@ -72,6 +72,7 @@ if HAVE_MARKDOWN:
                 self.updates.setdefault("New Features", {}).setdefault(
                     rolename, []
                 ).insert(0, "New Role")
+                return
             changelogmd = os.path.join(args.src_path, rolename, "CHANGELOG.md")
             if not os.path.exists(changelogmd):
                 return

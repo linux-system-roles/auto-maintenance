@@ -226,8 +226,8 @@ if [ "$skip" = false ]; then
 The previous tag is ${latest_tag:-EMPTY}.
 The new tag is $new_tag.
 You have three options:
-1. To continue with the suggested new tag $new_tag and edit CHANGELOG.md, enter 'y',
-2. To provide a different tag, and edit CHANGELOG.md enter the new tag in the following format:
+1. To continue with the suggested new tag $new_tag, enter 'y',
+2. To provide a different tag, enter the new tag in the following format:
    ${allow_v}X.Y.Z, where X, Y, and Z are integers,
 3. To skip this role and go to the next role just press Enter. " new_tag_in
         if [ -z "$new_tag_in" ]; then
@@ -286,7 +286,6 @@ You have three options:
         # When PR are edited using GH web UI, DOS carriage return ^M appears
         # in PR title and body
         sed -i "s/$(printf '\r')\$//" "$rel_notes_file"
-        ${EDITOR:-vi} "$rel_notes_file"
         myheader="Changelog
 ========="
         if [ -f CHANGELOG.md ]; then

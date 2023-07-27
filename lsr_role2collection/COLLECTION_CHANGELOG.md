@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.49.1] - 2023-07-27
+---------------------
+
+### Bug Fixes
+
+- systemd - fix: allow .j2 suffix for templates, strip off for file/service names (#12)
+
 [1.49.0] - 2023-07-24
 ---------------------
 

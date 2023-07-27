@@ -76,7 +76,7 @@ postgresql:
   ref: 1.1.0
   sourcenum: 25
 systemd:
-  ref: 1.0.0
+  ref: 1.0.1
   sourcenum: 26
 keylime_server:
   ref: 1.0.0

@@ -39,9 +39,15 @@ for file in "$@"; do
       --output html "${file}" > "${file%.md}.html"
     sed -i '1,2d' "${file}"
   elif [ "$md2html_tool" == pandoc ]; then
-    $md2html_tool --from gfm "${file}" --to html --output "${file%.md}.html" \
+    $md2html_tool -f gfm "${file}" -t asciidoc -o "${file%.md}.tmp.adoc"
+    touch -r "${file}" "${file%.md}.tmp.adoc"
+    TZ=UTC asciidoc -o "${file%.md}.html" -a footer-style=none -a toc2 -a source-highlighter=highlight "${file%.md}.tmp.adoc"
+    tr -d '\r' < "${file%.md}.html" > "${file%.md}.tmp.adoc"
+    mv "${file%.md}.tmp.adoc" "${file%.md}.html"
+  elif [ "$md2html_tool" == pandoc-new ]; then
+    pandoc --from gfm "${file}" --to html5 --output "${file%.md}.html" \
       --toc --shift-heading-level-by=-1 \
-      --template https://raw.githubusercontent.com/tajmone/pandoc-goodies/master/templates/html5/github/GitHub.html5
+      --template .GitHub.html5
   else
     echo "Cannot find a tool to convert md to adoc"
     echo "You must install rubygem-kramdown-parser-gfm or pandoc"

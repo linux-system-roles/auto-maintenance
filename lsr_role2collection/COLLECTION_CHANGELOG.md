@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.50.0] - 2023-07-28
+---------------------
+
+### New Features
+
+- podman - feat: allow not pulling images, continue if pull fails (#82)
+
+### Bug Fixes
+
+- podman - fix: support global options in config files (#83)
+
 [1.49.1] - 2023-07-27
 ---------------------
 

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.50.1] - 2023-07-31
+---------------------
+
+### Bug Fixes
+
+- kdump - fix: use failure_action instead of default on EL9 and later (#155)
+
 [1.50.0] - 2023-07-28
 ---------------------
 

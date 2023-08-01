@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.51.0] - 2023-08-01
+---------------------
+
+### New Features
+
+- firewall - feat: add new arg firewalld_conf, subarg allow_zone_drifting (#162)
+
+### Bug Fixes
+
+- firewall - fix: firewall_lib: make try_set_zone_of_interface idempotent (#167)
+- firewall - fix: error when running with check mode and previous: replaced (#163)
+- rhc - fix: use rhc_organization and rhc_baseurl only when specified (#127)
+
 [1.50.1] - 2023-07-31
 ---------------------
 

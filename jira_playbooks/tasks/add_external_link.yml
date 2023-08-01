@@ -1,0 +1,33 @@
+---
+# add a link to an external site - that is, outside of Jira, like github.com
+# * issue_key - key of issue to add link to
+# * external_link_url - url
+# * external_link_title - text that will be shown in Jira UI
+# external_link_url: https://github.com/org/reponame/pull/123
+# external_link_title: Pull request that fixes the issue
+# see https://developer.atlassian.com/server/jira/platform/jira-rest-api-for-remote-issue-links/
+- name: Get external links for issue
+  uri:
+    url: "{{ url }}/rest/api/latest/issue/{{ issue_key }}/remotelink"
+    method: GET
+    headers:
+      Authorization: Bearer {{ token }}
+  register: __external_links
+
+- name: Add external link
+  uri:
+    url: "{{ url }}/rest/api/latest/issue/{{ issue_key }}/remotelink"
+    method: POST
+    headers:
+      Authorization: Bearer {{ token }}
+    status_code: [201]
+    body_format: json
+    body:
+      object:
+        url: "{{ external_link_url }}"
+        title: "{{ external_link_title }}"
+  when: __matching_links | length == 0
+  vars:
+    __matching_links: "{{ __external_links.json |
+      selectattr('object.url', 'match', '^' ~ external_link_url ~ '$') |
+      list }}"

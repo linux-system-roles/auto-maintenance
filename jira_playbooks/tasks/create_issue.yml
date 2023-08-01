@@ -1,0 +1,91 @@
+---
+# github issue can be in the following formats
+# * repo/number e.g. network/316
+# * org/repo/number e.g. linux-system-roles/network/316
+# * url e.g. https://github.com/linux-system-roles/network/pull/316
+- name: Reset issue content
+  set_fact:
+    __gh_issue_content: {}
+    __gh_roles: ''
+
+- name: Get github issue/pr
+  when:
+    - github_issue | d("") | length > 0
+    - create_from_github_issue | d(true)
+  vars:
+    __gh_issue_ary: "{{ github_issue | split('/') }}"
+    __gh_api_base: https://api.github.com/repos/
+    __gh_org: "{{ __gh_issue_ary[3] if __gh_issue_ary | length > 4
+      else __gh_issue_ary[0] if __gh_issue_ary | length > 2
+      else 'linux-system-roles' }}"
+    __gh_repo: "{{ __gh_issue_ary[4] if __gh_issue_ary | length > 4
+      else __gh_issue_ary[1] if __gh_issue_ary | length > 2
+      else __gh_issue_ary[0] }}"
+    __gh_num: "{{ __gh_issue_ary[-1] }}"
+    __gh_api_url: "{{ __gh_api_base ~ __gh_org ~ '/' ~ __gh_repo ~ '/issues/' ~
+      __gh_num }}"
+  block:
+    - name: Get issue/pr from url
+      uri:
+        url: "{{ __gh_api_url }}"
+        method: GET
+      register: __gh_issue
+
+    - name: Set facts 1
+      set_fact:
+        __gh_roles: "{{ __gh_repo }}"
+        __gh_issue_type: "{{ 'pull' if 'pull_request' in __gh_issue.json
+          else 'issue' }}"
+
+    - name: Set facts 2
+      set_fact:
+        __gh_issue_url: "{{ github_issue
+          if github_issue is match('^https://github.com')
+          else 'https://github.com/{{ __gh_org }}/{{ __gh_repo }}/' ~
+          '{{ __gh_issue_type }}/{{ __gh_num }}' }}"
+
+# NOTE - only certain fields can be set using `create`
+# see createmeta for Bug and Story
+# other fields are set using update_issue
+- name: Create an issue
+  community.general.jira:
+    operation: create
+    summary: "{{ __gh_issue['json']['title'] | d(summary) }}"
+    description: "{{ __gh_issue['json']['body'] | d(description) }}"
+    issuetype: "{{ __issuetype }}"
+  args:
+    fields:
+      components:
+        - name: "{{ component }}"
+  register: new_issue
+  vars:
+    __issuetype: "{{ 'Bug' if __gh_issue['json']['title'] | d('') is match('^fix:')
+      else 'Story' if __gh_issue['json']['title'] | d('') is match('^feat:')
+      else issuetype }}"
+    __roles: "{{ [] if labels | d([]) | length > 0
+      else __gh_roles | ternary(__gh_roles, (roles | d('') | split(','))) }}"
+
+- name: Add link to github issue
+  include_tasks: add_external_link.yml
+  when: github_issue | d("") | length > 0
+  vars:
+    external_link_url: "{{ __gh_issue_url }}"
+    external_link_title: link to github {{ __gh_issue_type }}
+    issue_key: "{{ new_issue.meta.key }}"
+
+- name: Set facts for update
+  set_fact:
+    update_issue_key: "{{ new_issue.meta.key }}"
+    roles: "{{ '' if labels | d([]) | length > 0
+      else __gh_roles if __gh_roles | d('') | length > 0
+      else roles }}"
+    doc_text_type: "{{ 'Bug Fix' if __gh_issue['json']['title'] | d('') is match('^fix:')
+      else 'Enhancement' if __gh_issue['json']['title'] | d('') is match('^feat:')
+      else 'Bug Fix' if issuetype == 'Bug'
+      else 'Enhancement' if issuetype == 'Story'
+      else '' }}"
+    doc_text: "{{ __gh_issue['json']['body'] | d('') }}"
+
+# modify fields that cannot be added at create time
+- name: Update issue
+  include_tasks: update_issue.yml

@@ -1,0 +1,30 @@
+---
+- name: Dump issue
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "{{ lookup('env', 'HOME') ~ '/.config/jira.yml' }}"
+    config: "{{ lookup('file', config_file) | from_yaml }}"
+    current: "{{ config['current'] }}"
+    url: "{{ config[current]['url'] }}"
+    token: "{{ config[current]['token'] }}"
+    project: "{{ lookup('env', 'PROJECT') if lookup('env', 'PROJECT') | length > 0 else 'RHEL' }}"
+    component: "{{ lookup('env', 'COMPONENT') if lookup('env', 'COMPONENT') | length > 0 else 'rhel-system-roles' }}"
+    product: "{{ config[current]['product'] }}"
+    pool_team: "{{ config[current]['pool_team'] }}"
+  module_defaults:
+    community.general.jira:
+      project: "{{ project }}"
+      token: "{{ token }}"
+      uri: "{{ url }}"
+  tasks:
+    - name: Get an issue
+      community.general.jira:
+        operation: fetch
+        issue: "{{ issue_key }}"
+      register: issue
+
+    - name: Dump issue to file
+      copy:
+        content: "{{ issue.meta | to_nice_json }}"
+        dest: "{{ issue_file | d('issue.json') }}"

@@ -1,0 +1,71 @@
+---
+- name: Get issues matching criteria
+  community.general.jira:
+    operation: search
+    jql: component = {{ component }} AND "{{ itr_query_field }}" = rhel-{{ itr }} AND "{{ status_query_field }}" = "{{ status }}"
+  args:
+    fields:
+      summary:
+      labels:
+      issuetype:
+  register: issues  # issues.meta.issues
+
+- name: Get current date
+  set_fact:
+    dt_spec: "{{ now(fmt='%a %b %d %Y') }}"
+    dt_cl: "{{ now(fmt='%Y-%m-%d') }}"
+
+- name: Format issues
+  set_fact:
+    __issue_list_unsorted: |-
+      {% set rv = [] %}
+      {% for issue in issues.meta.issues %}
+      {%   set roles = issue.fields.labels | select("match", "^system_role_") | map("replace", "system_role_", "") | sort | join(",") %}
+      {%   set __issue = {"key": issue.key, "summary": issue.fields.summary, "roles": roles, "type": issue.fields.issuetype.name} %}
+      {%   set _ = rv.append(__issue) %}
+      {% endfor %}
+      {{ rv }}
+
+- name: Format issues for RPM changelog
+  copy:
+    content: |-
+      * {{ dt_spec }} Your Name <email@redhat.com> - {{ rpm_version }}
+      {% for issue in __issue_list_unsorted | sort(attribute="roles") %}
+      - Resolves {{ issue.key }} : {{ issue.roles }} - {{ issue.summary }}
+      {% endfor %}
+    dest: cl-spec
+
+- name: Format issues for CHANGELOG.md
+  copy:
+    content: |-
+      [{{ rpm_version }}] - {{ dt_cl }}
+      ----------------------------
+
+      ### New Features
+
+      {% for issue in __issue_list_unsorted | sort(attribute="roles") if issue.type == "Story" %}
+      - [{{ issue.roles }} - {{ issue.summary }}](https://issues.redhat.com/browse/{{ issue.key }})
+      {% else %}
+      - none
+      {% endfor %}
+
+      ### Bug Fixes
+
+      {% for issue in __issue_list_unsorted | sort(attribute="roles") if issue.type == "Bug" %}
+      - [{{ issue.roles }} - {{ issue.summary }}](https://issues.redhat.com/browse/{{ issue.key }})
+      {% else %}
+      - none
+      {% endfor %}
+    dest: cl-md
+
+- name: Format issues for git commit msg
+  copy:
+    content: |-
+      System Roles update
+
+      {% for issue in __issue_list_unsorted | sort(attribute="roles") %}
+      Resolves {{ issue.key }}
+      {{ issue.roles }} - {{ issue.summary }}
+
+      {% endfor %}
+    dest: git-commit-msg

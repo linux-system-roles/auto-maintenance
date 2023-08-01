@@ -1,0 +1,26 @@
+---
+- name: Prepare for RPM release
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "{{ lookup('env', 'HOME') ~ '/.config/jira.yml' }}"
+    config: "{{ lookup('file', config_file) | from_yaml }}"
+    current: "{{ config['current'] }}"
+    url: "{{ config[current]['url'] }}"
+    token: "{{ config[current]['token'] }}"
+    project: "{{ config[current]['project'] }}"
+    component: "{{ config[current]['component'] }}"
+    product: "{{ config[current]['product'] }}"
+    pool_team: "{{ config[current]['pool_team'] }}"
+    itr_query_field: fixVersion
+    itr: "{{ lookup('env', 'ITR') if lookup('env', 'ITR') | length > 0 else '9.4.0' }}"
+    status_query_field: status
+    status: "{{ lookup('env', 'STATUS') if lookup('env', 'STATUS') | length > 0 else 'In Progress' }}"
+  module_defaults:
+    community.general.jira:
+      project: "{{ project }}"
+      token: "{{ token }}"
+      uri: "{{ url }}"
+  tasks:
+    - name: Prepare for RPM release
+      include_tasks: tasks/rpm_release.yml

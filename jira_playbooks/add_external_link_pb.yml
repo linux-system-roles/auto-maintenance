@@ -1,0 +1,22 @@
+---
+- name: Add external link to issue
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "{{ lookup('env', 'HOME') ~ '/.config/jira.yml' }}"
+    config: "{{ lookup('file', config_file) | from_yaml }}"
+    current: "{{ config['current'] }}"
+    url: "{{ config[current]['url'] }}"
+    token: "{{ config[current]['token'] }}"
+    project: "{{ config[current]['project'] }}"
+    component: "{{ config[current]['component'] }}"
+    product: "{{ config[current]['product'] }}"
+    pool_team: "{{ config[current]['pool_team'] }}"
+  module_defaults:
+    community.general.jira:
+      project: "{{ project }}"
+      token: "{{ token }}"
+      uri: "{{ url }}"
+  tasks:
+    - name: Add external link
+      include_tasks: tasks/add_external_link.yml

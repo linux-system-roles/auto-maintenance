@@ -1,0 +1,64 @@
+---
+# input is
+# * clone_issue_key - key of issue to clone e.g. "RHEL-001"
+# * clone_version - version for clone
+# * other fields - override fields from cloned issue
+
+- name: Get issue to clone
+  community.general.jira:
+    operation: fetch
+    issue: "{{ clone_issue_key }}"
+  register: clone_issue
+
+- name: Get cloned issue if already cloned
+  set_fact:
+    __outward_issue: "{{ __outward_list[0] if __outward_list | length > 0 else '' }}"
+    __inward_issue: "{{ __inward_list[0] if __inward_list | length > 0 else '' }}"
+  vars:
+    __outward_list: "{{ clone_issue.meta.fields.issuelinks | d([]) |
+      selectattr('type.name', 'match', '^Cloners') | map(attribute='outwardIssue.key') |
+      list }}"
+    __inward_list: "{{ clone_issue.meta.fields.issuelinks | d([]) |
+      selectattr('type.name', 'match', '^Cloners') | map(attribute='inwardIssue.key') |
+      list }}"
+
+- name: Report if already cloned
+  debug:
+    msg: Issue {{ clone_issue.meta.key }} is already clone of {{ __outward_issue }}
+  when: __outward_issue | length > 0
+
+- name: Report if already cloned
+  debug:
+    msg: Issue {{ clone_issue.meta.key }} is already clone of {{ __inward_issue }}
+  when: __inward_issue | length > 0
+
+- name: Do clone
+  when:
+    - __outward_issue | length == 0
+    - __inward_issue | length == 0
+  block:
+    - name: Set vars for creating the clone
+      set_fact:
+        summary: "{{ clone_issue.meta.fields.summary }}"
+        description: "{{ clone_issue.meta.fields.description }}"
+        issuetype: "{{ clone_issue.meta.fields.issuetype.name }}"
+        component: "{{ clone_issue.meta.fields.components.0.name }}"
+        labels: "{{ clone_issue.meta.fields.labels }}"
+        version: "{{ clone_version }}"
+        product: "{{ clone_issue.meta.fields.customfield_12319040.0.value }}"
+        doc_text: "{{ clone_issue.meta.fields.customfield_12317313 | d('') }}"
+        doc_text_type: "{{ clone_issue.meta.fields.customfield_12320850.value | d('') }}"
+
+    - name: Create the clone issue
+      include_tasks: create_issue.yml
+      vars:
+        # if github_issue is set, just add it as an external link, do
+        # not create from it
+        create_from_github_issue: false
+
+    - name: Link clone to original
+      community.general.jira:
+        operation: link
+        linktype: Cloners
+        outwardissue: "{{ clone_issue.meta.key }}"
+        inwardissue: "{{ new_issue.meta.key }}"

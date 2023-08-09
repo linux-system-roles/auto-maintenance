@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.52.0] - 2023-08-09
+---------------------
+
+### New Features
+
+- firewall - feat: define, modify, and remove ipsets (#166)
+
 [1.51.2] - 2023-08-03
 ---------------------
 

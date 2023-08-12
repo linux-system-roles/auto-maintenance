@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.53.0] - 2023-08-12
+---------------------
+
+### New Features
+
+- ad_integration - feat: Enable AD dynamic DNS updates (#48)
+
 [1.52.2] - 2023-08-11
 ---------------------
 

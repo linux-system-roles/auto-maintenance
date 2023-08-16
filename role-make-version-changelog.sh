@@ -306,9 +306,10 @@ You have three options:
             cat "$rel_notes_file" CHANGELOG.md > .tmp-changelog
         fi
         mv .tmp-changelog CHANGELOG.md
-        git add CHANGELOG.md
+        git show origin/docs:latest/README.html > .README.html
+        git add CHANGELOG.md .README.html
         { echo "docs(changelog): version $new_tag [citest skip]"; echo "";
-          echo "Create changelog update and release for version $new_tag"; } > .gitcommitmsg
+          echo "Update changelog and .README.html for version $new_tag"; } > .gitcommitmsg
         git commit -s -F .gitcommitmsg
         rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" \
             "$bug_fixes_file" "$other_changes_file" "$pr_titles_file" \

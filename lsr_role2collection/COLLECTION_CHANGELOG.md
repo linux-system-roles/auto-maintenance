@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.53.2] - 2023-08-17
+---------------------
+
+### Bug Fixes
+
+- kdump - fix: Write new authorized_keys if needed is not idempotent (#162)
+- kdump - fix: do not fail if authorized_keys not found (#161)
+
 [1.53.1] - 2023-08-16
 ---------------------
 

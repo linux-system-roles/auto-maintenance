@@ -1,6 +1,16 @@
 Changelog
 =========
 
+[1.53.3] - 2023-08-18
+---------------------
+
+### Bug Fixes
+
+- firewall - fix: files: overwrite firewalld.conf on previous replaced (#176)
+- kdump - fix: Ensure authorized_keys management works with multiple hosts (#165)
+- kdump - fix: ensure .ssh directory exists for kdump_ssh_user on kdump_ssh_server (#164)
+- storage - fix: use stat.pw_name, stat.gr_name instead of owner, group (#377)
+
 [1.53.2] - 2023-08-17
 ---------------------
 

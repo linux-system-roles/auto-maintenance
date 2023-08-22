@@ -5,11 +5,69 @@
 
 set -euo pipefail
 
-# these are role which has a tests_default.yml which gathers facts
+# these are roles which have a tests_default.yml which gathers facts
 declare -A ROLE_DEFAULT_GATHERS_FACTS=( [ssh]=ssh [journald]=journald [ha_cluster]=ha_cluster )
 
+declare -A LOG_LEVELS=( [DEBUG]=0 [INFO]=1 [NOTICE]=2 [WARNING]=3 [ERROR]=4 [CRITICAL]=5 [FATAL]=6 )
+LOG_LEVEL="${LOG_LEVEL:-NOTICE}"
+
+logmsg() {
+    if [ "${LOG_LEVELS[$1]}" -ge "${LOG_LEVELS[$LOG_LEVEL]}" ]; then
+        echo "$1": "$@"
+    fi
+}
+
+debug() {
+    logmsg DEBUG "$@"
+}
+
+info() {
+    logmsg INFO "$@"
+}
+
+notice() {
+    logmsg NOTICE "$@"
+}
+
+warning() {
+    logmsg WARNING "$@"
+}
+
+error() {
+    logmsg ERROR "$@"
+}
+
+critical() {
+    logmsg CRITICAL "$@"
+}
+
+fatal() {
+    logmsg FATAL "$@"
+    exit 1
+}
+
+get_log() {
+    local file_name
+    if [ -f "$1" ]; then
+        cat "$1"
+    else
+        if [ -n "${log_dir:-}" ]; then
+            if [ ! -d "$log_dir" ]; then
+                mkdir -p "$log_dir"
+            fi
+            file_name="$log_dir/$(basename "$1")"
+            if [ ! -f "$file_name" ]; then
+                curl -L -s -o "$file_name" "$1"
+            fi
+            cat "$file_name"
+        else
+            curl -L -s "$1"
+        fi
+    fi
+}
+
 check_log_for_fact_gather_result() {
-    local role log_link
+    local role log_link default_match match task_match
     role="$1"
     log_link="$2"
     if [[ "$log_link" =~ tests_default_wrapper ]]; then
@@ -32,7 +90,7 @@ check_log_for_fact_gather_result() {
     else
         default_match="skipping:"
     fi
-    echo "###" test "$(basename "$log_link")"
+    info "###" test "$(basename "$log_link")"
     if [[ "$log_link" =~ tests_default_.*_generated ]]; then
         match="$default_match"
     elif [[ "$log_link" =~ tests_defaults_vars ]]; then
@@ -82,7 +140,9 @@ check_log_for_fact_gather_result() {
     else
         task_match="TASK .*$role : Ensure ansible_facts used by role"
     fi
-    curl -s -L "$log_link" | \
+    get_log "$log_link" | \
+    { local line in_task task_lines
+    in_task=false
     while read -r line; do
         # use role to avoid issues with nested roles
         if [ "${in_task:-false}" = true ]; then
@@ -92,9 +152,12 @@ check_log_for_fact_gather_result() {
                 task_lines=()
                 continue
             elif [ -z "$line" ]; then
-                echo ERROR - match not found in task
+                error match not found in task
                 printf '%s\n' "${task_lines[@]}"
-                return 1
+                in_task=false
+                task_lines=()
+                match="skipping:"
+                continue
             elif [[ "$line" =~ ^${match} ]]; then
                 # success
                 in_task=false
@@ -119,8 +182,11 @@ check_log_for_fact_gather_result() {
             match="skipping:"
         elif [[ "$line" =~ ^TASK\ \[.*Ensure\ Ansible\ facts\ required\ by\ tests ]]; then
             match="skipping:"
+        elif [[ "$line" =~ ^TASK\ \[.*Get\ facts\ for\ external\ test\ data ]]; then
+            match="skipping:"
         fi
     done
+    }
 }
 
 get_logs_from_pr() {
@@ -135,7 +201,7 @@ get_logs_from_pr() {
         elif [ "$context" = "codecov/project" ]; then
             continue
         fi
-        echo "##" context "$context"
+        info "##" context "$context"
         curl -s "$summary_url" | xmllint --html --xpath '//@href' - 2> /dev/null | \
         cut -d '"' -f 2 | \
         while read -r log_link; do
@@ -144,18 +210,36 @@ get_logs_from_pr() {
     done
 }
 
+get_bkr_xml() {
+    if [ -f "$1" ]; then
+        cat "$1"
+    else
+        curl -L -s "$1"
+    fi
+}
+
 get_logs_from_bkr_xml() {
-    local xml_url log_link
+    local xml_url log_link role
     xml_url="$1"  # this is the Beaker results XML URL
-    curl -s "$xml_url" | xmllint --xpath '//@href' - | cut -d '"' -f 2 | \
+    role="${2:-}"
+    get_bkr_xml "$xml_url" | xmllint --xpath '//@href' - | cut -d '"' -f 2 | \
     while read -r log_link; do
         if [[ "$log_link" =~ SYSTEM-ROLE-([a-z_]+)_tests_ ]]; then
-            check_log_for_fact_gather_result "${BASH_REMATCH[1]}" "$log_link"
+            if [ -z "$role" ] || [ "$role" = "${BASH_REMATCH[1]}" ]; then
+                check_log_for_fact_gather_result "${BASH_REMATCH[1]}" "$log_link"
+            fi
         fi
     done
 }
 
-if [[ "$1" =~ ^http ]]; then
+if [ -f "$1" ]; then
+    log_dir="$(dirname "$1")"
+    if [[ "$1" =~ [.]xml$ ]]; then
+        get_logs_from_bkr_xml "$1" "${2:-}"
+    elif [[ "$1" =~ [.]log$ ]]; then
+        check_log_for_fact_gather_result "$2" "$1"
+    fi
+elif [[ "$1" =~ ^http ]]; then
     # assume a link
     get_logs_from_bkr_xml "$1"
 elif [ -n "${2:-}" ]; then

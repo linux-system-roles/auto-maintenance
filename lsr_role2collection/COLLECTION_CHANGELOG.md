@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.53.4] - 2023-08-22
+---------------------
+
+### Bug Fixes
+
+- ad_integration - fix: use command stdin for password, and do not log password (#51)
+
 [1.53.3] - 2023-08-18
 ---------------------
 

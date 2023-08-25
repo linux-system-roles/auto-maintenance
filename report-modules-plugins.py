@@ -602,6 +602,7 @@ def process_role(role_path, is_real_role, ctx):
             ctx.found_role_name = get_role_name(role_path)
         ctx.enter_role(ctx.found_role_name, role_path)
         ctx.add_local_plugins(role_path, "library")
+        ctx.add_local_plugins(role_path, "tests/library")
         ctx.add_local_plugins(role_path, "filter_plugins")
     # process defaults to get role public api variables
     dirname = "defaults"

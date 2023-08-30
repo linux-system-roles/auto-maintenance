@@ -1179,10 +1179,10 @@ class SearchCtx(object):
 def usage():
     return f"""
     You must create an environment (e.g. python venv or VM) which uses
-    ansible 4.x and jinja2.7 e.g.
+    ansible 6.x, and jinja2.7 with python_version <= "3.7", e.g.
       python -mvenv .venv
       . .venv/bin/activate
-      pip install 'ansible==4.*' 'jinja2==2.7.*'
+      pip install 'ansible==6.*' 'jinja2==2.7.*; python_version <= "3.7"'
     Then run this script using that environment.
     Each argument is the name of a directory containing a role, a collection,
     a 'roles' directory containing multiple roles, or an 'ansible_collections'

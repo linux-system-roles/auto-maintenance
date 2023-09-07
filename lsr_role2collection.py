@@ -343,6 +343,7 @@ DOCS = (
     "design_docs",
     "examples",
     "README.md",
+    "README.html",
     "DCO",
 )
 
@@ -378,7 +379,6 @@ DO_NOT_COPY = (
     "semaphore",
     "standard-inventory-qcow2",
     "Vagrantfile",
-    "README.html",
     "CHANGELOG",
 )
 
@@ -1488,7 +1488,7 @@ def role2collection():
         logging.info(f"Copying doc {filename} to {dest}")
         copy2(src, dest, follow_symlinks=False)
         dest = roles_dir / new_role
-        file_patterns = ["*.md"]
+        file_patterns = ["*.md", "*.html"]
         file_replace(dest, src_owner + "." + role, prefix + new_role, file_patterns)
         # --extra-mapping SRCROLENAME:DESTROLENAME(or FQCN)
         for _emap in extra_mapping:
@@ -1744,14 +1744,19 @@ def role2collection():
         file_replace(meta_dir, _from, _to, file_patterns)
 
     # Copy processed README.md to the docs dir after renaming it to README_ROLENAME.md
-    readme_md = roles_dir / new_role / "README.md"
-    if readme_md.is_file():
-        if not docs_dir.is_dir():
-            if docs_dir.exists():
+    role_readmes = [
+        roles_dir / new_role / "README.md",
+        roles_dir / new_role / "README.html",
+    ]
+    for readme in role_readmes:
+        if readme.is_file():
+            if not docs_dir.is_dir() and docs_dir.exists():
                 docs_dir.unlink()
-            docs_dir.mkdir()
-        role_readme_md = docs_dir / "README_{0}.md".format(new_role)
-        copyfile(readme_md, role_readme_md)
+                docs_dir.mkdir()
+            docs_readme = docs_dir / "README_{0}{1}".format(
+                new_role, os.path.splitext(readme)[1]
+            )
+            copyfile(readme, docs_readme)
 
     # Copy CHANGELOG.md to the docs dir after renaming it to CHANGELOG_ROLENAME.md
     changelog_md = src_path / "CHANGELOG.md"

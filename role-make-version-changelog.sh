@@ -160,7 +160,7 @@ else
     fi
 fi
 if [ "$skip" = false ]; then
-    if [ -s "$pr_titles_file" ] && [ "${ALLOW_BAD_PRS}" = false ]; then
+    if [ -s "$pr_titles_file" ] && [ "${ALLOW_BAD_PRS}" = false ] && [ "${count:-0}" != 0 ]; then
         echo ""
         echo Verifying if all PR titles comply with the conventional commits format
         : > $commitlint_errors_file
@@ -306,7 +306,7 @@ You have three options:
             cat "$rel_notes_file" CHANGELOG.md > .tmp-changelog
         fi
         mv .tmp-changelog CHANGELOG.md
-        git show origin/docs:latest/README.html > .README.html
+        gh api /repos/"$owner"/"$repo"/contents/latest/README.html?ref=docs -q .content | base64 --decode > .README.html
         git add CHANGELOG.md .README.html
         { echo "docs(changelog): version $new_tag [citest skip]"; echo "";
           echo "Update changelog and .README.html for version $new_tag"; } > .gitcommitmsg

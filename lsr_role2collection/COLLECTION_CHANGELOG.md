@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.54.0] - 2023-09-14
+---------------------
+
+### New Features
+
+- sshd - feat: manage ssh certificates (#252)
+
+### Bug Fixes
+
+- sshd - fix: Makes runtime dir relative (#249)
+- sshd - fix: Support inject_facts_as_vars = false (#244)
+
 [1.53.7] - 2023-09-13
 ---------------------
 

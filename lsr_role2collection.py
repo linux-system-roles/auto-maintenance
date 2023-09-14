@@ -1750,8 +1750,9 @@ def role2collection():
     ]
     for readme in role_readmes:
         if readme.is_file():
-            if not docs_dir.is_dir() and docs_dir.exists():
-                docs_dir.unlink()
+            if not docs_dir.is_dir():
+                if docs_dir.exists():
+                    docs_dir.unlink()
                 docs_dir.mkdir()
             docs_readme = docs_dir / "README_{0}{1}".format(
                 new_role, os.path.splitext(readme)[1]

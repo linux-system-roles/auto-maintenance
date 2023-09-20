@@ -2,7 +2,7 @@ postfix:
   ref: 1.3.9
   sourcenum: 1
 selinux:
-  ref: 1.6.2
+  ref: 1.6.3
   sourcenum: 2
 timesync:
   ref: 1.7.7

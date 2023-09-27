@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.54.2] - 2023-09-27
+---------------------
+
+### Bug Fixes
+
+- selinux - fix: make role work again on Suse - not officially supported (#195)
+
 [1.54.1] - 2023-09-20
 ---------------------
 

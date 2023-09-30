@@ -1079,6 +1079,24 @@ log specified in this file will be scanned.
 If you specify a role name and a PR number, every log specified in the PR CI results
 will be scanned.
 
+# check-logs-for-packages.sh
+
+Used to scan logs for references to packages used with the `package` task, and
+generate the lists of packages required for `ostree` images for a given
+distribution and version, and also for runtime and testing.  Typically used like
+this:
+
+```bash
+ROLE_PARENT_DIR=~/linux-system-roles log_dir=/var/tmp/lsr ./check-logs-for-packages.sh rolename PR rolename PR ....
+```
+
+This will download all of the integration test logs from each given rolename/PR
+combination to `log_dir` and create the lists of packages.  You must have run
+the PR with the `tests/callback_plugins/dump_packages.py` plugin in place to
+dump the packages used.  The directory `ROLE_PARENT_DIR` should have the role
+subdirectories in either the form `rolename/` or `linux-system-roles.rolename/`.
+It will update the `.ostree/` directory in each role with the package files.
+
 # configure_squid
 
 The `configure_squid` directory stores the playbook that you can use to

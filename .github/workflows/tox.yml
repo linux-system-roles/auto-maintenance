@@ -18,7 +18,7 @@ jobs:
     runs-on: ${{ matrix.pyver_os.os }}
     steps:
       - name: checkout PR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         with:

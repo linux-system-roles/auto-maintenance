@@ -1669,6 +1669,11 @@ def role2collection():
                                 dr,
                                 file_patterns,
                             )
+            elif extra.name == ".ostree":
+                # copy to role directory within collection
+                dest = dest_path / "roles" / new_role / extra.name
+                logging.info(f"Copying extra {extra} to {dest}")
+                lsr_copytree(extra, dest)
             # Other extra directories are copied to the collection dir as they are.
             else:
                 dest = dest_path / extra.name

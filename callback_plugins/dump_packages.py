@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2012, Michael DeHaan, <michael.dehaan@gmail.com>
-# Copyright (c) 2017 Ansible Project
-# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
-# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2023, Red Hat, Inc.
+# SPDX-License-Identifier: MIT
 
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
 DOCUMENTATION = """
-    author: Unknown (!UNKNOWN)
-    name: context_demo
+    author: Rich Megginson
+    name: dump_packages
     type: aggregate
-    short_description: demo callback that adds play/task context
+    short_description: dump arguments to package module
     description:
-      - Displays some play and task context along with normal output.
-      - This is mostly for demo purposes.
+      - Dump arguments to package module to get list of packages.
+      - Used in conjunction with CI testing to get the packages used
+      - with all combinations of: distribution/version/role arguments
+      - Used to generate lists of packages for ostree image builds.
     requirements:
-      - whitelist in configuration
+      - None
 """
 
 from ansible.plugins.callback import CallbackBase  # noqa: E402
@@ -25,8 +25,7 @@ from ansible.plugins.callback import CallbackBase  # noqa: E402
 
 class CallbackModule(CallbackBase):
     """
-    This is a very trivial example of how any callback function can get at play and task objects.
-    play will be 'None' for runner invocations, and task will be None for 'setup' invocations.
+    Dump packages.
     """
 
     CALLBACK_VERSION = 2.0

@@ -20,7 +20,7 @@ DOCUMENTATION = """
       - whitelist in configuration
 """
 
-from ansible.plugins.callback import CallbackBase
+from ansible.plugins.callback import CallbackBase  # noqa: E402
 
 
 class CallbackModule(CallbackBase):

@@ -31,7 +31,9 @@ class CallbackModule(CallbackBase):
     CALLBACK_VERSION = 2.0
     CALLBACK_TYPE = "aggregate"
     CALLBACK_NAME = "dump_packages"
-    CALLBACK_NEEDS_WHITELIST = False
+    # needed for 2.9 compatibility
+    CALLBACK_NEEDS_WHITELIST = False  # wokeignore:rule=whitelist
+    CALLBACK_NEEDS_ENABLED = False
 
     def __init__(self, *args, **kwargs):
         super(CallbackModule, self).__init__(*args, **kwargs)

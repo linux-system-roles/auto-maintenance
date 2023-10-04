@@ -59,6 +59,8 @@ get_checks() {
             status=ERROR
         elif [ "$conclusion" = NEUTRAL ]; then  # usually a python check if python code did not change
             status=SUCCESS
+        elif [ "$conclusion" = ACTION_REQUIRED ]; then  # DCO check failed
+            status=FAILURE
         else
             echo ERROR: check "$name" has unknown conclusion "$conclusion" state "$state" 1>&2
             exit 1
@@ -146,10 +148,13 @@ while [ "$done" = false ]; do
         echo ""
         cat <<EOF
 Actions:
-Enter a PR number to merge it     | "w" to list PRs in browser
-"l" to refresh the list           | "v NUM" to view the PR in browser
-"a NUM" to merge with admin priv. | "ci NUM" to add "[citest]" comment to PR
-"t NUM" to view test/check detail | "s NUM /path/to/script" to run script
+"NUM" - merge PR                 | "w" - list PRs in browser
+"l" - refresh the list           | "v NUM" - view PR in browser
+"a NUM" - merge with admin priv. | "ci NUM" - add "[citest]" comment to PR
+"t NUM" - view test/check detail | "s NUM /path/to/script" - run script
+"c NUM [comment]" - close PR with optional comment
+"d NUM [diff args]" - gh pr diff NUM [args]
+"e NUM [edit args]" - gh pr edit NUM [args]
 Press Enter to skip to next role
 EOF
         read -r -p "Action? " input
@@ -173,6 +178,27 @@ EOF
             get_check_detail "${BASH_REMATCH[1]}" "!=" SUCCESS
         elif [[ "$input" =~ ^s\ ([0-9]+)\ (.+)$ ]]; then
             "${BASH_REMATCH[2]}" "$repo" "${BASH_REMATCH[1]}"
+        elif [[ "$input" =~ ^c\ ([0-9]+)(\ (.+))?$ ]]; then
+            args=("${BASH_REMATCH[1]}" -R "$origin_org/$repo" -d)
+            if [ -n "${BASH_REMATCH[2]}" ]; then
+                args+=(-c "${BASH_REMATCH[2]}")
+            fi
+            gh pr close "${args[@]}"
+            echo closed - sleeping to refresh pr list
+            sleep 5
+        elif [[ "$input" =~ ^d\ ([0-9]+)(\ (.+))?$ ]]; then
+            args=("${BASH_REMATCH[1]}" -R "$origin_org/$repo")
+            if [ -n "${BASH_REMATCH[2]}" ]; then
+                args+=("${BASH_REMATCH[2]}")
+            fi
+            gh pr diff "${args[@]}"
+        elif [[ "$input" =~ ^e\ ([0-9]+)(\ (.+))?$ ]]; then
+            args=(gh pr edit "${BASH_REMATCH[1]}" -R "$origin_org/$repo")
+            if [ -n "${BASH_REMATCH[3]:-}" ]; then
+                "${args[@]}" ${BASH_REMATCH[3]}
+            else
+                "${args[@]}"
+            fi
         elif [ -z "$input" ]; then
             done=true
         else

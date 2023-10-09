@@ -156,6 +156,7 @@ check_log_for_packages() {
                 echo "${BASH_REMATCH[1]}" | sed 's/ /\n/g' >> "$log_dir/skip.txt"
             else
                 # could not figure out how to use variable//search/replace for this
+                # shellcheck disable=SC2001
                 echo "${BASH_REMATCH[1]}" | sed 's/ /\n/g' >> "$output_file"
             fi
         fi

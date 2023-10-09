@@ -74,21 +74,50 @@ get_log() {
     fi
 }
 
-# legacy
-# /WORKDIR/git-weekly-cio5_1jh8r/tests/playbooks/tests_wireless_plugin_installation.yml:6
-# /WORKDIR/git-weekly-cio5_1jh8r/tests/roles/linux-system-roles.network/tasks/main.yml:30
-# collection
-# /WORKDIR/git-weekly-ci480l6dut/tests/playbooks/tests_wireless_plugin_installation.yml:6
-# /WORKDIR/git-weekly-ci480l6dut/.collection/ansible_collections/fedora/linux_system_roles/roles/network/tasks/main.yml:27
-path_is_a_test() {
-    if [[ "$1" =~ /tests/roles/linux-system-roles ]]; then
-        return 1  # not in test code
-    elif [[ "$1" =~ /fedora/linux_system_roles/roles/ ]]; then
-        return 1  # not in test code
+# return value
+# runtime - package is runtime and in given role
+# testing - package is testing and in given role
+# skip - package is from included role
+parse_path() {
+    local role path
+    role="$1"
+    path="$2"
+    if [[ "$path" =~ /tests/roles/linux-system-roles.${role}/tasks/ ]]; then
+        echo runtime
+        debug runtime role path "$path"
+    elif [[ "$path" =~ /ansible_collections/fedora/linux_system_roles/([a-z]+)/([a-z_]+)/tasks/ ]]; then
+        local role_match type
+        type="${BASH_REMATCH[1]}"
+        role_match="${BASH_REMATCH[2]}"
+        if [ "$role_match" = "$role" ] || [[ "$role_match" =~ ^private_${role}_ ]]; then
+            if [ "$type" = tests ]; then
+                echo testing
+                debug testing role path "$path"
+            else
+                echo runtime
+                debug runtime role path "$path"
+            fi
+        else
+            echo skip
+            debug not role path "$path"
+        fi
+    else
+        echo testing
+        debug assume testing "$path"
     fi
-    # anything else is test code
-    return 0
 }
+
+# we want to exclude packages managed by system roles called by this
+# role - the package lists for this role should contain only packages
+# managed by this role
+# TASK [fedora.linux_system_roles.selinux : Install SELinux python3 tools] *******
+# task path: /WORKDIR/git-weekly-ciq44gwyx3/.collection/ansible_collections/fedora/linux_system_roles/roles/selinux/tasks/set_facts_packages.yml:15
+# Saturday 07 October 2023  10:42:51 +0000 (0:00:00.072)       0:00:13.103 ******
+# ok: [sut] => {
+#     "changed": false,
+#     "rc": 0,
+#     "results": []
+# }
 
 # Scan the given log file/url for packages.  Write the packages
 # to $log_dir/${role}-packages-${pkg_type}-${distro}-${ver}.txt
@@ -113,21 +142,23 @@ check_log_for_packages() {
     fi
     info "### test $log_link"
     get_log "$role" "$pr" "$distro" "$major_ver" "$ver" "$ansible_ver" "$log_link" | \
-    { local pkg_type line output_file
+    { local pkg_type line output_file path
     pkg_type=""
     while read -r line; do
         if [[ "$line" =~ ^task\ path:\ (.+): ]]; then
-            if path_is_a_test "${BASH_REMATCH[1]}"; then
-                pkg_type=testing
-            else
-                pkg_type=runtime
-            fi
+            path="${BASH_REMATCH[1]}"
+            pkg_type="$(parse_path "$role" "$path")"
         fi
         output_file="$log_dir/${role}-packages-${pkg_type}-${ansible_distro}-${ver}.txt"
         if [[ "$line" =~ ^lsrpackages:\ (.+) ]]; then
-            # could not figure out how to use variable//search/replace for this
-            # shellcheck disable=SC2001
-            echo "${BASH_REMATCH[1]}" | sed 's/ /\n/g' >> "$output_file"
+            if [ "$pkg_type" = skip ]; then
+                # shellcheck disable=SC2001
+                echo "${BASH_REMATCH[1]}" | sed 's/ /\n/g' >> "$log_dir/skip.txt"
+            else
+                # could not figure out how to use variable//search/replace for this
+                # shellcheck disable=SC2001
+                echo "${BASH_REMATCH[1]}" | sed 's/ /\n/g' >> "$output_file"
+            fi
         fi
     done
     }
@@ -293,6 +324,7 @@ for file in "$log_dir"/*.txt; do
     # shellcheck disable=SC2034
     IFS=- read -r role packages pkg_type distro ver <<< "$(basename "$file")"
     IFS=. read -r major_ver rest <<< "$ver"
+    if [ -z "$pkg_type" ]; then continue; fi
     roles["$role"]="$role"
     pkg_types["$pkg_type"]="$pkg_type"
     distros["$distro"]="$distro"

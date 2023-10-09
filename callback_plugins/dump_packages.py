@@ -44,7 +44,9 @@ class CallbackModule(CallbackBase):
             packages = set()
             if "invocation" in result._result:
                 results = [result._result]
-            elif "results" in result._result and isinstance(result._result["results"], list):
+            elif "results" in result._result and isinstance(
+                result._result["results"], list
+            ):
                 results = result._result["results"]
             for item in results:
                 pkgs = item["invocation"]["module_args"]["name"]

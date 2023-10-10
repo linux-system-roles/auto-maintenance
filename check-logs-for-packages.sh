@@ -107,17 +107,24 @@ parse_path() {
     fi
 }
 
-# we want to exclude packages managed by system roles called by this
-# role - the package lists for this role should contain only packages
-# managed by this role
-# TASK [fedora.linux_system_roles.selinux : Install SELinux python3 tools] *******
-# task path: /WORKDIR/git-weekly-ciq44gwyx3/.collection/ansible_collections/fedora/linux_system_roles/roles/selinux/tasks/set_facts_packages.yml:15
-# Saturday 07 October 2023  10:42:51 +0000 (0:00:00.072)       0:00:13.103 ******
-# ok: [sut] => {
-#     "changed": false,
-#     "rc": 0,
-#     "results": []
-# }
+update_roles_file() {
+    local file role
+    file="$1"; shift
+    {
+    if [ -f "$file" ]; then
+        cat "$file"
+    fi
+    for role in "$@"; do
+        echo "$role"
+    done
+    } | sort -u > "$log_dir/tmp.txt"
+    if [ -s "$log_dir/tmp.txt" ]; then
+        mv "$log_dir/tmp.txt" "$file"
+    elif [ -f "$file" ]; then
+        # do not keep 0 length files
+        rm "$file"
+    fi
+}
 
 # Scan the given log file/url for packages.  Write the packages
 # to $log_dir/${role}-packages-${pkg_type}-${distro}-${ver}.txt
@@ -142,12 +149,30 @@ check_log_for_packages() {
     fi
     info "### test $log_link"
     get_log "$role" "$pr" "$distro" "$major_ver" "$ver" "$ansible_ver" "$log_link" | \
-    { local pkg_type line output_file path
+    { local pkg_type line output_file path current_pkg_type
     pkg_type=""
+    current_pkg_type=""
+    declare -A runtime_roles testing_roles
     while read -r line; do
+        if [[ "$line" =~ ^TASK\ \[fedora[.]linux_system_roles[.]([a-z_]+) ]]; then
+            local role_match
+            role_match="${BASH_REMATCH[1]}"
+            if [ "$role_match" = "$role" ] || [[ "$role_match" =~ ^private_${role}_ ]]; then
+                continue
+            fi
+            if [ "$current_pkg_type" = runtime ]; then
+                runtime_roles["$role_match"]=true
+            elif [ "$current_pkg_type" = testing ]; then
+                testing_roles["$role_match"]=true
+            fi
+            continue
+        fi
         if [[ "$line" =~ ^task\ path:\ (.+): ]]; then
             path="${BASH_REMATCH[1]}"
             pkg_type="$(parse_path "$role" "$path")"
+            if [ "$pkg_type" = runtime ] || [ "$pkg_type" = testing ]; then
+                current_pkg_type="$pkg_type"
+            fi
         fi
         output_file="$log_dir/${role}-packages-${pkg_type}-${ansible_distro}-${ver}.txt"
         if [[ "$line" =~ ^lsrpackages:\ (.+) ]]; then
@@ -161,6 +186,12 @@ check_log_for_packages() {
             fi
         fi
     done
+    for rr in "${!runtime_roles[@]}"; do
+        # runtime roles should not be mentioned in testing roles
+        unset "testing_roles[$rr]"
+    done
+    update_roles_file "$log_dir/${role}-roles-runtime.txt" "${!runtime_roles[@]}"
+    update_roles_file "$log_dir/${role}-roles-testing.txt" "${!testing_roles[@]}"
     }
 }
 
@@ -319,6 +350,11 @@ fi
 # normalize and pre-digest the package files
 declare -A roles pkg_types distros major_vers distro_major_ver
 for file in "$log_dir"/*.txt; do
+    case "$file" in
+    *skip.txt) continue ;;
+    *-roles-runtime.txt) continue ;;
+    *-roles-testing.txt) continue ;;
+    esac
     sort -u "$file" > "$log_dir/tmp"
     mv -f "$log_dir/tmp" "$file"
     # shellcheck disable=SC2034
@@ -401,16 +437,22 @@ if [ -n "${ROLE_PARENT_DIR:-}" ] && [ -d "$ROLE_PARENT_DIR" ]; then
         fi
         firsttime=1
         for file in "$log_dir/${role}-packages-"*.txt; do
+            destfile="$role_dir/.ostree/$(basename "${file/${role}-/}")"
+            if [ ! -d "$role_dir/.ostree" ]; then
+                mkdir -p "$role_dir/.ostree"
+            fi
+            if [ "$firsttime" = 1 ]; then
+                rm -f "$role_dir/.ostree/packages-"*.txt
+                firsttime=0
+            fi
+            cp "$file" "$destfile"
+        done
+        for file in "$log_dir/${role}-roles-runtime.txt" "$log_dir/${role}-roles-testing.txt"; do
+            destfile="$role_dir/.ostree/$(basename "${file/${role}-/}")"
             if [ -f "$file" ]; then
-                if [ ! -d "$role_dir/.ostree" ]; then
-                    mkdir -p "$role_dir/.ostree"
-                fi
-                if [ "$firsttime" = 1 ]; then
-                    rm -f "$role_dir/.ostree/packages-"*.txt
-                    firsttime=0
-                fi
-                destfile="$role_dir/.ostree/$(basename "${file/${role}-/}")"
                 cp "$file" "$destfile"
+            else
+                rm -f "$destfile"
             fi
         done
     done

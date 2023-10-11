@@ -12,7 +12,7 @@ linux-system-roles repos.
   * [check_rpmspec_collection.sh](#check_rpmspec_collectionsh)
   * [manage-role-repos.sh](#manage-role-repossh)
   * [role-make-version-changelog.sh](#role-make-version-changelogsh)
-  * [role-merge-prs.sh](#role-merge-prssh)
+  * [role-manage-prs.sh](#role-manage-prssh)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
   * [bz-manage.sh](#bz-managesh)
   * [manage_jenkins.py](#manage_jenkinspy)
@@ -671,7 +671,7 @@ Use this script, and ensure the CHANGELOG.md PR is merged, and the repo is
 tagged and released, before you run
 [release_collection.py](#release_collectionpy).
 
-# role-merge-prs.sh
+# role-manage-prs.sh
 
 Used in conjunction with `manage-role-repos.sh`.  This will list the non-draft
 PRs for a role and prompt for merging one of them.  The list will include the
@@ -687,6 +687,9 @@ checks and tests status for the PR.  Actions:
 * `s NUM /path/to/script` - Run a script against a PR.  The role name and PR
   number are passed to the script.  This can be used to perform whatever action
   you want against the PR e.g. check logs for specific errors.
+* `c NUM [comment]` - Close PR with optional comment
+* `d NUM [diff args]` - View diff with optional args
+* `e NUM [edit args]` - Edit the PR with optional args
 * Press Enter by itself to skip to the next role
 
 By default, the list will only include PRs authored by you.  Use `AUTHOR=@all`
@@ -695,13 +698,13 @@ by the given username.
 
 Examples:
 
-`./manage-role-repos.sh ./role-merge-prs.sh` - View all non-draft PRs authored
+`./manage-role-repos.sh ./role-manage-prs.sh` - View all non-draft PRs authored
 by myself
 
-`AUTHOR=@all ./manage-role-repos.sh ./role-merge-prs.sh` - View all non-draft
+`AUTHOR=@all ./manage-role-repos.sh ./role-manage-prs.sh` - View all non-draft
 PRs
 
-`AUTHOR=richm ./manage-role-repos.sh ./role-merge-prs.sh` - View all non-draft
+`AUTHOR=richm ./manage-role-repos.sh ./role-manage-prs.sh` - View all non-draft
 PRs authored by richm
 
 * `AUTHOR` - default is `@me` - look for PRs authored by this username.  Use

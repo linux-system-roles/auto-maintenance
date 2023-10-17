@@ -39,6 +39,7 @@ from shutil import copytree, copy2, copyfile, ignore_patterns, rmtree, which
 from operator import itemgetter
 
 ALL_ROLE_DIRS = [
+    "action_plugins",
     "defaults",
     "examples",
     "files",

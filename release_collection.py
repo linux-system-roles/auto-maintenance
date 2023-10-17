@@ -555,13 +555,14 @@ def update_collection(args, galaxy, coll_rel):
         args.dest_path, "ansible_collections", galaxy["namespace"], galaxy["name"]
     )
     if os.path.isdir(coll_dir):
-        if args.force:
+        if args.keep:
+            pass  # do nothing - keep whatever is there
+        elif args.force:
             shutil.rmtree(coll_dir)
         else:
             raise Exception(
-                "collection dest_path {} already exists - remove or use --force".format(
-                    coll_dir
-                )
+                "collection dest_path {} already exists - remove it, use --force "
+                "to remove, or use --keep".format(coll_dir)
             )
     os.makedirs(coll_dir, exist_ok=True)
     collection_readme = os.path.join("lsr_role2collection", "collection_readme.md")
@@ -844,6 +845,12 @@ def main():
         default=False,
         action="store_true",
         help="Remove collection destination dir and file before creating",
+    )
+    parser.add_argument(
+        "--keep",
+        default=False,
+        action="store_true",
+        help="Keep collection destination dir and file before creating",
     )
     parser.add_argument(
         "--no-auto-version",

@@ -742,7 +742,10 @@ def cleanup_symlinks(path, role, rmlist):
                         node.unlink()
             if (
                 node.is_dir()
-                and r"linux-system-roles." + role == node.name
+                and (
+                    r"linux-system-roles." + role == node.name
+                    or (role == "sshd" and node.name == "ansible-sshd")
+                )
                 and not any(node.iterdir())
             ):
                 node.rmdir()
@@ -1400,7 +1403,13 @@ def role2collection():
         TESTS,
         transformer_args,
         isrole=False,
-        ignoreme=["artifacts", "linux-system-roles.*", "__pycache__", ".git*"],
+        ignoreme=[
+            "artifacts",
+            "linux-system-roles.*",
+            "__pycache__",
+            ".git*",
+            "ansible-sshd",
+        ],
     )
 
     # remove symlinks in the tests/role.

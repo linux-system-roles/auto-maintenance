@@ -164,8 +164,8 @@ else
     cat $pr_titles_file
     echo ""
     # see the changes?
-    read -r -p 'Skip this role? (y/n)? (default: n) ' skip_role
-    if [ "${skip_role:-n}" = y ]; then
+    read -r -p 'Release this role? (y/n)? (default: y) ' release_role
+    if [ "${release_role:-y}" = n ]; then
         skip=true
     fi
 fi

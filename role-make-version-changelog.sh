@@ -21,6 +21,16 @@ repo_entries="$(gh repo view --json name,owner)"
 repo=${repo:-$(echo "$repo_entries" | jq -r .name)}
 owner=${owner:-$(echo "$repo_entries" | jq -r .owner.login)}
 
+# These roles are usually not released
+NO_RELEASE_ROLES="${NO_RELEASE_ROLES:-template}"
+
+for no_release_role in $NO_RELEASE_ROLES; do
+    if [ "$repo" = "$no_release_role" ]; then
+        echo not releasing role "$repo" - skipping
+        return 0
+    fi
+done
+
 # To be used in conjunction with local-repo-dev-sync.sh
 # This script is called from every role
 
@@ -154,8 +164,8 @@ else
     cat $pr_titles_file
     echo ""
     # see the changes?
-    read -r -p 'Skip this role? (y/n)? (default: n) ' skip_role
-    if [ "${skip_role:-n}" = y ]; then
+    read -r -p 'Release this role? (y/n)? (default: y) ' release_role
+    if [ "${release_role:-y}" = n ]; then
         skip=true
     fi
 fi

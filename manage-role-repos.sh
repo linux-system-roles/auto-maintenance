@@ -89,22 +89,29 @@ for repo in $repos; do
         if [ "${MAKE_FORK:-true}" = true ]; then
             prot_save=$(gh config -h github.com get git_protocol)
             gh config -h github.com set git_protocol ssh
-            gh repo fork --remote
-            gh config -h github.com set git_protocol "$prot_save"
-            if [[ "$(git remote get-url origin)" =~ .*:([^/]+)/([^/]+)$ ]]; then
-                origin_org="${BASH_REMATCH[1]}"
-                origin_repo="${BASH_REMATCH[2]/.git/}"
+            forked=false
+            if ! gh repo fork --remote; then
+                echo cannot fork
             else
-                echo Error: origin remote points to unknown url "$(git remote get-url origin)"
-                exit 1
+                forked=true
             fi
-            if [ "${RENAME_FORK:-false}" = true ]; then
-                newname="${LSR_GH_ORG}"-"$repo"
-                if [ "$origin_repo" = "$newname" ]; then
-                    : # already renamed
+            gh config -h github.com set git_protocol "$prot_save"
+            if [ "$forked" = true ]; then
+                if [[ "$(git remote get-url origin)" =~ .*:([^/]+)/([^/]+)$ ]]; then
+                    origin_org="${BASH_REMATCH[1]}"
+                    origin_repo="${BASH_REMATCH[2]/.git/}"
                 else
-                    gh repo rename "$newname" -R "$origin_org/$origin_repo"
-                    origin_repo="$newname"
+                    echo Error: origin remote points to unknown url "$(git remote get-url origin)"
+                    exit 1
+                fi
+                if [ "${RENAME_FORK:-false}" = true ]; then
+                    newname="${LSR_GH_ORG}"-"$repo"
+                    if [ "$origin_repo" = "$newname" ]; then
+                        : # already renamed
+                    else
+                        gh repo rename "$newname" -R "$origin_org/$origin_repo"
+                        origin_repo="$newname"
+                    fi
                 fi
             fi
         fi

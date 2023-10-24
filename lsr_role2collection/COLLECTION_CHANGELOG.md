@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.55.0] - 2023-10-24
+---------------------
+
+### New Features
+
+- ha_cluster - feat: Add support for configuring stonith levels (#147)
+
+### Bug Fixes
+
+- selinux - fix: Use `ignore_selinux_state` module option (#194)
+- sshd - fix: Symlink sub-directories under tests/roles/ansible-sshd to avoid recursive loop (#262)
+- storage - fix: Do not remove swap at every run (#396)
+
 [1.54.2] - 2023-09-27
 ---------------------
 

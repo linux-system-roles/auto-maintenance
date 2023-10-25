@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.55.1] - 2023-10-25
+---------------------
+
+### Bug Fixes
+
+- network - fix: Add dhcp client package dependency for initscripts provider (#639)
+
 [1.55.0] - 2023-10-24
 ---------------------
 

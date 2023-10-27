@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.56.0] - 2023-10-27
+---------------------
+
+### New Features
+
+- certificate - feat: support for ostree systems (#203)
+- firewall - feat: support for ostree systems (#191)
+- selinux - feat: support for ostree systems (#206)
+
 [1.55.1] - 2023-10-25
 ---------------------
 

@@ -1,6 +1,25 @@
 Changelog
 =========
 
+[1.57.0] - 2023-11-07
+---------------------
+
+### New Features
+
+- ha_cluster - feat: add an option to enable Resilient Storage rpm repository (#158)
+- kdump - feat: support for ostree systems (#182)
+- logging - feat: Add support for general queue and general action parameters (#364)
+- logging - feat: Add support for the global config option preserveFQDN with a new logg… (#362)
+- logging - feat: support for ostree systems (#360)
+- metrics - feat: support for ostree systems (#175)
+- postfix - feat: support for ostree systems (#110)
+- storage - feat: support for ostree systems (#399)
+
+### Bug Fixes
+
+- ha_cluster - fix: cast sbd option value to string (#160)
+- logging - fix: check that logging_max_message_size is set, not rsyslog_max_message_size (#361)
+
 [1.56.0] - 2023-10-27
 ---------------------
 

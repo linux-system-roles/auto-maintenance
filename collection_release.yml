@@ -26,7 +26,7 @@ kernel_settings:
   ref: 1.1.19
   sourcenum: 9
 logging:
-  ref: 1.12.0
+  ref: 1.12.1
   sourcenum: 10
 nbde_server:
   ref: 1.3.9

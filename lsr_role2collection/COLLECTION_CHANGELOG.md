@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.58.0] - 2023-11-10
+---------------------
+
+### New Features
+
+- network - feat: support for ostree systems (#650)
+- storage - feat: Support for creating volumes without a FS (#400)
+
 [1.57.2] - 2023-11-09
 ---------------------
 

@@ -11,10 +11,10 @@ kdump:
   ref: 1.4.0
   sourcenum: 4
 network:
-  ref: 1.13.3
+  ref: 1.14.0
   sourcenum: 5
 storage:
-  ref: 1.13.0
+  ref: 1.14.0
   sourcenum: 6
 metrics:
   ref: 1.9.0

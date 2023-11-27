@@ -81,3 +81,6 @@ systemd:
 keylime_server:
   ref: 1.0.1
   sourcenum: 27
+fapolicyd:
+  ref: 1.0.0
+  sourcenum: 28

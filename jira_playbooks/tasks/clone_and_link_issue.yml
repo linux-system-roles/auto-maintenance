@@ -44,10 +44,20 @@
         issuetype: "{{ clone_issue.meta.fields.issuetype.name }}"
         component: "{{ clone_issue.meta.fields.components.0.name }}"
         labels: "{{ clone_issue.meta.fields.labels }}"
-        version: "{{ clone_version }}"
         product: "{{ clone_issue.meta.fields.customfield_12319040.0.value }}"
         doc_text: "{{ clone_issue.meta.fields.customfield_12317313 | d('') }}"
         doc_text_type: "{{ clone_issue.meta.fields.customfield_12320850.value | d('') }}"
+        docs_impact: "{{ clone_issue.meta.fields.customfield_12319286.value | d('') }}"
+        dev_ack: "{{ 'Dev ack' if clone_issue.meta.fields.customfield_12317366 |
+          selectattr('value', 'eq', 'Dev ack') | length > 0 else '' }}"
+        qa_ack: "{{ 'QE ack' if clone_issue.meta.fields.customfield_12317366 |
+          selectattr('value', 'eq', 'QE ack') | length > 0 else '' }}"
+        pool_team: "{{ clone_issue.meta.fields.customfield_12317259.0.value | d('') }}"
+        itm: "{{ clone_issue.meta.fields.customfield_12321040.value | d('') }}"
+        dtm: "{{ clone_issue.meta.fields.customfield_12318141.value | d('') }}"
+        itr: "{{ clone_version }}"  # e.g. rhel-X.Y.Z
+        version: "{{ clone_version }}"
+        status: "{{ clone_issue.meta.fields.status.name }}"
 
     - name: Create the clone issue
       include_tasks: create_issue.yml
@@ -62,3 +72,11 @@
         linktype: Cloners
         outwardissue: "{{ clone_issue.meta.key }}"
         inwardissue: "{{ new_issue.meta.key }}"
+
+    - name: Clone external links
+      include_tasks: add_external_link.yml
+      vars:
+        clone_issue_key: "{{ new_issue.meta.key }}"
+        issue_key: "{{ clone_issue.meta.key }}"
+        external_link_url: ""
+        external_link_title: ""

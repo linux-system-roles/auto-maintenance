@@ -22,7 +22,7 @@ export ANSIBLE_STDOUT_CALLBACK=debug
 
 create_and_clone_issue() {
   local cmdline
-  cmdline=(-vvvv -e version="$1" -e clone_version="$2")
+  cmdline=(-vv -e version="$1" -e clone_version="$2")
   shift; shift
   # You must give a version for the new issue, and a version
   # for the clone issue.

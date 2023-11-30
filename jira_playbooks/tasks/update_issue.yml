@@ -35,36 +35,52 @@
       pool_team:
         fieldname: customfield_12317259
         updatetype: list_of_value_dict
+      dev_ack:
+        fieldname: customfield_12317366
+        updatetype: list_of_value_dict
+      qa_ack:
+        fieldname: customfield_12317366
+        updatetype: list_of_value_dict
+      docs_impact:  # choice of No, Yes, RN only
+        fieldname: customfield_12319286
+        updatetype: value_dict
     __roles_list: "{{ [] if labels | d([]) | length > 0
       else roles | d('') | split(',') | sort }}"
     __labels: "{{ labels if labels | d([]) | length > 0
         else ['system_role_'] | product(__roles_list) | map('join')
         if roles | d('') else [] }}"
+    __lsr_label: "{{ ['RHEL-System-Roles']
+      if not 'RHEL-System-Roles' in labels | d([]) else [] }}"
+    __merged_label: "{{ ['fixed-upstream']
+      if gh_pr_merged | d(false) and not 'fixed-upstream' in labels | d([])
+      else [] }}"
     __field_names: "{{ __field_map.keys() | sort }}"
     __fields_defined: "{{ q('varnames', *__field_names) }}"
     __fields: |
       {% set rv = {} %}
       {% for var in __fields_defined %}
       {%   set val = lookup("vars", var) %}
-      {%   if __field_map[var]["updatetype"] == "string" %}
-      {%     set item = val %}
-      {%     set _ = rv.update({__field_map[var]["fieldname"]: item})%}
-      {%   elif __field_map[var]["updatetype"] == "value_dict" %}
-      {%     set item = {"value": val} %}
-      {%     set _ = rv.update({__field_map[var]["fieldname"]: item})%}
-      {%   elif __field_map[var]["updatetype"] == "list_of_name_dict" %}
-      {%     set item = [{"name": val}] %}
-      {%     set _ = rv.update({__field_map[var]["fieldname"]: item})%}
-      {%   elif __field_map[var]["updatetype"] == "list_of_value_dict" %}
-      {%     set item = [{"value": val}] %}
-      {%     set _ = rv.update({__field_map[var]["fieldname"]: item})%}
-      {%   elif __field_map[var]["updatetype"] == "list" %}
-      {%     set item = [val] %}
-      {%     set _ = rv.update({__field_map[var]["fieldname"]: item})%}
+      {%   if val is not none and val | length > 0 %}
+      {%     if __field_map[var]["updatetype"] == "string" %}
+      {%       set item = val %}
+      {%       set _ = rv.update({__field_map[var]["fieldname"]: item}) %}
+      {%     elif __field_map[var]["updatetype"] == "value_dict" %}
+      {%       set item = {"value": val} %}
+      {%       set _ = rv.update({__field_map[var]["fieldname"]: item}) %}
+      {%     elif __field_map[var]["updatetype"] == "list_of_name_dict" %}
+      {%       set item = {"name": val} %}
+      {%       set _ = rv.setdefault(__field_map[var]["fieldname"], []).append(item) %}
+      {%     elif __field_map[var]["updatetype"] == "list_of_value_dict" %}
+      {%       set item = {"value": val} %}
+      {%       set _ = rv.setdefault(__field_map[var]["fieldname"], []).append(item) %}
+      {%     elif __field_map[var]["updatetype"] == "list" %}
+      {%       set item = val %}
+      {%       set _ = rv.setdefault(__field_map[var]["fieldname"], []).append(item) %}
+      {%     endif %}
       {%   endif %}
       {% endfor %}
       {% if __labels %}
-      {%   set _ = rv.update({"labels": __labels}) %}
+      {%   set _ = rv.update({"labels": __labels + __lsr_label + __merged_label}) %}
       {% endif %}
       {{ rv }}
 
@@ -74,3 +90,12 @@
     issue: "{{ update_issue_key }}"
     comment: "{{ comment }}"
   when: comment | d('') | length > 0
+
+- name: Change issue status
+  community.general.jira:
+    operation: transition
+    issue: "{{ update_issue_key }}"
+    status: "{{ status }}"
+  when: status | d("") | length > 0
+  register: __result
+  until: __result is success

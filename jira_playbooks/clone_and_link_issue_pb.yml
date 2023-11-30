@@ -1,5 +1,5 @@
 ---
-- name: Create and clone Jira issue
+- name: Clone Jira issue and link to cloned issue
   hosts: localhost
   gather_facts: false
   vars:

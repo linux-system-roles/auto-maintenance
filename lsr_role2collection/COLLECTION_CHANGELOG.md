@@ -1,6 +1,27 @@
 Changelog
 =========
 
+[1.60.0] - 2023-11-30
+---------------------
+
+### New Features
+
+- ad_integration - feat: support for ostree systems (#68)
+- ad_integration - feat: Add sssd custom settings (#64)
+- cockpit - feat: support for ostree systems (#133)
+- crypto_policies - feat: support for ostree systems (#99)
+- ha_cluster - feat: support for ostree systems (#159)
+- journald - feat: support for ostree systems (#46)
+- kernel_settings - feat: support for ostree systems (#180)
+- keylime_server - feat: support for ostree systems (#24)
+- nbde_server - feat: support for ostree systems (#124)
+- podman - feat: support for ostree systems (#105)
+- postgresql - feat: support for ostree systems (#62)
+- systemd - feat: support for ostree systems (#29)
+- timesync - feat: support for ostree systems (#224)
+- tlog - feat: support for ostree systems (#111)
+- vpn - feat: support for ostree systems (#134)
+
 [1.59.0] - 2023-11-27
 ---------------------
 

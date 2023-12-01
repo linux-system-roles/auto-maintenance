@@ -101,8 +101,37 @@ get_check_summary() {
     }
 }
 
+# if all reviews are approved, then return APPROVED
+# if there any CHANGES_REQUESTED return CHANGES_REQUESTED
+# otherwise if there are any comments return COMMENTED
+# otherwise, return NO_REVIEWS
+get_reviews() {
+    local pr review rev found_cr found_c found_ap
+    pr="$1"
+    for rev in $(gh pr view "$pr" -R "$origin_org/$repo" --json reviews \
+        --template '{{range .reviews}}{{println .state}}{{end}}'); do
+        if [ "$rev" == CHANGES_REQUESTED ]; then
+            found_cr=true
+            break
+        elif [ "$rev" == COMMENTED ]; then
+            found_c=true
+        elif [ "$rev" == APPROVED ]; then
+            found_ap=true
+        fi
+    done
+    if [ "${found_cr:-false}" = true ]; then
+        echo CHANGES_REQUESTED
+    elif [ "${found_c:-false}" = true ]; then
+        echo COMMENTED
+    elif [ "${found_ap:-false}" = true ]; then
+        echo APPROVED
+    else
+        echo NO_REVIEWS
+    fi
+}
+
 show_pr() {
-    local pr total success failure pending state
+    local pr total success failure pending state review
     pr="$1"
     read -r total success failure pending cancelled error <<< "$(get_check_summary "$pr")"
     if [ "$total" -eq 0 ]; then
@@ -120,9 +149,25 @@ show_pr() {
     else
         state=UNKNOWN
     fi
+    review="$(get_reviews "$pr")"
     gh pr view "$pr" -R "$origin_org/$repo" --json number,title,updatedAt \
-      --template '#{{tablerow .number .updatedAt "'"$state"'" .title}}'
+      --template '#{{tablerow .number .updatedAt "'"$state"'" "'"$review"'" .title}}'
     echo "checks: total $total successful $success failed $failure pending $pending cancelled $cancelled error $error"
+}
+
+merge_pr() {
+    local pr
+    pr="$1"; shift
+    gh pr merge "$pr" -R "$origin_org/$repo" "${mergeargs[@]}" "$@"
+    echo merged - sleeping to refresh pr list
+    sleep 5
+}
+
+approve_pr() {
+    local pr
+    pr="$1"
+    gh pr review --approve "$pr" -R "$origin_org/$repo"
+    sleep 1
 }
 
 prs="$(list_prs --json number -q .[].number)"
@@ -155,13 +200,13 @@ Actions:
 "c NUM [comment]" - close PR with optional comment
 "d NUM [diff args]" - gh pr diff NUM [args]
 "e NUM [edit args]" - gh pr edit NUM [args]
+"p NUM" - approve PR - cannot approve your own PRs
+"pm NUM" - approve and merge PR - cannot approve your own PRs
 Press Enter to skip to next role
 EOF
         read -r -p "Action? " input
         if [[ "$input" =~ ^[0-9]+$ ]]; then
-            gh pr merge "$input" -R "$origin_org/$repo" "${mergeargs[@]}"
-            echo merged - sleeping to refresh pr list
-            sleep 5
+            merge_pr "$input"
         elif [ "$input" = w ]; then
             list_prs -w
         elif [ "$input" = l ]; then
@@ -169,8 +214,8 @@ EOF
         elif [[ "$input" =~ ^v\ ([0-9]+)$ ]]; then
             gh pr view "${BASH_REMATCH[1]}" --web -R "$origin_org/$repo"
         elif [[ "$input" =~ ^a\ ([0-9]+)$ ]]; then
-            gh pr merge "${BASH_REMATCH[1]}" -R "$origin_org/$repo" --admin "${mergeargs[@]}"
-            echo merged - sleeping to refresh pr list
+            merge_pr "${BASH_REMATCH[1]}" --admin
+            echo merged with admin - sleeping to refresh pr list
             sleep 5
         elif [[ "$input" =~ ^ci\ ([0-9]+)$ ]]; then
             gh pr comment "${BASH_REMATCH[1]}" --body "[citest]" -R "$origin_org/$repo"
@@ -199,6 +244,11 @@ EOF
             else
                 "${args[@]}"
             fi
+        elif [[ "$input" =~ ^p\ ([0-9]+)$ ]]; then
+            approve_pr "${BASH_REMATCH[1]}"
+        elif [[ "$input" =~ ^pm\ ([0-9]+)$ ]]; then
+            approve_pr "${BASH_REMATCH[1]}"
+            merge_pr "${BASH_REMATCH[1]}"
         elif [ -z "$input" ]; then
             done=true
         else

@@ -8,10 +8,10 @@ timesync:
   ref: 1.8.0
   sourcenum: 3
 kdump:
-  ref: 1.4.1
+  ref: 1.4.2
   sourcenum: 4
 network:
-  ref: 1.14.0
+  ref: 1.14.1
   sourcenum: 5
 storage:
   ref: 1.14.1
@@ -42,17 +42,17 @@ crypto_policies:
   sourcenum: 14
 sshd:
   org: willshersystems
-  ref: v0.22.0
+  ref: v0.23.0
   repo: ansible-sshd
   sourcenum: 15
 ssh:
-  ref: 1.2.3
+  ref: 1.3.0
   sourcenum: 16
 ha_cluster:
   ref: 1.13.0
   sourcenum: 17
 vpn:
-  ref: 1.6.0
+  ref: 1.6.1
   sourcenum: 18
 firewall:
   ref: 1.7.1

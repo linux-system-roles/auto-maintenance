@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.61.0] - 2023-12-01
+---------------------
+
+### New Features
+
+- ssh - feat: support for ostree systems (#124)
+- sshd - feat: support for ostree systems (#270)
+
+### Bug Fixes
+
+- network - fix: Allow address 0.0.0.0/0 or ::/0 for 'from'/'to' in a routing rule (#649)
+- sshd - fix: Avoid creation of runtime directories in home (#265)
+
 [1.60.0] - 2023-11-30
 ---------------------
 

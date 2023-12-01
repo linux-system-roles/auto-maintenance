@@ -370,7 +370,18 @@ done
 
 # We need data from at least these releases to have enough package
 # coverage.
-required_distro_major_ver=(Fedora-37 Fedora-38 CentOS-8 RedHat-8 RedHat-9)
+MIN_EL_VERSION="${MIN_EL_VERSION:-8}"
+HAS_FEDORA="${HAS_FEDORA:-true}"
+required_distro_major_ver=()
+if [ "$HAS_FEDORA" = true ]; then
+    required_distro_major_ver+=(Fedora-37 Fedora-38)
+fi
+if [ "$MIN_EL_VERSION" -ge 8 ]; then
+    required_distro_major_ver+=(CentOS-8 RedHat-8)
+fi
+if [ "$MIN_EL_VERSION" -ge 9 ]; then
+    required_distro_major_ver=(RedHat-9)
+fi
 for distro_ver in "${required_distro_major_ver[@]}"; do
     if [ -z "${distro_major_ver["$distro_ver"]:-}" ]; then
         error Do not have results from "$distro_ver" - cannot continue

@@ -3,6 +3,7 @@
 set -euxo pipefail
 
 SPEC_FILE="${SPEC_FILE:-linux-system-roles.spec}"
+SRC_DIST_GIT_TOOL="${SRC_DIST_GIT_TOOL:-centpkg}"
 
 usage() {
     cat <<EOF
@@ -19,13 +20,15 @@ esac
 dest_remote="$1"; shift
 dest_branch="$1"; shift
 
+git checkout "$src_branch"
+"${SRC_DIST_GIT_TOOL}" sources
+
 if git checkout "$dest_branch"; then
     git merge "$src_branch"
 else
     git checkout -b "$dest_branch" "$src_branch"
 fi
 
-spectool -g "$SPEC_FILE"
 upload_flags=()
 if [ "${dry_run:-true}" = true ]; then
     upload_flags+=("--offline")

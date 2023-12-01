@@ -675,7 +675,7 @@ tagged and released, before you run
 
 Used in conjunction with `manage-role-repos.sh`.  This will list the non-draft
 PRs for a role and prompt for merging one of them.  The list will include the
-checks and tests status for the PR.  Actions:
+checks and tests status and review status for the PR.  Actions:
 
 * `NUM` - Enter the PR number to merge it.  Uses `gh pr merge NUM -r -d`
 * `l` - Refresh the list
@@ -690,6 +690,8 @@ checks and tests status for the PR.  Actions:
 * `c NUM [comment]` - Close PR with optional comment
 * `d NUM [diff args]` - View diff with optional args
 * `e NUM [edit args]` - Edit the PR with optional args
+* `p NUM` - Approve the PR - you cannot approve your own PRs
+* `pm NUM` - Approve and merge the PR - you cannot approve your own PRs
 * Press Enter by itself to skip to the next role
 
 By default, the list will only include PRs authored by you.  Use `AUTHOR=@all`

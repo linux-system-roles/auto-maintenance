@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.61.1] - 2023-12-02
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - fix: manage firewall on qnetd hosts (#166)
+
 [1.61.0] - 2023-12-01
 ---------------------
 

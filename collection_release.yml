@@ -49,7 +49,7 @@ ssh:
   ref: 1.3.0
   sourcenum: 16
 ha_cluster:
-  ref: 1.13.0
+  ref: 1.13.1
   sourcenum: 17
 vpn:
   ref: 1.6.1

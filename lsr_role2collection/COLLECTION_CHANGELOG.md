@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.62.1] - 2023-12-07
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - fix: set sbd.service timeout based on SBD_START_DELAY (#169)
+
 [1.62.0] - 2023-12-05
 ---------------------
 

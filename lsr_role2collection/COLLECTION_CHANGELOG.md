@@ -1,6 +1,21 @@
 Changelog
 =========
 
+[1.63.0] - 2023-12-09
+---------------------
+
+### New Features
+
+- fapolicyd - feat: several role improvements (#8)
+- postgresql - feat: Enable support for Postgresql 16 (#68)
+
+### Bug Fixes
+
+- logging - fix: ansible-core-2.16 - only use to_nice_json for output formatting (#374)
+- logging - fix: avoid conf of RatelimitBurst when RatelimitInterval is zero (#373)
+- selinux - fix: Print an error message when module to be created doesn't exist (#218)
+- selinux - fix: no longer use "item" as a loop variable (#217)
+
 [1.62.1] - 2023-12-07
 ---------------------
 

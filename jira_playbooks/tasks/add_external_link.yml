@@ -26,8 +26,26 @@
       object:
         url: "{{ external_link_url }}"
         title: "{{ external_link_title }}"
-  when: __matching_links | length == 0
+  when:
+    - external_link_url | d("") | length > 0
+    - external_link_title | d("") | length > 0
+    - __matching_links | length == 0
   vars:
     __matching_links: "{{ __external_links.json |
       selectattr('object.url', 'match', '^' ~ external_link_url ~ '$') |
       list }}"
+
+- name: Clone external links
+  uri:
+    url: "{{ url }}/rest/api/latest/issue/{{ clone_issue_key }}/remotelink"
+    method: POST
+    headers:
+      Authorization: Bearer {{ token }}
+    status_code: [201]
+    body_format: json
+    body:
+      object:
+        url: "{{ item.object.url }}"
+        title: "{{ item.object.title }}"
+  loop: "{{ __external_links.json }}"
+  when: clone_issue_key is defined

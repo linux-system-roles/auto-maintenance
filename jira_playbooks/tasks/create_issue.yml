@@ -37,12 +37,22 @@
         __gh_issue_type: "{{ 'pull' if 'pull_request' in __gh_issue.json
           else 'issue' }}"
 
+    - name: See if pr is merged
+      uri:
+        url: "{{ __gh_api_base ~ __gh_org ~ '/' ~ __gh_repo ~ '/pulls/' ~
+          __gh_num ~ '/merge' }}"
+        method: GET
+        status_code: [204, 404]
+      register: __gh_merged_result
+      when: __gh_issue_type == "pull"
+
     - name: Set facts 2
       set_fact:
         __gh_issue_url: "{{ github_issue
           if github_issue is match('^https://github.com')
           else 'https://github.com/{{ __gh_org }}/{{ __gh_repo }}/' ~
           '{{ __gh_issue_type }}/{{ __gh_num }}' }}"
+        gh_pr_merged: "{{ __gh_merged_result.status == 204 }}"
 
 # NOTE - only certain fields can be set using `create`
 # see createmeta for Bug and Story
@@ -79,12 +89,43 @@
     roles: "{{ '' if labels | d([]) | length > 0
       else __gh_roles if __gh_roles | d('') | length > 0
       else roles }}"
+
+- name: Set dev_ack if not defined
+  set_fact:
+    dev_ack: "{{ 'Dev ack' if github_issue | d('') | length > 0
+      else '' }}"
+  when: not dev_ack is defined
+
+- name: Set doc_text_type if not defined
+  set_fact:
     doc_text_type: "{{ 'Bug Fix' if __gh_issue['json']['title'] | d('') is match('^fix:')
       else 'Enhancement' if __gh_issue['json']['title'] | d('') is match('^feat:')
       else 'Bug Fix' if issuetype == 'Bug'
       else 'Enhancement' if issuetype == 'Story'
       else '' }}"
+  when: not doc_text_type is defined
+
+- name: Set doc_text if not defined
+  set_fact:
     doc_text: "{{ __gh_issue['json']['body'] | d('') }}"
+  when: not doc_text is defined
+
+- name: Set status if not defined
+  set_fact:
+    status: "{{ (github_issue | d('') | length > 0) | ternary('In Progress', 'New') }}"
+  when: not status is defined
+
+- name: Set docs_impact if not defined
+  set_fact:
+    docs_impact: "{{ 'Yes' if doc_text_type == 'Enhancement'
+      else 'RN only' if doc_text_type == 'Bug Fix'
+      else 'No' }}"
+  when: not docs_impact is defined
+
+- name: Set itr if not defined
+  set_fact:
+    itr: "{{ version }}"  # e.g. rhel-X.Y.Z
+  when: not itr is defined
 
 # modify fields that cannot be added at create time
 - name: Update issue

@@ -12,6 +12,8 @@
     component: "{{ config[current]['component'] }}"
     product: "{{ config[current]['product'] }}"
     pool_team: "{{ config[current]['pool_team'] }}"
+    itm: "{{ lookup('env', 'ITM') }}"
+    dtm: "{{ lookup('env', 'DTM') }}"
   module_defaults:
     community.general.jira:
       project: "{{ project }}"

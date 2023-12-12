@@ -2,7 +2,7 @@
 - name: Get issues matching criteria
   community.general.jira:
     operation: search
-    jql: component = {{ component }} AND "{{ itr_query_field }}" = rhel-{{ itr }} AND "{{ status_query_field }}" = "{{ status }}"
+    jql: component = {{ component }} AND "{{ itr_query_field }}" = {{ itr }} AND "{{ status_query_field }}" = "{{ status }}"
   args:
     fields:
       summary:
@@ -31,7 +31,7 @@
     content: |-
       * {{ dt_spec }} Your Name <email@redhat.com> - {{ rpm_version }}
       {% for issue in __issue_list_unsorted | sort(attribute="roles") %}
-      - Resolves {{ issue.key }} : {{ issue.roles }} - {{ issue.summary }}
+      - Resolves: {{ issue.key }} : {{ issue.roles }} - {{ issue.summary }}
       {% endfor %}
     dest: cl-spec
 
@@ -61,10 +61,10 @@
 - name: Format issues for git commit msg
   copy:
     content: |-
-      System Roles update
+      System Roles update for {{ rpm_version }}
 
       {% for issue in __issue_list_unsorted | sort(attribute="roles") %}
-      Resolves {{ issue.key }}
+      Resolves: {{ issue.key }}
       {{ issue.roles }} - {{ issue.summary }}
 
       {% endfor %}

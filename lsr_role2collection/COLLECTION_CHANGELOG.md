@@ -1,6 +1,22 @@
 Changelog
 =========
 
+[1.64.0] - 2023-12-13
+---------------------
+
+### New Features
+
+- metrics - feat: support for ostree systems
+- metrics - feat: sync with latest ansible-pcp (#178)
+- rhc - feat: support again EL7 (#151)
+- storage - feat: Added support for creating shared LVM setups (#388)
+
+### Bug Fixes
+
+- metrics - fix: add missing pmie webhook action configuration functionality (#183)
+- podman - fix: add no_log: true for tasks that can log secret data (#113)
+- ssh - fix: Fix warning for using jinja templates in assert (#131)
+
 [1.63.0] - 2023-12-09
 ---------------------
 

@@ -1021,6 +1021,7 @@ def process_ansible_lint(extra, dest, new_role):
     yml.default_flow_style = False
     yml.preserve_quotes = True
     yml.width = 1024
+    yml.explicit_start = True
 
     with open(extra) as af_src:
         ansible_lint = yml.load(af_src)

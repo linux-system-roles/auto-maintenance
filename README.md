@@ -1056,6 +1056,14 @@ have failed.  See also `print_task_tests_info`.
 ./manage_jenkins.py print_test_failures network 535
 ```
 
+### print_nodes
+
+Print the nodes - name, labels, offline status, idle status
+```
+node name=the_node_name labels=a,b,c,d offline=True idle=False
+...
+```
+
 # check-fact-gather-results.sh
 
 Used to see if fact gathering in roles is working correctly.  Roles should

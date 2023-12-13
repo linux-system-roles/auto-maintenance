@@ -565,6 +565,19 @@ def print_pr_tests_info(server, task_nums, args):
                         )
 
 
+def print_nodes(server, task_nums, args):
+    for node in server.get_nodes():
+        node_name = node["name"]
+        if node_name != "Built-In Node":
+            ni = server.get_node_info(node_name)
+            labels = [
+                ii["name"] for ii in ni["assignedLabels"] if ii["name"] != node_name
+            ]
+            print(
+                f"node name={node_name} labels={','.join(labels)} offline={ni['offline']} idle={ni['idle']}"
+            )
+
+
 if len(sys.argv) > 1:
     locals()[sys.argv[1]](server, task_nums, sys.argv[2:])
 else:

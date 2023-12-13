@@ -344,7 +344,11 @@ def process_ignore_and_lint_files(args, coll_dir):
                                     ansible_lint[key].append(item)
                                 elif isinstance(ansible_lint[key], dict):
                                     ansible_lint[key][item] = items[item]
-    yaml.safe_dump(ansible_lint, open(os.path.join(coll_dir, ".ansible-lint"), "w"))
+    yaml.safe_dump(
+        ansible_lint,
+        open(os.path.join(coll_dir, ".ansible-lint"), "w"),
+        explicit_start=True,
+    )
 
 
 def role_to_collection(

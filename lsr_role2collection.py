@@ -366,6 +366,7 @@ TOX = (
     "pytest_extra_requirements.txt",
     "tox.ini",
     "tuned_requirements.txt",
+    ".pandoc_template.html5",  # contains smart quotes - ansible-test does not like
 )
 
 DO_NOT_COPY = (
@@ -1790,11 +1791,11 @@ def role2collection():
         map(os.path.expanduser, default_collections_paths.split(":"))
     )
     # top_dest_path is not in the default collections path.
-    # suggest to run ansible-playbook with ANSIBLE_COLLECTIONS_PATHS env var.
+    # suggest to run ansible-playbook with ANSIBLE_COLLECTIONS_PATH env var.
     if current_dest not in default_collections_paths_list:
         ansible_collections_paths = current_dest + ":" + default_collections_paths
-        print(
-            f"Run ansible-playbook with environment variable ANSIBLE_COLLECTIONS_PATHS={ansible_collections_paths}"
+        logging.debug(
+            f"Run ansible-playbook with environment variable ANSIBLE_COLLECTIONS_PATH={ansible_collections_paths}"
         )
     return 0
 

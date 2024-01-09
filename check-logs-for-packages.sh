@@ -373,14 +373,14 @@ done
 MIN_EL_VERSION="${MIN_EL_VERSION:-8}"
 HAS_FEDORA="${HAS_FEDORA:-true}"
 required_distro_major_ver=()
-if [ "$HAS_FEDORA" = true ]; then
-    required_distro_major_ver+=(Fedora-37 Fedora-38)
-fi
 if [ "$MIN_EL_VERSION" -ge 8 ]; then
-    required_distro_major_ver+=(CentOS-8 RedHat-8)
+    required_distro_major_ver+=(CentOS-8)
 fi
 if [ "$MIN_EL_VERSION" -ge 9 ]; then
-    required_distro_major_ver=(RedHat-9)
+    required_distro_major_ver+=(CentOS-9)
+fi
+if [ "$MIN_EL_VERSION" -ge 10 ]; then
+    required_distro_major_ver+=(CentOS-10)
 fi
 for distro_ver in "${required_distro_major_ver[@]}"; do
     if [ -z "${distro_major_ver["$distro_ver"]:-}" ]; then
@@ -388,6 +388,20 @@ for distro_ver in "${required_distro_major_ver[@]}"; do
         exit 1
     fi
 done
+if [ "$HAS_FEDORA" = true ]; then
+    # must have at least 1 Fedora
+    found=0
+    for distro_ver in "${distro_major_ver[@]}"; do
+        if [[ "$distro_ver" =~ ^Fedora ]]; then
+            found=1
+            break
+        fi
+    done
+    if [ "$found" = 0 ]; then
+        error Do not have results from any Fedora - cannot continue
+        exit 1
+    fi
+fi
 
 debug roles "${roles[@]}"
 debug pkg_types "${pkg_types[@]}"
@@ -457,6 +471,11 @@ if [ -n "${ROLE_PARENT_DIR:-}" ] && [ -d "$ROLE_PARENT_DIR" ]; then
                 firsttime=0
             fi
             cp "$file" "$destfile"
+            # create RedHat files corresponding to CentOS files
+            if [[ "$destfile" =~ CentOS ]]; then
+                rhdestfile="${destfile/CentOS/RedHat}"
+                cp "$file" "$rhdestfile"
+            fi
         done
         for file in "$log_dir/${role}-roles-runtime.txt" "$log_dir/${role}-roles-testing.txt"; do
             destfile="$role_dir/.ostree/$(basename "${file/${role}-/}")"

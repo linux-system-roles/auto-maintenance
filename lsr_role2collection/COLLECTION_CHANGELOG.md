@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.65.0] - 2024-01-09
+---------------------
+
+### New Features
+
+- bootloader - New Role
+- journald - feat: Adding support for ForwardToSyslog (#54)
+
 [1.64.0] - 2023-12-13
 ---------------------
 

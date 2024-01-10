@@ -19,6 +19,11 @@ if ansible-galaxy collection list ansible.posix | grep -q 'unable to find ansibl
 fi
 
 export ANSIBLE_STDOUT_CALLBACK=debug
+# we need to be able to use
+# set_fact:
+#   var: "Yes"
+# see https://github.com/ansible/ansible/pull/43425
+export ANSIBLE_JINJA2_NATIVE=1
 
 create_and_clone_issue() {
   local cmdline

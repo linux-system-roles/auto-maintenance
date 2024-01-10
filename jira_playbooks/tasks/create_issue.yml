@@ -7,6 +7,7 @@
   set_fact:
     __gh_issue_content: {}
     __gh_roles: ''
+    __gh_issue: {}
 
 - name: Get github issue/pr
   when:

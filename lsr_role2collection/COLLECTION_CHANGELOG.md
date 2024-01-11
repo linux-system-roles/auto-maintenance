@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.65.1] - 2024-01-11
+---------------------
+
+### Bug Fixes
+
+- journald - fix: ForwardToSyslog only set for volatile (#56)
+
 [1.65.0] - 2024-01-09
 ---------------------
 

@@ -53,8 +53,8 @@
         qa_ack: "{{ 'QE ack' if clone_issue.meta.fields.customfield_12317366 |
           selectattr('value', 'eq', 'QE ack') | length > 0 else '' }}"
         pool_team: "{{ clone_issue.meta.fields.customfield_12317259.0.value | d('') }}"
-        itm: "{{ clone_issue.meta.fields.customfield_12321040.value | d('') }}"
-        dtm: "{{ clone_issue.meta.fields.customfield_12318141.value | d('') }}"
+        itm: "{{ clone_issue.meta.fields.customfield_12321040.value | d('') | string }}"
+        dtm: "{{ clone_issue.meta.fields.customfield_12318141.value | d('') | string }}"
         itr: "{{ clone_version }}"  # e.g. rhel-X.Y.Z
         version: "{{ clone_version }}"
         status: "{{ clone_issue.meta.fields.status.name }}"

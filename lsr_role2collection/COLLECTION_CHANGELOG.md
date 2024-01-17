@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.66.0] - 2024-01-17
+---------------------
+
+### New Features
+
+- ad_integration - feat: add ad_integration_preserve_authselect_profile (#79)
+- ad_integration - feat: Add SSSD parameters support (#76)
+
+### Bug Fixes
+
+- journald - fix: Compress applies to all storage modes, SyncInterval only to persistent (#58)
+- podman - fix: name of volume quadlet service should be basename-volume.service (#119)
+
 [1.65.1] - 2024-01-11
 ---------------------
 

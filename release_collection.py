@@ -208,6 +208,19 @@ def comp_versions(cur_ref, new_ref):
             return -1  # assume new is "newer" than cur
 
 
+def ref_is_hash(ref):
+    """Is ref a git commit hash?"""
+    if not ref:
+        return False
+    if re.match(r"^v?[0-9]+[.][0-9]+[.][0-9]+$", ref):
+        # version tag
+        return False
+    if re.match(r"^[a-z0-9]+$", ref):
+        # hex hash
+        return True
+    raise ValueError(f"The ref [{str(ref)}] has no recognized format")
+
+
 def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
     """
     Get the latest tag, hash, and tag_is_latest from the upstream repo.
@@ -236,8 +249,20 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
     # determine what is the main branch, check it out, and update it
     mmatch = re.search(r"origin/HEAD -> origin/(\w+)", branch_output.stdout)
     main_branch = mmatch.group(1)
+    if args.no_update:
+        if cur_ref:
+            ref_to_checkout = cur_ref
+        else:
+            ref_to_checkout = main_branch
+        _ = run_cmd(["git", "checkout", ref_to_checkout], roledir)
+        if ref_to_checkout == main_branch:
+            # ensure it is up-to-date - if roledir already existed, we may
+            # need to update the main branch
+            _ = run_cmd(["git", "pull"], roledir)
+        # we're done - the rest of this stuff is to figure out how to update to
+        # the latest tag or commit hash
+        return (cur_ref, None, True, "", None)
     _ = run_cmd(["bash", "-c", f"git checkout {main_branch}; git pull --tags"], roledir)
-    commit_msgs = ""
     # see if there have been any commits since the last time we checked
     if cur_ref:
         count_output = run_cmd(
@@ -249,16 +274,32 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
             ["bash", "-c", "git log --oneline | wc -l"],
             roledir,
         )
+    # NOTE: At this point, main HEAD is checked out
+    ref_to_checkout = cur_ref  # checkout this ref, may be changed below
     tag, commit_hash, n_commits, prev_tag = None, None, "0", None
+    commit_msgs = ""
     if count_output.stdout == "0":
         logging.debug(f"no changes to role {rolename} since ref {cur_ref}")
     else:
         # get latest tag and commit hash
-        describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40"]
-        describe_output = run_cmd(describe_cmd, roledir)
-        tag, n_commits, g_hash = describe_output.stdout.strip().rsplit("-", 2)
-        # commit hash - skip leading "g"
-        commit_hash = g_hash[1:]
+        try:
+            describe_cmd = ["git", "describe", "--tags", "--long", "--abbrev=40"]
+            describe_output = run_cmd(describe_cmd, roledir)
+            tag, n_commits, g_hash = describe_output.stdout.strip().rsplit("-", 2)
+            # NOTE: if the role hasn't been tagged since cur_ref, then tag == cur_ref
+            if tag == cur_ref:
+                tag = None
+            else:
+                ref_to_checkout = tag  # use the new tag to build collection
+            # commit hash - skip leading "g"
+            if use_commit_hash:
+                commit_hash = g_hash[1:]
+        except subprocess.CalledProcessError:
+            # no tags
+            tag, n_commits = None, count_output.stdout
+            if use_commit_hash:
+                rev_parse_output = run_cmd(["git", "rev-parse", "HEAD"], roledir)
+                commit_hash = rev_parse_output.stdout.strip()
         if n_commits != "0" and use_commit_hash:
             # get commit messages to use for changelog
             log_cmd = [
@@ -273,8 +314,9 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
                 log_cmd.append(f"{cur_ref}..")
             log_output = run_cmd(log_cmd, roledir)
             commit_msgs = log_output.stdout.replace("\\r", "")
+            ref_to_checkout = commit_hash
         # get previous tag in case cur_ref is a commit hash
-        if cur_ref:
+        if ref_is_hash(cur_ref):
             try:
                 describe_cmd = [
                     "git",
@@ -286,15 +328,14 @@ def get_latest_tag_hash(args, rolename, cur_ref, org, repo, use_commit_hash):
                 ]
                 describe_output = run_cmd(describe_cmd, roledir)
                 prev_tag = describe_output.stdout.strip().split("-")[0]
-                if prev_tag == cur_ref:
-                    prev_tag = None  # cur_ref was already a valid tag
             except subprocess.CalledProcessError:
                 prev_tag = None  # no previous tag
         else:
             prev_tag = None  # no previous tag
-    if args.no_update and cur_ref:
-        # make sure cur_ref is checked out
-        _ = run_cmd(["git", "checkout", cur_ref], roledir)
+    if ref_to_checkout:
+        # make sure the right tag/commit is checked out
+        _ = run_cmd(["git", "checkout", ref_to_checkout], roledir)
+    # else main branch HEAD is already checked out
     return (tag, commit_hash, n_commits == "0", commit_msgs, prev_tag)
 
 

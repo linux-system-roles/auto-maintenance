@@ -53,7 +53,7 @@
           if github_issue is match('^https://github.com')
           else 'https://github.com/{{ __gh_org }}/{{ __gh_repo }}/' ~
           '{{ __gh_issue_type }}/{{ __gh_num }}' }}"
-        gh_pr_merged: "{{ __gh_merged_result.status == 204 }}"
+        gh_pr_merged: "{{ __gh_merged_result.status | d(0) == 204 }}"
 
 # NOTE - only certain fields can be set using `create`
 # see createmeta for Bug and Story
@@ -113,7 +113,9 @@
 
 - name: Set status if not defined
   set_fact:
-    status: "{{ (github_issue | d('') | length > 0) | ternary('In Progress', 'New') }}"
+    status: "{{ ((github_issue | d('') | length > 0) and
+                 (__gh_issue_type | d('') == 'pull')) |
+                ternary('In Progress', 'New') }}"
   when: not status is defined
 
 - name: Set docs_impact if not defined

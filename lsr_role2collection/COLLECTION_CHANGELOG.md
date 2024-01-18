@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.67.0] - 2024-01-18
+---------------------
+
+### New Features
+
+- network - feat: Support blackhole, prohibit and unreachable route types  (#662)
+
+### Bug Fixes
+
+- keylime_server - fix: add timeout for registrar service - use 30 second timeout for registrar and verifier
+- postgresql - fix: Enable PostgreSQL stream selection for c9s and RHEL9 (#72)
+
 [1.66.0] - 2024-01-17
 ---------------------
 

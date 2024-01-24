@@ -565,11 +565,13 @@ def process_role_meta_path(meta_path, ctx):
 
 
 def process_playbooks_path(playbooks_path, ctx):
+    # see if there are any local plugins first
+    ctx.add_local_plugins(playbooks_path, "library")
+    ctx.add_local_plugins(playbooks_path, "filter_plugins")
     for _, itempath in os_listdir(playbooks_path):
         if os.path.isfile(itempath):
             process_ansible_file(itempath, ctx)
-    # treat it like a role - look for vars/, tasks/, etc.
-    process_role(playbooks_path, True, ctx)
+    process_role(playbooks_path, False, ctx)
 
 
 def process_role_tests_path(tests_path, ctx):

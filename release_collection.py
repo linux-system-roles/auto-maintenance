@@ -735,6 +735,12 @@ def update_collection(args, galaxy, coll_rel):
         # Convert CHANGELOG.md to CHANGELOG.rst
         if args.changelog_rst:
             convert_md2rst(coll_dir)
+        else:
+            changelog_rst_file = os.path.join(coll_dir, "CHANGELOG.rst")
+            # ERROR: CHANGELOG.rst file not found at top level of collection.
+            if not os.path.exists(changelog_rst_file):
+                with open(changelog_rst_file, "w"):
+                    pass
     build_collection(args, coll_dir, galaxy)
 
 

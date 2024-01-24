@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.68.0] - 2024-01-24
+---------------------
+
+### New Features
+
+- rhc - feat: add ansible host parameter to insights configuration (#155)
+
+### Bug Fixes
+
+- podman - fix: cast secret data to string in order to allow JSON valued strings (#122)
+
 [1.67.0] - 2024-01-18
 ---------------------
 

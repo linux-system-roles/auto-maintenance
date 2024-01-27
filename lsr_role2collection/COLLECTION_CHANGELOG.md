@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.70.0] - 2024-01-27
+---------------------
+
+### New Features
+
+- snapshot - feat: add support for reverting LV back to state of snapshot  (#15)
+
+### Bug Fixes
+
+- sshd - fix: Review and update service units and socket unit to include distribution defaults
+
 [1.69.0] - 2024-01-24
 ---------------------
 

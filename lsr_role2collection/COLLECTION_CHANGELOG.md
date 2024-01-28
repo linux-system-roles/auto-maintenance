@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.71.0] - 2024-01-28
+---------------------
+
+### New Features
+
+- storage - feat: Enable GFS2 support in blivet (#418)
+
 [1.70.0] - 2024-01-27
 ---------------------
 

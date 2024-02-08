@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.72.0] - 2024-02-08
+---------------------
+
+### New Features
+
+- ha_cluster - feat: add support for configuring node attributes (#184)
+
 [1.71.1] - 2024-02-01
 ---------------------
 

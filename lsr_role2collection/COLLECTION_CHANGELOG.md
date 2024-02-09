@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.72.1] - 2024-02-09
+---------------------
+
+### Bug Fixes
+
+- podman - fix: ensure user linger is enabled and disabled correctly (#127)
+
 [1.72.0] - 2024-02-08
 ---------------------
 

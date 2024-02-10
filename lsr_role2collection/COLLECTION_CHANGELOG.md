@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.72.2] - 2024-02-10
+---------------------
+
+### Bug Fixes
+
+- bootloader - fix: Modify grub timeout in grub config directly (#86)
+
 [1.72.1] - 2024-02-09
 ---------------------
 

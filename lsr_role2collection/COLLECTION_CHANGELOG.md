@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.73.0] - 2024-02-14
+---------------------
+
+### New Features
+
+- ha_cluster - feat: crmsh workflow and SUSE support (#186)
+- snapshot - feat: add support mounting/unmounting snapshots and origins (#34)
+- snapshot - feat: add support for the "list" command (#31)
+- snapshot - feat: add support to extending existing snapshots to required percentage (#22)
+
+### Bug Fixes
+
+- snapshot - fix: rename the clean command to remove (#24)
+
 [1.72.2] - 2024-02-10
 ---------------------
 

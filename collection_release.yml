@@ -2,7 +2,7 @@ postfix:
   ref: 1.4.3
   sourcenum: 1
 selinux:
-  ref: 1.7.3
+  ref: 1.7.4
   sourcenum: 2
 timesync:
   ref: 1.8.2
@@ -11,7 +11,7 @@ kdump:
   ref: 1.4.4
   sourcenum: 4
 network:
-  ref: 1.15.0
+  ref: 1.15.1
   sourcenum: 5
 storage:
   ref: 1.16.2
@@ -29,7 +29,7 @@ logging:
   ref: 1.12.4
   sourcenum: 10
 nbde_server:
-  ref: 1.4.2
+  ref: 1.4.3
   sourcenum: 11
 nbde_client:
   ref: 1.2.17
@@ -64,7 +64,7 @@ podman:
   ref: 1.4.6
   sourcenum: 21
 ad_integration:
-  ref: 1.4.1
+  ref: 1.4.2
   sourcenum: 22
 rhc:
   ref: 1.5.1

@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.73.2] - 2024-02-16
+---------------------
+
+### Bug Fixes
+
+- ad_integration - fix: Add default_ipv4 to required_facts to gather ansible_hostname (#84)
+- nbde_server - fix: Allow tangd socket override directory to be managed outside of the role (#139)
+
 [1.73.1] - 2024-02-15
 ---------------------
 

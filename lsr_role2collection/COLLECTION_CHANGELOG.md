@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.73.3] - 2024-02-20
+---------------------
+
+### Bug Fixes
+
+- sshd - fix: Fix service files generated on EL7 and workaround the tests for containers (#276)
+
 [1.73.2] - 2024-02-16
 ---------------------
 

@@ -42,7 +42,7 @@ crypto_policies:
   sourcenum: 14
 sshd:
   org: willshersystems
-  ref: v0.23.1
+  ref: v0.23.2
   repo: ansible-sshd
   sourcenum: 15
 ssh:
@@ -61,7 +61,7 @@ cockpit:
   ref: 1.5.4
   sourcenum: 20
 podman:
-  ref: 1.4.6
+  ref: 1.4.7
   sourcenum: 21
 ad_integration:
   ref: 1.4.2

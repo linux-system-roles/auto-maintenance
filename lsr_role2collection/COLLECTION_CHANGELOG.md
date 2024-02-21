@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.74.0] - 2024-02-21
+---------------------
+
+### New Features
+
+- snapshot - feat: add support for snapshot_lvm_vg_include (#39)
+
+### Bug Fixes
+
+- snapshot - fix: ensure role is idempotent and supports check mode (#41)
+- snapshot - fix: ostree test failures - use /var/mnt (#37)
+
 [1.73.3] - 2024-02-20
 ---------------------
 

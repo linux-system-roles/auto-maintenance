@@ -88,5 +88,5 @@ bootloader:
   ref: 1.0.1
   sourcenum: 29
 snapshot:
-  ref: 1.2.0
+  ref: 1.3.0
   sourcenum: 30

@@ -435,9 +435,11 @@ class LSRFileTransformer(LSRFileTransformerBase):
                 )
             ):
                 new_name = "{0}{1}".format(
-                    self.extra_mapping_dest_prefix[_src_role_index]
-                    if self.extra_mapping_dest_prefix[_src_role_index]
-                    else self.prefix,
+                    (
+                        self.extra_mapping_dest_prefix[_src_role_index]
+                        if self.extra_mapping_dest_prefix[_src_role_index]
+                        else self.prefix
+                    ),
                     self.extra_mapping_dest_role[_src_role_index],
                 )
         elif rolename.startswith("{{ role_path }}"):
@@ -507,14 +509,14 @@ class LSRFileTransformer(LSRFileTransformerBase):
                 if _key:
                     _path = task[module_name][_key]
                     _match = re.match(_src_owner_pattern, _path)
-                    task[module_name][
-                        _key
-                    ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
-                        self.top_dir,
-                        self.namespace,
-                        self.collection,
-                        _match.group(1),
-                        _match.group(2),
+                    task[module_name][_key] = (
+                        "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
+                            self.top_dir,
+                            self.namespace,
+                            self.collection,
+                            _match.group(1),
+                            _match.group(2),
+                        )
                     )
             elif (
                 isinstance(task[module_name], str)
@@ -522,14 +524,14 @@ class LSRFileTransformer(LSRFileTransformerBase):
             ):
                 _path = task[module_name]
                 _match = re.match(_src_owner_pattern, _path)
-                task[
-                    module_name
-                ] = "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
-                    self.top_dir,
-                    self.namespace,
-                    self.collection,
-                    _match.group(1),
-                    _match.group(2),
+                task[module_name] = (
+                    "{0}/ansible_collections/{1}/{2}/roles/{3}/{4}".format(
+                        self.top_dir,
+                        self.namespace,
+                        self.collection,
+                        _match.group(1),
+                        _match.group(2),
+                    )
                 )
         elif role_module_name:
             logging.debug(f"\ttask role module {role_module_name}")
@@ -1506,24 +1508,30 @@ def role2collection():
         for _emap in extra_mapping:
             # Replacing SRC_OWNER.ROLE with FQCN
             _from = "{0}.{1}".format(
-                _emap["src_name"]["src_owner"]
-                if _emap["src_name"]["src_owner"]
-                else src_owner,
+                (
+                    _emap["src_name"]["src_owner"]
+                    if _emap["src_name"]["src_owner"]
+                    else src_owner
+                ),
                 _emap["src_name"]["role"],
             )
             _to = "{0}{1}".format(
-                _emap["dest_name"]["dest_prefix"]
-                if _emap["dest_name"]["dest_prefix"]
-                else prefix,
+                (
+                    _emap["dest_name"]["dest_prefix"]
+                    if _emap["dest_name"]["dest_prefix"]
+                    else prefix
+                ),
                 _emap["dest_name"]["role"],
             )
             file_replace(dest, _from, _to, file_patterns)
             # Replacing unprefixed ROLE with FQCN
             _from = " {0}".format(_emap["src_name"]["role"])
             _to = " {0}{1}".format(
-                _emap["dest_name"]["dest_prefix"]
-                if _emap["dest_name"]["dest_prefix"]
-                else prefix,
+                (
+                    _emap["dest_name"]["dest_prefix"]
+                    if _emap["dest_name"]["dest_prefix"]
+                    else prefix
+                ),
                 _emap["dest_name"]["role"],
             )
             file_replace(dest, _from, _to, file_patterns)

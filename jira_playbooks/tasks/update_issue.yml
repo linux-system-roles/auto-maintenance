@@ -89,7 +89,7 @@
     operation: comment
     issue: "{{ update_issue_key }}"
     comment: "{{ comment }}"
-  when: comment | d('') | length > 0
+  when: comment | d("") | length > 0
 
 - name: Change issue status
   community.general.jira:

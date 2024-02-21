@@ -127,6 +127,17 @@ issue_add_doc_text() {
   ansible-playbook -vv -e update_issue_key="$issue" -e doc_text_type="'$gh_pr_type'" -e doc_text="'$gh_pr_desc'" -e comment="'$comment'" jira_playbooks/update_issue_pb.yml
 }
 
+update_itm_dtm() {
+  local cmd=(ansible-playbook -vv -e status="'$1'")
+  if [ -n "$2" ]; then
+    cmd+=(-e itm="$2")
+  fi
+  if [ -n "${3:-}" ]; then
+    cmd+=(-e dtm="$3")
+  fi
+  "${cmd[@]}" jira_playbooks/update_itm_dtm.yml
+}
+
 dump_issue() {
   ansible-playbook -vv -e issue_key="$1" -e issue_file="${2:-"$1.json"}" jira_playbooks/dump_issue.yml
 }

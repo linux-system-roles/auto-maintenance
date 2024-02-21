@@ -1,0 +1,93 @@
+---
+- name: Update ITM, DTM
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "{{ lookup('env', 'HOME') ~ '/.config/jira.yml' }}"
+    config: "{{ lookup('file', config_file) | from_yaml }}"
+    current: "{{ config['current'] }}"
+    url: "{{ config[current]['url'] }}"
+    token: "{{ config[current]['token'] }}"
+    project: "{{ config[current]['project'] }}"
+    component: "{{ config[current]['component'] }}"
+    product: "{{ config[current]['product'] }}"
+    pool_team: "{{ config[current]['pool_team'] }}"
+    itr_query_field: fixVersion
+    itr: "{{ lookup('env', 'ITR') if lookup('env', 'ITR') | length > 0 else 'rhel-9.4.0' }}"
+    status_query_field: status
+  module_defaults:
+    community.general.jira:
+      project: "{{ project }}"
+      token: "{{ token }}"
+      uri: "{{ url }}"
+  tasks:
+    - name: Set query strings
+      set_fact:
+        itm_jql: >-
+          project = {{ project }} AND component = {{ component }} AND "{{ itr_query_field }}" = {{ itr }}
+          AND "{{ status_query_field }}" = "{{ status }}" AND "Internal Target Milestone" is EMPTY
+        dtm_jql: >-
+          project = {{ project }} AND component = {{ component }} AND "{{ itr_query_field }}" = {{ itr }}
+          AND "{{ status_query_field }}" = "{{ status }}" AND "Dev Target Milestone" is EMPTY
+
+    - name: Save dtm
+      set_fact:
+        save_dtm: "{{ dtm | d('') }}"
+
+    - name: Unset fields we don't need any more so we don't try to update them
+      set_fact:
+        status: ""
+        itr: null
+        project: null
+        component: null
+        product: null
+        pool_team: null
+        itr_query_field: null
+
+    - name: Manage ITM
+      when: itm | d('') | length > 0
+      block:
+        - name: Find issues with the given status which have no ITM set
+          community.general.jira:
+            operation: search
+            jql: "{{ itm_jql }}"
+          args:
+            fields:
+              summary: null
+          register: issues  # issues.meta.issues
+
+        - name: Unset dtm so we don't update it
+          set_fact:
+            dtm: null
+
+        - name: Update ITM
+          include_tasks: tasks/update_issue.yml
+          loop: "{{ issues.meta.issues }}"
+          vars:
+            update_issue_key: "{{ item.key }}"
+
+        - name: Restore dtm
+          set_fact:
+            dtm: "{{ save_dtm }}"
+
+    - name: Manage DTM
+      when: dtm | d('') | length > 0
+      block:
+        - name: Find issues with the given status which have no DTM set
+          community.general.jira:
+            operation: search
+            jql: "{{ dtm_jql }}"
+          args:
+            fields:
+              summary: null
+          register: issues  # issues.meta.issues
+
+        - name: Unset itm so we don't update it
+          set_fact:
+            itm: null
+
+        - name: Update DTM
+          include_tasks: tasks/update_issue.yml
+          loop: "{{ issues.meta.issues }}"
+          vars:
+            update_issue_key: "{{ item.key }}"

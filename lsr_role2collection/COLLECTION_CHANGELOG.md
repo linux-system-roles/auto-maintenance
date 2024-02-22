@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.75.0] - 2024-02-22
+---------------------
+
+### New Features
+
+- rhc - feat: Add a display name parameter (#166)
+
+### Bug Fixes
+
+- snapshot - fix: better error handling for all platforms and ansible versions (#47)
+
 [1.74.0] - 2024-02-21
 ---------------------
 

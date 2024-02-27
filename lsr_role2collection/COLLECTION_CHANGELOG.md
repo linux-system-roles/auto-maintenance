@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.75.1] - 2024-02-27
+---------------------
+
+### Bug Fixes
+
+- bootloader - fix: Fix bug with extra spaces in variables (#88)
+- bootloader - fix: Fix the role for UEFI systems (#90)
+
 [1.75.0] - 2024-02-22
 ---------------------
 

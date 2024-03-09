@@ -64,7 +64,7 @@ podman:
   ref: 1.4.7
   sourcenum: 21
 ad_integration:
-  ref: 1.4.2
+  ref: 1.4.3
   sourcenum: 22
 rhc:
   ref: 1.6.0

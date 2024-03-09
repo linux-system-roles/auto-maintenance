@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.75.2] - 2024-03-09
+---------------------
+
+### Bug Fixes
+
+- ad_integration - fix: Sets domain name lower case in realmd.conf section header (#88)
+
 [1.75.1] - 2024-02-27
 ---------------------
 

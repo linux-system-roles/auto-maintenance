@@ -61,7 +61,7 @@ cockpit:
   ref: 1.5.5
   sourcenum: 20
 podman:
-  ref: 1.4.7
+  ref: 1.4.8
   sourcenum: 21
 ad_integration:
   ref: 1.4.3

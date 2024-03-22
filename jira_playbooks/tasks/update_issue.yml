@@ -41,8 +41,8 @@
       qa_ack:
         fieldname: customfield_12317366
         updatetype: list_of_value_dict
-      docs_impact:  # choice of No, Yes, RN only
-        fieldname: customfield_12319286
+      docs_impact:  # choice of No, Yes
+        fieldname: customfield_12324040
         updatetype: value_dict
     __roles_list: "{{ [] if labels | d([]) | length > 0
       else roles | d('') | split(',') | sort }}"

@@ -25,12 +25,11 @@ export ANSIBLE_STDOUT_CALLBACK=debug
 # see https://github.com/ansible/ansible/pull/43425
 export ANSIBLE_JINJA2_NATIVE=1
 
-create_and_clone_issue() {
+create_issue() {
   local cmdline
-  cmdline=(-vv -e version="$1" -e clone_version="$2")
-  shift; shift
-  # You must give a version for the new issue, and a version
-  # for the clone issue.
+  cmdline=(-vv -e version="$1")
+  shift
+  # You must give a version for the new issue
   # If you give a URL to a github issue, most of the other fields
   # can be determined like summary and description.  If the link is
   # to a PR that is in Conventional Commits format, then the issuetype
@@ -63,7 +62,24 @@ create_and_clone_issue() {
     cmdline+=(-e description="'$1'")
     shift
   fi
-  ansible-playbook "${cmdline[@]}" jira_playbooks/create_and_clone_issue_pb.yml
+  if [ -z "${new_issue_file:-}" ]; then
+    new_issue_file="$(pwd)/new_issue"
+  fi
+  rm -f "$new_issue_file"
+  ansible-playbook "${cmdline[@]}" -e new_issue_file="$new_issue_file" jira_playbooks/create_issue_pb.yml
+  cat "$new_issue_file"
+}
+
+# first argument is the clone version - second argument is the original version
+# I know this is backwards but we can do a shift to get the clone version, then
+# pass the remaining args to create_issue
+create_and_clone_issue() {
+  local issue_to_clone clone_version
+  new_issue_file="$(pwd)/new_issue"
+  clone_version="$1"; shift
+  create_issue "$@"
+  issue_to_clone="$(cat "$new_issue_file")"
+  clone_and_link_issue "$issue_to_clone" "$clone_version"
 }
 
 add_external_link() {
@@ -78,16 +94,21 @@ rpm_release() {
   ansible-playbook -vv -e rpm_version="$1" jira_playbooks/rpm_release_pb.yml
 }
 
-get_createmeta() {
+get_create_edit_meta() {
+  # https://developer.atlassian.com/server/jira/platform/jira-rest-api-examples/
   # shellcheck disable=SC2034
-  local projectid bug story issuetype
+  local projectid bug story issuetype bug_issue story_issue
   projectid=12332745
   # shellcheck disable=SC2034
   bug=1
   story=17
-  issuetype="$story"
   # shellcheck disable=SC2154
-  curl -s -H "Authorization: Bearer $token" https://issues.redhat.com/rest/api/2/issue/createmeta/"$projectid"/issuetypes/"$issuetype"
+  curl -s -H "Authorization: Bearer $token" https://issues.redhat.com/rest/api/2/issue/createmeta/"$projectid"/issuetypes/"$bug" | jq . > createmeta-bug.json
+  curl -s -H "Authorization: Bearer $token" https://issues.redhat.com/rest/api/2/issue/createmeta/"$projectid"/issuetypes/"$story" | jq . > createmeta-story.json
+  bug_issue=RHEL-25777
+  story_issue=RHEL-30170
+  curl -s -H "Authorization: Bearer $token" https://issues.redhat.com/rest/api/2/issue/"$bug_issue"/editmeta | jq . > editmeta-bug.json
+  curl -s -H "Authorization: Bearer $token" https://issues.redhat.com/rest/api/2/issue/"$story_issue"/editmeta | jq . > editmeta-story.json
 }
 
 get_pr_info() {

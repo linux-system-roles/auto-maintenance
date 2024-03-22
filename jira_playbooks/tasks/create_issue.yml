@@ -3,16 +3,9 @@
 # * repo/number e.g. network/316
 # * org/repo/number e.g. linux-system-roles/network/316
 # * url e.g. https://github.com/linux-system-roles/network/pull/316
-- name: Reset issue content
-  set_fact:
-    __gh_issue_content: {}
-    __gh_roles: ''
-    __gh_issue: {}
-
 - name: Get github issue/pr
   when:
     - github_issue | d("") | length > 0
-    - create_from_github_issue | d(true)
   vars:
     __gh_issue_ary: "{{ github_issue | split('/') }}"
     __gh_api_base: https://api.github.com/repos/
@@ -121,7 +114,6 @@
 - name: Set docs_impact if not defined
   set_fact:
     docs_impact: "{{ 'Yes' if doc_text_type == 'Enhancement'
-      else 'RN only' if doc_text_type == 'Bug Fix'
       else 'No' }}"
   when: not docs_impact is defined
 

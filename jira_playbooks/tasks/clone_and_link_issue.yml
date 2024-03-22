@@ -47,7 +47,7 @@
         product: "{{ clone_issue.meta.fields.customfield_12319040.0.value }}"
         doc_text: "{{ clone_issue.meta.fields.customfield_12317313 | d('') }}"
         doc_text_type: "{{ clone_issue.meta.fields.customfield_12320850.value | d('') }}"
-        docs_impact: "{{ clone_issue.meta.fields.customfield_12319286.value | d('') }}"
+        docs_impact: "{{ clone_issue.meta.fields.customfield_12324040.value | d('') }}"
         dev_ack: "{{ 'Dev ack' if clone_issue.meta.fields.customfield_12317366 |
           selectattr('value', 'eq', 'Dev ack') | length > 0 else '' }}"
         qa_ack: "{{ 'QE ack' if clone_issue.meta.fields.customfield_12317366 |
@@ -61,10 +61,6 @@
 
     - name: Create the clone issue
       include_tasks: create_issue.yml
-      vars:
-        # if github_issue is set, just add it as an external link, do
-        # not create from it
-        create_from_github_issue: false
 
     - name: Link clone to original
       community.general.jira:

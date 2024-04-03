@@ -152,12 +152,19 @@ else
         pr_num="$(echo "$pr_entry" | jq -r '.number')"
         pr_body="$(echo "$pr_entry" | jq -r '.body')"
         echo "$pr_title" >> "$pr_titles_file"
-        if [ -n "$pr_body" ]; then
+        # Only append PR body to PRs of type feat and fix
+        if [ -n "$pr_body" ] && echo "$pr_title" | grep -e '^feat.*' -e '^fix.*'; then
             # Indent pr_body 2 spaces to act as a bullet content for pr_title
-            pr_body_ind="$(echo "$pr_body"  | awk '{ print "  " $0 }')"
-            printf -v pr_description -- "- %s (#%s)\n\n%s\n" "$pr_title" "$pr_num" "$pr_body_ind"
+            pr_body_ind="$(echo "$pr_body" | awk '{ print "  " $0 }')"
+            # Remove DOS carriage return ^M from PR body
+            # shellcheck disable=SC2001
+            # DOS carriage return ^M appears when PRs are edited using GH web UI
+            pr_body_rm_rt="$(echo "$pr_body_ind" | sed "s/$(printf '\r')\$//")"
+            # Remove 2 spaces on empty lines so that "cat --squeeze-blank" works
+            pr_body_rm_sp="$(echo "$pr_body_rm_rt" | sed "s/^  $//g")"
+            printf -v pr_description -- "- %s (#%s)\n\n%s\n" "$pr_title" "$pr_num" "$pr_body_rm_sp"
         else
-            printf -v pr_description -- "- %s (#%s)\n" "$pr_title" "$pr_num"
+            printf -v pr_description -- "- %s (#%s)" "$pr_title" "$pr_num"
         fi
         pr_descriptions+=("$pr_description")
     done
@@ -277,25 +284,22 @@ You have three options:
             if [ -f "$new_features_file" ]; then
                 {   echo "### New Features"
                     echo ""
-                    cat $new_features_file
+                    cat --squeeze-blank $new_features_file
                 } >> "$rel_notes_file"
             fi
             if [ -f "$bug_fixes_file" ]; then
                 {   echo "### Bug Fixes"
                     echo ""
-                    cat $bug_fixes_file
+                    cat --squeeze-blank $bug_fixes_file
                 } >> "$rel_notes_file"
             fi
             if [ -f "$other_changes_file" ]; then
                 {   echo "### Other Changes"
                     echo ""
-                    cat $other_changes_file
+                    cat --squeeze-blank $other_changes_file
                 } >> "$rel_notes_file"
             fi
         fi
-        # When PR are edited using GH web UI, DOS carriage return ^M appears
-        # in PR title and body
-        sed -i "s/$(printf '\r')\$//" "$rel_notes_file"
         ${EDITOR:-vi} "$rel_notes_file"
         myheader="Changelog
 ========="

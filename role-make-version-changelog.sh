@@ -161,7 +161,8 @@ else
             # DOS carriage return ^M appears when PRs are edited using GH web UI
             pr_body_rm_rt="$(echo "$pr_body_ind" | sed "s/$(printf '\r')\$//")"
             # Remove 2 spaces on empty lines so that "cat --squeeze-blank" works
-            pr_body_rm_sp="$(echo "$pr_body_rm_rt" | sed "s/^  $//g")"
+            # shellcheck disable=SC2116
+            pr_body_rm_sp="$(echo "${pr_body_rm_rt//  /}")"
             printf -v pr_description -- "- %s (#%s)\n\n%s\n" "$pr_title" "$pr_num" "$pr_body_rm_sp"
         else
             printf -v pr_description -- "- %s (#%s)" "$pr_title" "$pr_num"
@@ -329,7 +330,7 @@ You have three options:
             "$bug_fixes_file" "$other_changes_file" "$pr_titles_file" \
             "$commitlint_errors_file" "$prs_file"
         if [ -n "${origin_org:-}" ]; then
-            git push -u origin "$BRANCH"
+            git push -u origin "$BRANCH" -f
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"
         fi
     fi

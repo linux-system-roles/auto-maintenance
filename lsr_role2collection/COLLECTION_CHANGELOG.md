@@ -1,6 +1,22 @@
 Changelog
 =========
 
+[1.76.0] - 2024-04-05
+---------------------
+
+### New Features
+
+- ha_cluster - feat: ha_cluster_node_options allows per-node addresses and SBD options to be set (#196)
+- ha_cluster - feat: easily install cloud agents (#194)
+- ha_cluster - feat: Add support for ACL (#193)
+- ha_cluster - feat: SLES15 enablement, HAE detection (#192)
+- journald - feat: Add options for rate limit interval and burst (#64)
+
+### Bug Fixes
+
+- bootloader - fix: Add /etc/default/grub if missing (#93)
+- network - fix: Allow network to restart when wireless or team connection is specified (#675)
+
 [1.75.4] - 2024-04-04
 ---------------------
 

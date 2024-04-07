@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.76.1] - 2024-04-07
+---------------------
+
+### Bug Fixes
+
+- sshd - fix: Document and streamline the sshd_main_config_file (#281)
+
 [1.76.0] - 2024-04-05
 ---------------------
 

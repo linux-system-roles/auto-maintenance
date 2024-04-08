@@ -17,6 +17,10 @@ AUTOSKIP="${AUTOSKIP:-true}"
 # the bad PR titles.
 ALLOW_BAD_PRS="${ALLOW_BAD_PRS:-false}"
 
+# By default the script only collection PR titles. Set this to true to collect
+# PR descriptions too.
+USE_PR_BODY="${USE_PR_BODY:-false}"
+
 repo_entries="$(gh repo view --json name,owner)"
 repo=${repo:-$(echo "$repo_entries" | jq -r .name)}
 owner=${owner:-$(echo "$repo_entries" | jq -r .owner.login)}
@@ -152,12 +156,23 @@ else
         pr_num="$(echo "$pr_entry" | jq -r '.number')"
         pr_body="$(echo "$pr_entry" | jq -r '.body')"
         echo "$pr_title" >> "$pr_titles_file"
-        if [ -n "$pr_body" ]; then
+        # Only append PR body to PRs of type feat and fix
+        if
+        [ "${USE_PR_BODY}" = true ] &&
+        [ -n "$pr_body" ] &&
+        echo "$pr_title" | grep -e '^feat.*' -e '^fix.*'; then
             # Indent pr_body 2 spaces to act as a bullet content for pr_title
-            pr_body_ind="$(echo "$pr_body"  | awk '{ print "  " $0 }')"
-            printf -v pr_description -- "- %s (#%s)\n\n%s\n" "$pr_title" "$pr_num" "$pr_body_ind"
+            pr_body_ind="$(echo "$pr_body" | awk '{ print "  " $0 }')"
+            # Remove DOS carriage return ^M from PR body
+            # shellcheck disable=SC2001
+            # DOS carriage return ^M appears when PRs are edited using GH web UI
+            pr_body_rm_rt="$(echo "$pr_body_ind" | sed "s/$(printf '\r')\$//")"
+            # Remove 2 spaces on empty lines so that "cat --squeeze-blank" works
+            # shellcheck disable=SC2116
+            pr_body_rm_sp="$(echo "${pr_body_rm_rt//  /}")"
+            printf -v pr_description -- "- %s (#%s)\n\n%s\n" "$pr_title" "$pr_num" "$pr_body_rm_sp"
         else
-            printf -v pr_description -- "- %s (#%s)\n" "$pr_title" "$pr_num"
+            printf -v pr_description -- "- %s (#%s)" "$pr_title" "$pr_num"
         fi
         pr_descriptions+=("$pr_description")
     done
@@ -259,6 +274,7 @@ You have three options:
         new_features_file=.new_features.md
         bug_fixes_file=.bug_fixes.md
         other_changes_file=.other_changes.md
+        tmp_changelog_file=.tmp-changelog
         rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
         for pr_description in "${pr_descriptions[@]}"; do
             if echo "$pr_description" | sed -n 1p | grep '^- feat.*'; then
@@ -277,25 +293,25 @@ You have three options:
             if [ -f "$new_features_file" ]; then
                 {   echo "### New Features"
                     echo ""
-                    cat $new_features_file
+                    cat --squeeze-blank $new_features_file
+                    echo ""
                 } >> "$rel_notes_file"
             fi
             if [ -f "$bug_fixes_file" ]; then
                 {   echo "### Bug Fixes"
                     echo ""
-                    cat $bug_fixes_file
+                    cat --squeeze-blank $bug_fixes_file
+                    echo ""
                 } >> "$rel_notes_file"
             fi
             if [ -f "$other_changes_file" ]; then
                 {   echo "### Other Changes"
                     echo ""
-                    cat $other_changes_file
+                    cat --squeeze-blank $other_changes_file
+                    echo ""
                 } >> "$rel_notes_file"
             fi
         fi
-        # When PR are edited using GH web UI, DOS carriage return ^M appears
-        # in PR title and body
-        sed -i "s/$(printf '\r')\$//" "$rel_notes_file"
         ${EDITOR:-vi} "$rel_notes_file"
         myheader="Changelog
 ========="
@@ -305,17 +321,18 @@ You have three options:
             clheader="$myheader"
         fi
         if [ "$myheader" = "$clheader" ]; then
-            { echo "$clheader"; echo ""; } > .tmp-changelog
-            cat "$rel_notes_file" >> .tmp-changelog
+            { echo "$clheader"; echo ""; } > "$tmp_changelog_file"
+            cat "$rel_notes_file" >> "$tmp_changelog_file"
             if [ -f CHANGELOG.md ]; then
-                tail -n +3 CHANGELOG.md >> .tmp-changelog
+                tail -n +3 CHANGELOG.md >> "$tmp_changelog_file"
             fi
         else
             echo WARNING: Changelog header "$clheader"
             echo not in expected format "$myheader"
-            cat "$rel_notes_file" CHANGELOG.md > .tmp-changelog
+            cat "$rel_notes_file" CHANGELOG.md > "$tmp_changelog_file"
         fi
-        mv .tmp-changelog CHANGELOG.md
+        # Squeeze possible blank lines
+        cat --squeeze-blank "$tmp_changelog_file" > CHANGELOG.md
         gh api /repos/"$owner"/"$repo"/contents/latest/README.html?ref=docs -q .content | base64 --decode > .README.html
         git add CHANGELOG.md .README.html
         { echo "docs(changelog): version $new_tag [citest skip]"; echo "";
@@ -323,7 +340,7 @@ You have three options:
         git commit -s -F .gitcommitmsg
         rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" \
             "$bug_fixes_file" "$other_changes_file" "$pr_titles_file" \
-            "$commitlint_errors_file" "$prs_file"
+            "$commitlint_errors_file" "$prs_file" "$tmp_changelog_file"
         if [ -n "${origin_org:-}" ]; then
             git push -u origin "$BRANCH"
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"

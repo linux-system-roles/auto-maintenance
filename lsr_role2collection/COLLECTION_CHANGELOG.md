@@ -29,13 +29,6 @@ Changelog
 
 ### Bug Fixes
 
-- rhc - a line `ansible_host=` to be put in the config file.
-  
-  The former is a job of `{state: absent}`. An empty string should not cause such a desctructive operation. The latter is ignored by the Client and is equivatent to that line missing.
-  
-  Result:
-  Consistently with a similar condition of the display_name parameter, an empty string ansible_host is treated as undefined. It's the same behavior as with a null value.
-- rhc - the Ansible host name to be reset in the Inventory by `insights-client --ansible_host=`;
 - rhc - fix: Ignore ansible_host: "" (#169)
 
 [1.75.3] - 2024-03-15

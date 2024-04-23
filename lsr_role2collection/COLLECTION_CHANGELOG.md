@@ -1,6 +1,26 @@
 Changelog
 =========
 
+[1.77.0] - 2024-04-23
+---------------------
+
+### New Features
+
+- ha_cluster - feat: Add support for utilization (#202)
+- ha_cluster - feat: crmsh enhancements, master slave, validations (#197)
+- podman - feat: manage TLS cert/key files for registry connections and validate certs (#146)
+- podman - feat: support podman_credential_files (#142)
+- podman - feat: support registry_username and registry_password (#141)
+
+### Bug Fixes
+
+- bootloader - fix: Fail on the s390x architecture with a not supported msg (#96)
+- ha_cluster - fix: make consistent approach for multiple node attributes sets (#201)
+- podman - fix: make kube cleanup idempotent (#144)
+- podman - fix: do not use become for changing hostdir ownership, and expose subuid/subgid info (#139)
+- podman - fix: use correct user for cancel linger file name (#138)
+- storage - fix: Fix recreate check for formats without labelling support (#435)
+
 [1.76.2] - 2024-04-13
 ---------------------
 

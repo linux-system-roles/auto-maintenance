@@ -90,3 +90,6 @@ bootloader:
 snapshot:
   ref: 1.3.2
   sourcenum: 30
+gfs2:
+  ref: 0.0.1
+  sourcenum: 31

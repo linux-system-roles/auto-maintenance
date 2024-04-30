@@ -44,6 +44,21 @@
       docs_impact:  # choice of No, Yes
         fieldname: customfield_12324040
         updatetype: value_dict
+      request_clone_version:  # e.g. "RHEL 10"
+        fieldname: customfield_12323242
+        updatetype: value_dict
+      fixed_in_build:
+        fieldname: customfield_12318450
+        updatetype: string
+      sprint:
+        fieldname: customfield_12310940
+        updatetype: int
+      story_points:
+        fieldname: customfield_12310243
+        updatetype: float
+      preliminary_testing:
+        fieldname: customfield_12321540
+        updatetype: value_dict
     __roles_list: "{{ [] if labels | d([]) | length > 0
       else roles | d('') | split(',') | sort }}"
     __labels: "{{ labels if labels | d([]) | length > 0
@@ -76,6 +91,12 @@
       {%     elif __field_map[var]["updatetype"] == "list" %}
       {%       set item = val %}
       {%       set _ = rv.setdefault(__field_map[var]["fieldname"], []).append(item) %}
+      {%     elif __field_map[var]["updatetype"] == "float" %}
+      {%       set item = val | float %}
+      {%       set _ = rv.update({__field_map[var]["fieldname"]: item}) %}
+      {%     elif __field_map[var]["updatetype"] == "int" %}
+      {%       set item = val | int %}
+      {%       set _ = rv.update({__field_map[var]["fieldname"]: item}) %}
       {%     endif %}
       {%   endif %}
       {% endfor %}

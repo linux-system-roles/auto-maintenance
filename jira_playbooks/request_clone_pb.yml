@@ -1,0 +1,70 @@
+---
+- name: Use the Request Clones feature to clone a given issue
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "{{ lookup('env', 'HOME') ~ '/.config/jira.yml' }}"
+    config: "{{ lookup('file', config_file) | from_yaml }}"
+    current: "{{ config['current'] }}"
+    url: "{{ config[current]['url'] }}"
+    token: "{{ config[current]['token'] }}"
+    project: "{{ config[current]['project'] }}"
+    component: "{{ config[current]['component'] }}"
+    product: "{{ config[current]['product'] }}"
+    pool_team: "{{ config[current]['pool_team'] }}"
+  module_defaults:
+    community.general.jira:
+      project: "{{ project }}"
+      token: "{{ token }}"
+      uri: "{{ url }}"
+  tasks:
+    - name: Set update issue key
+      set_fact:
+        update_issue_key: "{{ clone_issue_key }}"
+
+    - name: Request clone
+      include_tasks: tasks/update_issue.yml
+
+    - name: Get issue to clone
+      community.general.jira:
+        operation: fetch
+        issue: "{{ clone_issue_key }}"
+      register: clone_issue
+      until: clone_issue.meta.fields.issuelinks | selectattr('type.inward', 'match', 'is cloned by') | length > 0
+
+    - name: Wait until new issue points to cloned issue
+      community.general.jira:
+        operation: fetch
+        issue: "{{ new_issue_key }}"
+      register: new_issue
+      until: new_issue.meta.fields.issuelinks | selectattr("outwardIssue.key", "match", clone_issue_key) | length > 0
+      vars:
+        new_issue_key: "{{ clone_issue.meta.fields.issuelinks | selectattr('type.inward', 'match', 'is cloned by') |
+          selectattr('inwardIssue', 'defined') | map(attribute='inwardIssue.key') | first }}"
+
+    # many of the fields are copied by the request clone process
+    # other fields are updated accordingly e.g. fixVersion is set correctly
+    - name: Set vars for creating the clone
+      set_fact:
+        doc_text: "{{ clone_issue.meta.fields.customfield_12317313 | d('') }}"
+        doc_text_type: "{{ clone_issue.meta.fields.customfield_12320850.value | d('') }}"
+        docs_impact: "{{ clone_issue.meta.fields.customfield_12324040.value | d('') }}"
+        dev_ack: "{{ 'Dev ack' if clone_issue.meta.fields.customfield_12317366 |
+          selectattr('value', 'eq', 'Dev ack') | length > 0 else '' }}"
+        qa_ack: "{{ 'QE ack' if clone_issue.meta.fields.customfield_12317366 |
+          selectattr('value', 'eq', 'QE ack') | length > 0 else '' }}"
+        itm: "{{ clone_issue.meta.fields.customfield_12321040.value | d('') | string }}"
+        dtm: "{{ clone_issue.meta.fields.customfield_12318141.value | d('') | string }}"
+        sprint: "{{ __sprint_id | string }}"
+        status: "{{ clone_issue.meta.fields.status.name }}"
+        story_points: "{{ '%f' | format(clone_issue.meta.fields.customfield_12310243 | d(0.0)) | string }}"
+        preliminary_testing: "{{ clone_issue.meta.fields.customfield_12321540.value | d('') }}"
+        update_issue_key: "{{ new_issue.meta.key }}"
+      vars:
+        __pat: >-
+          ^.*\[id=(\d+),.*$
+        __sprint_id: "{{ clone_issue.meta.fields.customfield_12310940 | d(['']) |
+          map('regex_replace', __pat, '\\1') | first }}"
+
+    - name: Update new issue
+      include_tasks: tasks/update_issue.yml

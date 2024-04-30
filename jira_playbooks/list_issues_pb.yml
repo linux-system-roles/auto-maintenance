@@ -1,0 +1,39 @@
+- name: List issues
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "{{ lookup('env', 'HOME') ~ '/.config/jira.yml' }}"
+    config: "{{ lookup('file', config_file) | from_yaml }}"
+    current: "{{ config['current'] }}"
+    url: "{{ config[current]['url'] }}"
+    token: "{{ config[current]['token'] }}"
+    project: "{{ config[current]['project'] }}"
+    component: "{{ config[current]['component'] }}"
+    product: "{{ config[current]['product'] }}"
+    pool_team: "{{ config[current]['pool_team'] }}"
+    itr_query_field: fixVersion
+    itr: "{{ lookup('env', 'ITR') if lookup('env', 'ITR') | length > 0 else 'rhel-9.4.0' }}"
+    status_query_field: status
+  module_defaults:
+    community.general.jira:
+      project: "{{ project }}"
+      token: "{{ token }}"
+      uri: "{{ url }}"
+  tasks:
+    - name: Get issues matching criteria
+      community.general.jira:
+        operation: search
+        jql: component = {{ component }} AND "{{ itr_query_field }}" = {{ itr }} AND "{{ status_query_field }}" = "{{ status }}"
+      args:
+        fields:
+          summary:
+          customfield_12318450:  # Fixed In Build
+      register: issues  # issues.meta.issues
+
+    - name: List issues
+      copy:
+        content: |-
+          {% for issue in issues.meta.issues %}
+          {{ issue.key }} {{ issue.fields.customfield_12318450 }} {{ issue.fields.summary }}
+          {% endfor %}
+        dest: "{{ output_file | d('issues') }}"

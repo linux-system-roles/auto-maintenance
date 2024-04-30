@@ -90,6 +90,20 @@ clone_and_link_issue() {
   ansible-playbook -vv -e clone_issue_key="$1" -e clone_version="$2" jira_playbooks/clone_and_link_issue_pb.yml
 }
 
+request_clone_issue() {
+  # version is something like e.g. "RHEL 10"
+  # field to set in clone - must be listed in __field_map in update_issue.yml
+  local cmdline
+  cmdline=(-vv -e clone_issue_key="$1" -e request_clone_version="'$2'")
+  shift; shift
+  while [ -n "${1:-}" ] && [ -n "${2:-}" ]; do
+    # shellcheck disable=SC2191
+    cmdline+=(-e "$1"="$2"); shift; shift
+  done
+  ansible-playbook "${cmdline[@]}" jira_playbooks/request_clone_pb.yml
+}
+
+
 rpm_release() {
   ansible-playbook -vv -e rpm_version="$1" jira_playbooks/rpm_release_pb.yml
 }
@@ -161,6 +175,13 @@ update_itm_dtm() {
 
 dump_issue() {
   ansible-playbook -vv -e issue_key="$1" -e issue_file="${2:-"$1.json"}" jira_playbooks/dump_issue.yml
+}
+
+list_issues() {
+  local output_file
+  output_file="$(pwd)/issues"
+  ansible-playbook -vv -e status="'$1'" -e output_file="$output_file" jira_playbooks/list_issues_pb.yml
+  cat "$output_file"
 }
 
 "$@"

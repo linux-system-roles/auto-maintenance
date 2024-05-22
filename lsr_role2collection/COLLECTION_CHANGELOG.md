@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.78.2] - 2024-05-22
+---------------------
+
+### Bug Fixes
+
+- logging - fix: Remove name="basics_imuxsock" parameter from imuxsock type input (#385)
+
 [1.78.1] - 2024-04-26
 ---------------------
 

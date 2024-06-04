@@ -1,0 +1,35 @@
+---
+- name: Create Jira issue
+  hosts: localhost
+  gather_facts: false
+  vars:
+    config_file: "{{ lookup('env', 'HOME') ~ '/.config/jira.yml' }}"
+    config: "{{ lookup('file', config_file) | from_yaml }}"
+    current: "{{ config['current'] }}"
+    url: "{{ config[current]['url'] }}"
+    token: "{{ config[current]['token'] }}"
+    project: "{{ config[current]['project'] }}"
+    component: "{{ config[current]['component'] }}"
+    product: "{{ config[current]['product'] }}"
+    pool_team: "{{ config[current]['pool_team'] }}"
+    itm: "{{ lookup('env', 'ITM') }}"
+    dtm: "{{ lookup('env', 'DTM') }}"
+  module_defaults:
+    community.general.jira:
+      project: "{{ project }}"
+      token: "{{ token }}"
+      uri: "{{ url }}"
+  tasks:
+    - name: Create an issue
+      include_tasks: tasks/create_issue.yml
+
+    - name: Print new issue
+      debug:
+        var: new_issue.meta.key
+
+    - name: Write new issue to given file
+      copy:
+        content: "{{ new_issue.meta.key }}"
+        dest: "{{ new_issue_file }}"
+        mode: "0600"
+      when: new_issue_file is defined

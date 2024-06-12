@@ -1,6 +1,25 @@
 Changelog
 =========
 
+[1.79.0] - 2024-06-12
+---------------------
+
+### New Features
+
+- ssh - feat: Add new configuration options and remove false positives in the test (#142)
+- storage - feat: Stratis support (#439)
+- storage - feat: PV resize support (#438)
+
+### Bug Fixes
+
+- bootloader - fix: Set user.cfg path to /boot/grub2/ on EL 9 UEFI (#101)
+- logging - fix: Add check for "rsyslogd: error" in /var/log/messages in all tests (#388)
+- podman - fix: grab name of network to remove from quadlet file (#155)
+- postfix - fix: Reflect smtp-submission service rename in EL 10 and Fedora 40+ (#131)
+- storage - fix: Fix expected error message in tests_misc.yml (#446)
+- storage - fix: Get same sector size disks for multi device LVM tests (#441)
+- storage - fix: Fix 'possibly-used-before-assignment' pylint issues (#440)
+
 [1.78.2] - 2024-05-22
 ---------------------
 

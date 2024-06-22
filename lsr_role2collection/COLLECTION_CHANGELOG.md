@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.80.0] - 2024-06-22
+---------------------
+
+### New Features
+
+- sshd - feat:  Ubuntu Noble support (#290)
+
+### Bug Fixes
+
+- sshd - fix: Ubuntu 22.04 PrintMotd set default to false (#290)
+
 [1.79.0] - 2024-06-12
 ---------------------
 

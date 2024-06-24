@@ -93,3 +93,6 @@ snapshot:
 gfs2:
   ref: 0.0.3
   sourcenum: 31
+sudo:
+  ref: 1.0.0
+  sourcenum: 32

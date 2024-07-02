@@ -1,6 +1,46 @@
 Changelog
 =========
 
+[1.82.0] - 2024-07-02
+---------------------
+
+### New Features
+
+- ha_cluster - feat: crmsh corosync jinja2 template rework (#212)
+- nbde_client - feat: Allow initrd configuration to be skipped (#165)
+
+### Bug Fixes
+
+- ad_integration - fix: add support for EL10 (#102)
+- bootloader - fix: add support for EL10 (#109)
+- certificate - fix: add support for EL10 (#229)
+- cockpit - fix: add support for EL10 (#163)
+- cockpit - fix: wildcard package installation not working with dnf module (#161)
+- crypto_policies - fix: add support for EL10 (#118)
+- fapolicyd - fix: add support for EL10 (#28)
+- firewall - fix: add support for EL10 (#224)
+- gfs2 - fix: add support for EL10 (#17)
+- journald - fix: add support for EL10 (#73)
+- kdump - fix: add support for EL10 (#206)
+- kdump - fix: el10 kdump role should depend on kdump-utils (#204)
+- kernel_settings - fix: add support for EL10 (#207)
+- keylime_server - fix: add support for EL10 (#46)
+- logging - fix: add support for EL10 (#395)
+- nbde_client - fix: add support for EL10 (#166)
+- nbde_server - fix: add support for EL10 (#150)
+- network - fix: add support for EL10 (#700)
+- postgresql - fix: add support for EL10 (#93)
+- rhc - fix: add support for EL10 (#184)
+- selinux - fix: add support for EL10 (#239)
+- ssh - fix: add support for EL10 (#149)
+- storage - fix: add support for EL10 (#452)
+- sudo - fix: add support for EL10 (#12)
+- systemd - fix: add support for EL10 (#51)
+- timesync - fix: Don't use chrony-dhcp sourcedir on EL8 systems (#246)
+- timesync - fix: add support for EL10 (#245)
+- tlog - fix: add support for EL10 (#133)
+- vpn - fix: add support for EL10 (#160)
+
 [1.81.0] - 2024-06-24
 ---------------------
 

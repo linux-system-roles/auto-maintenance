@@ -100,6 +100,7 @@ done < prs.txt
 rm -f prs.txt
 
 get_issues > issues.txt
+# shellcheck disable=SC2034
 while read -r number author state; do
     ISSUES_CREATED["$repo"]=$(("${ISSUES_CREATED[$repo]:-0}" + 1))
     # see if author is a maintainer

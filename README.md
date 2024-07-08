@@ -18,6 +18,7 @@ linux-system-roles repos.
   * [manage_jenkins.py](#manage_jenkinspy)
   * [configure_squid](#configure_squid)
   * [lsr_fingerprint.py](#lsr_fingerprintpy)
+  * [get-github-stats.sh](#get-github-statssh)
 <!--te-->
 
 
@@ -1140,3 +1141,23 @@ of `roles` that is defined as an array of dictionaries in `lsr_fingerprint.py`.
 For example, in metrics, `performancecopilot:ansible-pcp` is replaced with
 `system_role:metrics`; in sshd, `willshersystems:ansible-sshd` is with
 `system_role:sshd`.
+
+# get-github-stats.sh
+
+Get statistics about system roles PRs and issues from github.
+
+## Requirements
+
+Uses the `gh` command, and you must have a valid github token.
+
+Usage:
+
+```bash
+PRS_CSVFILE=prs.csv ISSUES_CSVFILE=issues.csv DATE_RANGE=YYYY-MM-DD..YYYY-MM-DD \
+  ./manage-role-repos.sh ./get-github-stats.sh
+```
+
+Example date range - `2024-07-01..2024-09-30` for 2024 Q3.
+
+Writes the files `prs.csv` and `issues.csv` which are CSV files and can be
+imported into Google Sheets or other spreadsheet applications.

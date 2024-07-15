@@ -1,6 +1,23 @@
 Changelog
 =========
 
+[1.83.0] - 2024-07-15
+---------------------
+
+### New Features
+
+- firewall - feat: Handle reboot for transactional update systems (#226)
+- postfix - feat: Added postfix_files feature as a simple means to add extra files/maps to config (#129)
+- snapshot - feat: rewrite snapshot.py as an Ansible module / add support for thin origins (#58)
+- systemd - feat: add support for transactional update (#53)
+
+### Bug Fixes
+
+- metrics - fix: add support for EL10 (#200)
+- metrics - fix: add configuration files for c10s and el10 (#199)
+- postfix - fix: add support for EL10 (#134)
+- snapshot - fix: add support for EL10 (#66)
+
 [1.82.0] - 2024-07-02
 ---------------------
 

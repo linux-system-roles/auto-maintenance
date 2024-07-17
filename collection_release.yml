@@ -11,7 +11,7 @@ kdump:
   ref: 1.4.7
   sourcenum: 4
 network:
-  ref: 1.15.4
+  ref: 1.15.5
   sourcenum: 5
 storage:
   ref: 1.17.1

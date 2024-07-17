@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.83.1] - 2024-07-17
+---------------------
+
+### Bug Fixes
+
+- network - fix: network_state must be defined in defaults/main.yml (#702)
+
 [1.83.0] - 2024-07-15
 ---------------------
 

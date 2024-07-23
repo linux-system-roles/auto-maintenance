@@ -1,6 +1,23 @@
 Changelog
 =========
 
+[1.84.0] - 2024-07-23
+---------------------
+
+### New Features
+
+- logging - feat: add support for file and directory mode/owner/group for output files (#400)
+- logging - feat: support custom config files with logging_custom_config_files (#399)
+- logging - feat: add support for reopen_on_truncate for files input (#398)
+- selinux - feat: add support for transactional update (#241)
+- storage - feat: write storage role fingerprint to /etc/fstab (#458)
+
+### Bug Fixes
+
+- podman - fix: proper cleanup for networks; ensure cleanup of resources (#160)
+- podman - fix: add support for EL10 (#159)
+- sshd - fix: add support for EL10 (#293)
+
 [1.83.1] - 2024-07-17
 ---------------------
 

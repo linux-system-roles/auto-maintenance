@@ -2,7 +2,7 @@ postfix:
   ref: 1.5.0
   sourcenum: 1
 selinux:
-  ref: 1.7.7
+  ref: 1.8.0
   sourcenum: 2
 timesync:
   ref: 1.8.5
@@ -14,7 +14,7 @@ network:
   ref: 1.15.5
   sourcenum: 5
 storage:
-  ref: 1.17.1
+  ref: 1.18.0
   sourcenum: 6
 metrics:
   ref: 1.10.4
@@ -26,7 +26,7 @@ kernel_settings:
   ref: 1.2.5
   sourcenum: 9
 logging:
-  ref: 1.12.9
+  ref: 1.13.0
   sourcenum: 10
 nbde_server:
   ref: 1.4.6
@@ -42,7 +42,7 @@ crypto_policies:
   sourcenum: 14
 sshd:
   org: willshersystems
-  ref: v0.24.0
+  ref: v0.24.1
   repo: ansible-sshd
   sourcenum: 15
 ssh:
@@ -58,10 +58,10 @@ firewall:
   ref: 1.8.0
   sourcenum: 19
 cockpit:
-  ref: 1.5.8
+  ref: 1.5.9
   sourcenum: 20
 podman:
-  ref: 1.5.1
+  ref: 1.5.2
   sourcenum: 21
 ad_integration:
   ref: 1.4.6

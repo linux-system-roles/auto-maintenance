@@ -1359,10 +1359,11 @@ def role2collection():
             extra_script = None
 
     _extras = set(os.listdir(src_path)).difference(ALL_DIRS)
-    try:
-        _extras.remove(".git")
-    except KeyError:
-        pass
+    for dir in (".git", "plans"):
+        try:
+            _extras.remove(dir)
+        except KeyError:
+            pass
     extras = [src_path / e for e in _extras]
 
     global config

@@ -1,6 +1,24 @@
 Changelog
 =========
 
+[1.85.0] - 2024-08-01
+---------------------
+
+### New Features
+
+- crypto_policies - Handle reboot for transactional update systems (#121)
+- ha_cluster - feat: Add alerts support (#218)
+- ha_cluster - feat: crmsh watchdog correction, remove obsolete assert for softdog (#217)
+- kernel_settings - Handle reboot for transactional update systems (#215)
+- ssh - Handle reboot for transactional update systems (#151)
+- sudo - Handle reboot for transactional update systems (#16)
+
+### Bug Fixes
+
+- nbde_server - fix: Remove hard dependency on selinux and firewall roles (#154)
+- podman - fix: Ensure user linger is closed on EL10 (#165)
+- storage - fix: Remove partition table from disk removed from a VG (#464)
+
 [1.84.0] - 2024-07-23
 ---------------------
 

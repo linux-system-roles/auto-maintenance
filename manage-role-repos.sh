@@ -40,7 +40,7 @@ if [ -n "${LSR_BASE_DIR:-}" ] && [ ! -d "$LSR_BASE_DIR" ]; then
 fi
 
 repos=${REPOS:-$(gh repo list "$LSR_GH_ORG" -L 100 --json name -q '.[].name')}
-DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"test-harness linux-system-roles.github.io sap-base-settings \
+DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"tft-tests test-harness linux-system-roles.github.io sap-base-settings \
                     sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
                     auto-maintenance image_builder sap-netweaver-preconfigure ci-testing \
                     meta_test tox-lsr tuned .github lsr-gh-action-py26 \

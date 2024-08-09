@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.86.0] - 2024-08-09
+---------------------
+
+### New Features
+
+- network - feat: Add the support for the optional route source parameter in nm provider (#714)
+
+### Bug Fixes
+
+- kernel_settings - fix: Use tuned files instead of using it as a module (#220)
+- rhc - fix: drop usage of "auto_attach" of the "redhat_subscription" module (#189)
+- storage - fix: Add libblockdev s390 and FS plugins to blivet dependencies list (#467)
+
 [1.85.0] - 2024-08-01
 ---------------------
 

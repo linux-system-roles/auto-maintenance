@@ -13,6 +13,7 @@ linux-system-roles repos.
   * [manage-role-repos.sh](#manage-role-repossh)
   * [role-make-version-changelog.sh](#role-make-version-changelogsh)
   * [role-manage-prs.sh](#role-manage-prssh)
+  * [role-manage-dependabot-alerts.sh](#role-manage-dependabot-alertssh)
   * [list-pr-statuses-ghapi.py](#list-pr-statuses-ghapipy)
   * [bz-manage.sh](#bz-managesh)
   * [manage_jenkins.py](#manage_jenkinspy)
@@ -717,6 +718,21 @@ PRs authored by richm
   branch)
 * `MERGE_TYPE` - default is `r` (rebase and merge) - Use `m` for merge commit,
   `s` for squash and merge, or `ask` which will prompt you for the merge type.
+
+# role-manage-dependabot-alerts.sh
+
+Used in conjunction with `manage-role-repos.sh`.  This will list the open
+dependabot alerts for a role and prompt for an action to perform.  Actions:
+
+* `l` - Refresh the list
+* `v NUM` - View the alert in a browser
+* `d NUM reason comment` - Dismiss the alert with the given reason and comment
+* `a reason comment` - Dismiss all alerts with the given reason and comment
+* Press Enter by itself to skip to the next role
+
+Examples:
+
+`./manage-role-repos.sh ./role-manage-dependabot-alerts.sh`
 
 # list-pr-statuses-ghapi.py
 

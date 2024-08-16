@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.87.1] - 2024-08-16
+---------------------
+
+### Bug Fixes
+
+- storage - fix: architecture is now a required fact (#473)
+
 [1.87.0] - 2024-08-16
 ---------------------
 

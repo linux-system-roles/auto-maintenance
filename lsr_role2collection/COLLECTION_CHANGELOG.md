@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.87.0] - 2024-08-16
+---------------------
+
+### New Features
+
+- podman - feat: Handle reboot for transactional update systems (#170)
+- timesync - feat: Handle reboot for transactional update systems (#256)
+
 [1.86.0] - 2024-08-09
 ---------------------
 

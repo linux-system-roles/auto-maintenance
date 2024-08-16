@@ -32,7 +32,7 @@ declare -A ISSUES_CREATED_NON_MAINT
 declare -A ISSUES_CLOSED_NON_MAINT
 
 # silence shellcheck about unset vars
-origin_org="${origin_org:?origin_org is unset}"
+upstream_org="${upstream_org:?upstream_org is unset}"
 repo="${repo:?repo is unset}"
 if [ -z "${DATE_RANGE:-}" ]; then
     echo ERROR: Please specify DATE_RANGE like this
@@ -46,7 +46,7 @@ user_is_maintainer() {
     username="$1"
     if [ -z "${USERS[$username]:-}" ]; then
         if gh api --silent \
-          "/repos/$origin_org/$repo/collaborators/$username" 2> /dev/null; then
+          "/repos/$upstream_org/$repo/collaborators/$username" 2> /dev/null; then
             USERS["$username"]=0
         else
             USERS["$username"]=1
@@ -57,14 +57,14 @@ user_is_maintainer() {
 
 # get PRs
 get_prs() {
-    gh pr list -R "$origin_org/$repo" \
+    gh pr list -R "$upstream_org/$repo" \
       -S "created:$DATE_RANGE state:open state:closed" \
       --json number,author,state,title \
       --jq '.[] | "\(.number) \(.author.login) \(.state) \(.title)"'
 }
 
 get_issues() {
-    gh issue list -R "$origin_org/$repo" \
+    gh issue list -R "$upstream_org/$repo" \
       -S "created:$DATE_RANGE state:open state:closed" \
       --json number,author,state \
       --jq '.[] | "\(.number) \(.author.login) \(.state)"'
@@ -122,7 +122,7 @@ if [ -n "${PRS_CSVFILE:-}" ]; then
     fi
     echo "$repo,${PRS_CREATED[$repo]:-0},${PRS_MERGED[$repo]:-0},${PRS_OPEN[$repo]:-0},${PRS_CREATED_NON_MAINT[$repo]:-0},${PRS_MERGED_NON_MAINT[$repo]:-0},${PRS_OPEN_NON_MAINT[$repo]:-0}" >> "$PRS_CSVFILE"
 else
-    echo In the range "$DATE_RANGE" in "$origin_org/$repo":
+    echo In the range "$DATE_RANGE" in "$upstream_org/$repo":
     echo PRs created: "${PRS_CREATED[$repo]:-0}"
     echo PRs merged: "${PRS_MERGED[$repo]:-0}"
     echo PRs open: "${PRS_OPEN[$repo]:-0}"
@@ -136,7 +136,7 @@ if [ -n "${ISSUES_CSVFILE:-}" ]; then
     fi
     echo "$repo,${ISSUES_CREATED[$repo]:-0},${ISSUES_CLOSED[$repo]:-0},${ISSUES_CREATED_NON_MAINT[$repo]:-0},${ISSUES_CLOSED_NON_MAINT[$repo]:-0}" >> "$ISSUES_CSVFILE"
 else
-    echo In the range "$DATE_RANGE" in "$origin_org/$repo":
+    echo In the range "$DATE_RANGE" in "$upstream_org/$repo":
     echo Issues created: "${ISSUES_CREATED[$repo]:-0}"
     echo Issues closed: "${ISSUES_CLOSED[$repo]:-0}"
     echo Issues created by non-maintainers: "${ISSUES_CREATED_NON_MAINT[$repo]:-0}"

@@ -5,7 +5,14 @@
 
 set -euo pipefail
 
+# By default, this script will skip doing a release of roles
+# that do not appear to have any changes since the last release.
+# If you really want to have a chance to view and perhaps release
+# such roles, set AUTOSKIP=false
+# also, if you want to prompt to release role, set AUTOSKIP=false.
+# otherwise, the script will go directly to the role release
 AUTOSKIP="${AUTOSKIP:-true}"
+
 # Find the last tag in each role
 # Look at the merged PRs since that tag
 # Automatically figure out what version to use for the new tag
@@ -21,6 +28,13 @@ ALLOW_BAD_PRS="${ALLOW_BAD_PRS:-false}"
 # PR descriptions too.
 USE_PR_BODY="${USE_PR_BODY:-false}"
 
+# By default, AUTOSKIP=true will also skip roles that have only ci
+# changes.  If you want to release roles that have only ci changes,
+# set AUTOSKIP_PR_TYPES=none
+# If the role has only changes for PR types in this list, the role
+# will be skipped.  Otherwise, a new role release will be proposed.
+AUTOSKIP_PR_TYPES="${AUTOSKIP_PR_TYPES:-ci}"
+
 repo_entries="$(gh repo view --json name,owner)"
 repo=${repo:-$(echo "$repo_entries" | jq -r .name)}
 owner=${owner:-$(echo "$repo_entries" | jq -r .owner.login)}
@@ -35,23 +49,8 @@ for no_release_role in $NO_RELEASE_ROLES; do
     fi
 done
 
-# To be used in conjunction with local-repo-dev-sync.sh
-# This script is called from every role
-
 get_main_branch() {
-    local br
-    br=$(git branch --list main)
-    if [ -n "$br" ]; then
-        echo main
-        return 0
-    fi
-    br=$(git branch --list master)
-    if [ -n "$br" ]; then
-        echo master
-        return 0
-    fi
-    echo UNKNOWN
-    return 1
+    gh api "/repos/$owner/$repo" -q .default_branch
 }
 
 if ! type -p npm > /dev/null 2>&1; then
@@ -74,38 +73,16 @@ if ! npm list @commitlint/config-conventional > /dev/null 2>&1; then
 fi
 export NODE_PATH="$npm_config_prefix/lib/node_modules/@commitlint/config-conventional/node_modules"
 
-git fetch --all --force
-# get the main branch
-mainbr=$(get_main_branch)
-currbr=$(git branch --show-current)
-# see if BRANCH already exists - editing an existing PR
-if [ -n "${BRANCH:-}" ]; then
-    BRANCH_EXISTS=$(git branch --list "$BRANCH")
-else # assume user wants to use the currently checked out branch
-    BRANCH="$currbr"
-fi
-if [ "$BRANCH" = "$mainbr" ]; then
-    echo ERROR: need a branch to use for the commit/PR
-    echo please set BRANCH to the branch you want to use for the PR
-    echo or git checkout the branch
-    exit 1
-fi
-if [ "$BRANCH" = "$currbr" ]; then
-    : # using current branch "$currbr"
-elif [ -n "${BRANCH_EXISTS:-}" ]; then
-    git checkout "$BRANCH"
-else
-    git checkout "$mainbr"
-    git checkout -b "$BRANCH"
-fi
-echo Using branch "$BRANCH" for the changelog commit/PR
-
 # get latest release
 releases_latest=$(gh api repos/"$owner"/"$repo"/releases/latest -q '.tag_name,.published_at' 2> /dev/null || :)
 skip=false
-pr_titles_file=".pr_titles.txt"
-prs_file=".prs.json"
-commitlint_errors_file=".commitlint_errors.txt"
+workdir="$(mktemp -d --suffix=_lsr)"
+pushd "$workdir" > /dev/null 2>&1
+# shellcheck disable=SC2064
+trap "popd > /dev/null 2>&1; rm -rf $workdir" EXIT
+pr_titles_file="$workdir/.pr_titles.txt"
+prs_file="$workdir/.prs.json"
+commitlint_errors_file="$workdir/.commitlint_errors.txt"
 if [[ "$releases_latest" == *"Not Found"* ]]; then
     # repo and LSR_GH_ORG are referenced but not assigned.
     # shellcheck disable=SC2154
@@ -116,6 +93,7 @@ else
     latest_tag="$(echo "$releases_latest" | sed -n 1p)"
     tag_range="closed:>$(echo "$releases_latest" | sed -n 2p)"
 fi
+
 # Note that first: 100 is a maximum, it would work only if there are <100 PRs since last tag
 prs_query="$(cat <<EOF
 query {
@@ -135,23 +113,26 @@ query {
 }
 EOF
 )"
-gh api graphql -f query="$prs_query" -q '.data.search' > $prs_file
+gh api graphql -f query="$prs_query" -q .data.search > "$prs_file"
 count=$(jq '.issueCount' "$prs_file")
 if [ "${count:-0}" = 0 ]; then
     echo There are no merged PRs since latest tag "$latest_tag"
-    echo ""
     if [ "$AUTOSKIP" = true ]; then
         echo Autoskip enabled - skipping tag/release for role "$repo"
+        echo ""
         skip=true
+    else
+        echo ""
     fi
 else
     echo Pull requests since latest tag "$latest_tag":
     echo ""
-    : > $pr_titles_file
+    : > "$pr_titles_file"
     pr_descriptions=()
+    skip=true
     # loop through pr_list in reverse to populate changelog in chronological order
     for ((i="$count"-1; i>=0; i--)); do
-        pr_entry="$(jq '.edges['$i'].node' $prs_file)"
+        pr_entry="$(jq '.edges['$i'].node' "$prs_file")"
         pr_title="$(echo "$pr_entry" | jq -r '.title')"
         pr_num="$(echo "$pr_entry" | jq -r '.number')"
         pr_body="$(echo "$pr_entry" | jq -r '.body')"
@@ -175,23 +156,41 @@ else
             printf -v pr_description -- "- %s (#%s)" "$pr_title" "$pr_num"
         fi
         pr_descriptions+=("$pr_description")
+        for pr_type in $AUTOSKIP_PR_TYPES; do
+            if [ "$pr_type" = none ]; then
+                skip=false  # user does not want to skip
+            elif [[ "$pr_title" =~ ^"$pr_type": ]]; then
+                : # do nothing - do not touch skip value
+            else
+                skip=false  # cannot skip - this is a "real" change
+            fi
+        done
     done
-    cat $pr_titles_file
+    cat "$pr_titles_file"
     echo ""
     # see the changes?
-    read -r -p 'Release this role? (y/n)? (default: y) ' release_role
-    if [ "${release_role:-y}" = n ]; then
-        skip=true
+    if [ "$AUTOSKIP" = false ]; then
+        read -r -p 'Release this role? (y/n)? (default: y) ' release_role
+        if [ "${release_role:-y}" = n ]; then
+            skip=true
+        fi
+    elif [ "$skip" = true ]; then
+        echo Autoskip enabled - the role has only PRs of type "$AUTOSKIP_PR_TYPES"
+        echo If you want to this role, set AUTOSKIP_PR_TYPES=none and re-run this command
+        echo ""
     fi
 fi
 if [ "$skip" = false ]; then
     if [ -s "$pr_titles_file" ] && [ "${ALLOW_BAD_PRS}" = false ] && [ "${count:-0}" != 0 ]; then
+        # get commitlint rc file
+        gh api /repos/"$owner"/"$repo"/contents/.commitlintrc.js -q .content | \
+            base64 --decode > "$workdir/.commitlintrc.js"
         echo ""
-        echo Verifying if all PR titles comply with the conventional commits format
-        : > $commitlint_errors_file
+        echo Verifying if all PR titles comply with the conventional commits format ...
+        : > "$commitlint_errors_file"
         while read -r pr_title; do
-            echo "$pr_title" | npx commitlint >> $commitlint_errors_file 2>&1 || :
-        done < $pr_titles_file
+            echo "$pr_title" | npx commitlint >> "$commitlint_errors_file" 2>&1 || :
+        done < "$pr_titles_file"
         if [ -s "$commitlint_errors_file" ]; then
             echo ERROR: the following PR titles failed commitlint the check:
             cat "$commitlint_errors_file"
@@ -228,7 +227,7 @@ if [ "$skip" = false ]; then
         echo ERROR: unexpected tag "$latest_tag"
         exit 1
     fi
-    if grep -q '^.*!:.*' $pr_titles_file; then
+    if grep -q '^.*!:.*' "$pr_titles_file"; then
         # Don't bump ver_major for prerelease versions (when ver_major=0)
         if [[ "$ver_major" != 0 ]]; then
             ver_major=$((ver_major+=1))
@@ -239,7 +238,7 @@ if [ "$skip" = false ]; then
             ver_minor=$((ver_minor+=1))
             ver_patch=0
         fi
-    elif grep -q '^feat.*' $pr_titles_file; then
+    elif grep -q '^feat.*' "$pr_titles_file"; then
         ver_minor=$((ver_minor+=1))
         ver_patch=0
     else
@@ -250,11 +249,11 @@ if [ "$skip" = false ]; then
         read -r -p "The script calculates the new tag based on PR titles types.
 The previous tag is ${latest_tag:-EMPTY}.
 The new tag is $new_tag.
-You have three options:
-1. To continue with the suggested new tag $new_tag and edit CHANGELOG.md, enter 'y',
-2. To provide a different tag, and edit CHANGELOG.md enter the new tag in the following format:
+Here are your options:
+* To continue with the suggested new tag $new_tag and edit CHANGELOG.md, enter 'y',
+* To provide a different tag, and edit CHANGELOG.md enter the new tag in the following format:
    ${allow_v}X.Y.Z, where X, Y, and Z are integers,
-3. To skip this role and go to the next role just press Enter. " new_tag_in
+* To skip this role and go to the next role just press Enter. " new_tag_in
         if [ -z "$new_tag_in" ]; then
             break
         elif [[ "$new_tag_in" =~ ^"$allow_v"[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
@@ -263,6 +262,7 @@ You have three options:
         elif [ "$new_tag_in" == y ]; then
             break
         else
+            echo ""
             echo ERROR: invalid input "$new_tag_in"
             echo You must either input y or provide a new tag.
             echo Tag must be in format "$allow_v"X.Y.Z
@@ -270,11 +270,12 @@ You have three options:
         fi
     done
     if [ -n "${new_tag_in}" ]; then
-        rel_notes_file=".release-notes-${new_tag}.md"
-        new_features_file=.new_features.md
-        bug_fixes_file=.bug_fixes.md
-        other_changes_file=.other_changes.md
-        tmp_changelog_file=.tmp-changelog
+        mainbr=$(get_main_branch)
+        rel_notes_file="$workdir/.release-notes-${new_tag}.md"
+        new_features_file="$workdir/.new_features.md"
+        bug_fixes_file="$workdir/.bug_fixes.md"
+        other_changes_file="$workdir/.other_changes.md"
+        tmp_changelog_file="$workdir/.tmp-changelog"
         rm -f "$new_features_file" "$bug_fixes_file" "$other_changes_file"
         for pr_description in "${pr_descriptions[@]}"; do
             if echo "$pr_description" | sed -n 1p | grep '^- feat.*'; then
@@ -293,26 +294,36 @@ You have three options:
             if [ -f "$new_features_file" ]; then
                 {   echo "### New Features"
                     echo ""
-                    cat --squeeze-blank $new_features_file
+                    cat --squeeze-blank "$new_features_file"
                     echo ""
                 } >> "$rel_notes_file"
             fi
             if [ -f "$bug_fixes_file" ]; then
                 {   echo "### Bug Fixes"
                     echo ""
-                    cat --squeeze-blank $bug_fixes_file
+                    cat --squeeze-blank "$bug_fixes_file"
                     echo ""
                 } >> "$rel_notes_file"
             fi
             if [ -f "$other_changes_file" ]; then
                 {   echo "### Other Changes"
                     echo ""
-                    cat --squeeze-blank $other_changes_file
+                    cat --squeeze-blank "$other_changes_file"
                     echo ""
                 } >> "$rel_notes_file"
             fi
         fi
         ${EDITOR:-vi} "$rel_notes_file"
+        # this also will do a pushd to the checkedout repo dir
+        # shellcheck disable=SC2154
+        clone_repo . "$upstream_org" "$repo"
+        git checkout "$mainbr"
+        if [ -n "$(git branch --list "$BRANCH")" ]; then
+            git checkout "$BRANCH"
+            git rebase "$mainbr"
+        else
+            git checkout -b "$BRANCH"
+        fi
         myheader="Changelog
 ========="
         if [ -f CHANGELOG.md ]; then
@@ -345,5 +356,14 @@ You have three options:
             git push -u origin "$BRANCH"
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"
         fi
+        popd > /dev/null 2>&1  # clone_repo does a pushd to repo dir
     fi
+    echo ""
+    echo ""
+fi
+
+trap - EXIT
+popd > /dev/null 2>&1
+if [[ "$workdir" =~ ^/tmp ]]; then
+    rm -rf "$workdir"
 fi

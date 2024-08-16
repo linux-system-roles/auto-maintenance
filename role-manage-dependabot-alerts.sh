@@ -13,7 +13,7 @@ get_alerts() {
     # shellcheck disable=SC2207
     IFS=$'\n' ALERTS=($(gh api -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
-        "/repos/$origin_org/$repo/dependabot/alerts?state=open&direction=asc" \
+        "/repos/$upstream_org/$repo/dependabot/alerts?state=open&direction=asc" \
         --template \
         '{{tablerow "NUM" "PACKAGE" "FILE" "SUMMARY"}}{{range .}}{{tablerow .number .dependency.package.name .dependency.manifest_path .security_advisory.summary}}{{end}}'))
     unset IFS
@@ -26,7 +26,7 @@ dismiss_alert() {
     comment="$*"
     gh api --method PATCH -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
-        "/repos/$origin_org/$repo/dependabot/alerts/$num" \
+        "/repos/$upstream_org/$repo/dependabot/alerts/$num" \
         -f "state=dismissed" -f "dismissed_reason=$reason" \
         -f "dismissed_comment=$comment"
 }
@@ -77,7 +77,7 @@ EOF
         if [ "$input" = l ]; then
             done=false
         elif [[ "$input" =~ ^v\ ([0-9]+)$ ]]; then
-            xdg-open "https://github.com/$origin_org/$repo/security/dependabot/${BASH_REMATCH[1]}"
+            xdg-open "https://github.com/$upstream_org/$repo/security/dependabot/${BASH_REMATCH[1]}"
             ALERTS=()  # reset for next loop iter
         elif [[ "$input" =~ ^d\ ([0-9]+)\ ([a-z_]+)\ (.+)$ ]]; then
             dismiss_alert "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"

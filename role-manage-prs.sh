@@ -36,13 +36,13 @@ fi
 list_prs() {
     # set in manage-role-repos.sh
     # shellcheck disable=SC2154
-    gh pr list -R "$origin_org/$repo" "${searchargs[@]}" "$@"
+    gh pr list -R "$upstream_org/$repo" "${searchargs[@]}" "$@"
 }
 
 get_checks() {
     local pr total success failure pending cancelled error conclusion state name status display_name
     pr="$1"
-    gh pr view "$pr" -R "$origin_org/$repo" --json statusCheckRollup \
+    gh pr view "$pr" -R "$upstream_org/$repo" --json statusCheckRollup \
       --template '{{range .statusCheckRollup}}{{print (or .conclusion "<nil>")}}#{{print (or .state "<nil>")}}#{{print .name}}#{{println .context}}{{end}}' | \
     while IFS="#" read -r conclusion state name context; do
         if [ "$conclusion" = '<nil>' ] && [ "$state" = '<nil>' ]; then
@@ -108,7 +108,7 @@ get_check_summary() {
 get_reviews() {
     local pr review rev found_cr found_c found_ap
     pr="$1"
-    for rev in $(gh pr view "$pr" -R "$origin_org/$repo" --json reviews \
+    for rev in $(gh pr view "$pr" -R "$upstream_org/$repo" --json reviews \
         --template '{{range .reviews}}{{println .state}}{{end}}'); do
         if [ "$rev" == CHANGES_REQUESTED ]; then
             found_cr=true
@@ -150,7 +150,7 @@ show_pr() {
         state=UNKNOWN
     fi
     review="$(get_reviews "$pr")"
-    gh pr view "$pr" -R "$origin_org/$repo" --json number,title,updatedAt \
+    gh pr view "$pr" -R "$upstream_org/$repo" --json number,title,updatedAt \
       --template '#{{tablerow .number .updatedAt "'"$state"'" "'"$review"'" .title}}'
     echo "checks: total $total successful $success failed $failure pending $pending cancelled $cancelled error $error"
 }
@@ -158,7 +158,7 @@ show_pr() {
 merge_pr() {
     local pr
     pr="$1"; shift
-    gh pr merge "$pr" -R "$origin_org/$repo" "${mergeargs[@]}" "$@"
+    gh pr merge "$pr" -R "$upstream_org/$repo" "${mergeargs[@]}" "$@"
     echo merged - sleeping to refresh pr list
     sleep 5
 }
@@ -166,7 +166,7 @@ merge_pr() {
 approve_pr() {
     local pr
     pr="$1"
-    gh pr review --approve "$pr" -R "$origin_org/$repo"
+    gh pr review --approve "$pr" -R "$upstream_org/$repo"
     sleep 1
 }
 
@@ -212,19 +212,19 @@ EOF
         elif [ "$input" = l ]; then
             done=false
         elif [[ "$input" =~ ^v\ ([0-9]+)$ ]]; then
-            gh pr view "${BASH_REMATCH[1]}" --web -R "$origin_org/$repo"
+            gh pr view "${BASH_REMATCH[1]}" --web -R "$upstream_org/$repo"
         elif [[ "$input" =~ ^a\ ([0-9]+)$ ]]; then
             merge_pr "${BASH_REMATCH[1]}" --admin
             echo merged with admin - sleeping to refresh pr list
             sleep 5
         elif [[ "$input" =~ ^ci\ ([0-9]+)$ ]]; then
-            gh pr comment "${BASH_REMATCH[1]}" --body "[citest]" -R "$origin_org/$repo"
+            gh pr comment "${BASH_REMATCH[1]}" --body "[citest]" -R "$upstream_org/$repo"
         elif [[ "$input" =~ ^t\ ([0-9]+)$ ]]; then
             get_check_detail "${BASH_REMATCH[1]}" "!=" SUCCESS
         elif [[ "$input" =~ ^s\ ([0-9]+)\ (.+)$ ]]; then
             "${BASH_REMATCH[2]}" "$repo" "${BASH_REMATCH[1]}"
         elif [[ "$input" =~ ^c\ ([0-9]+)(\ (.+))?$ ]]; then
-            args=("${BASH_REMATCH[1]}" -R "$origin_org/$repo" -d)
+            args=("${BASH_REMATCH[1]}" -R "$upstream_org/$repo" -d)
             if [ -n "${BASH_REMATCH[2]}" ]; then
                 args+=(-c "${BASH_REMATCH[2]}")
             fi
@@ -232,13 +232,13 @@ EOF
             echo closed - sleeping to refresh pr list
             sleep 5
         elif [[ "$input" =~ ^d\ ([0-9]+)(\ (.+))?$ ]]; then
-            args=("${BASH_REMATCH[1]}" -R "$origin_org/$repo")
+            args=("${BASH_REMATCH[1]}" -R "$upstream_org/$repo")
             if [ -n "${BASH_REMATCH[2]}" ]; then
                 args+=("${BASH_REMATCH[2]}")
             fi
             gh pr diff "${args[@]}"
         elif [[ "$input" =~ ^e\ ([0-9]+)(\ (.+))?$ ]]; then
-            args=(gh pr edit "${BASH_REMATCH[1]}" -R "$origin_org/$repo")
+            args=(gh pr edit "${BASH_REMATCH[1]}" -R "$upstream_org/$repo")
             if [ -n "${BASH_REMATCH[3]:-}" ]; then
                 "${args[@]}" ${BASH_REMATCH[3]}
             else

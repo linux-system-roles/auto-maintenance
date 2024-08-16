@@ -39,6 +39,63 @@ if [ -n "${LSR_BASE_DIR:-}" ] && [ ! -d "$LSR_BASE_DIR" ]; then
     mkdir -p "$LSR_BASE_DIR"
 fi
 
+clone_repo() {
+    local base_dir org repo def_repo prot_save forked newname origin_repo
+    base_dir="$1"
+    org="$2"
+    repo="$3"
+    # get a local clone of the repo
+    if [ ! -d "$base_dir/$repo" ]; then
+        gh repo clone "$org/$repo" "$repo" -- -o upstream
+    fi
+    pushd "$base_dir/$repo" > /dev/null
+    # should have a remote called upstream that points to lsr/repo
+    if ! git remote get-url upstream | grep -q "$org/$repo"; then
+        echo Error: non-standard git remote config - upstream does not point
+        echo to "$org/$repo"
+        git remote get-url upstream
+        echo please use git remote to configure upstream to point to "$org/$repo"
+        exit 1
+    fi
+    def_repo="$(gh repo set-default xxx/xxx --view 2>&1)"
+    if [ -z "$def_repo" ] || [[ "$def_repo" =~ "no default repository" ]]; then
+        gh repo set-default "$org/$repo"
+    fi
+    # make sure we have a fork of this under our personal space
+    # this will also create a git remote in the local repo if there
+    # is not already one - adds a remote called "origin" that points
+    # to our fork
+    if [ "${MAKE_FORK:-true}" = true ]; then
+        prot_save=$(gh config -h github.com get git_protocol)
+        gh config -h github.com set git_protocol ssh
+        forked=false
+        if ! gh repo fork --remote; then
+            echo cannot fork
+        else
+            forked=true
+        fi
+        gh config -h github.com set git_protocol "$prot_save"
+        if [ "$forked" = true ]; then
+            if [[ "$(git remote get-url origin)" =~ .*:([^/]+)/([^/]+)$ ]]; then
+                origin_org="${BASH_REMATCH[1]}"
+                origin_repo="${BASH_REMATCH[2]/.git/}"
+            else
+                echo Error: origin remote points to unknown url "$(git remote get-url origin)"
+                exit 1
+            fi
+            if [ "${RENAME_FORK:-false}" = true ]; then
+                newname="${org}"-"$repo"
+                if [ "$origin_repo" = "$newname" ]; then
+                    : # already renamed
+                else
+                    gh repo rename "$newname" -R "$origin_org/$origin_repo"
+                fi
+            fi
+        fi
+    fi
+    git fetch --all --quiet
+}
+
 repos=${REPOS:-$(gh repo list "$LSR_GH_ORG" -L 100 --json name -q '.[].name')}
 DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"tft-tests test-harness linux-system-roles.github.io sap-base-settings \
                     sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
@@ -48,7 +105,7 @@ DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"tft-tests test-harness linux-system-roles.gi
 declare -A EXARRAY
 for repo in $DEFAULT_EXCLIST ${EXCLIST:-}; do
     # EXARRAY is a "set" of excluded repos
-    EXARRAY[$repo]=$repo
+    EXARRAY["$repo"]="$repo"
 done
 
 if [ -n "${LSR_BASE_DIR:-}" ]; then
@@ -65,60 +122,13 @@ for repo in $repos; do
 
     echo Repo: "$repo"
     if [ -n "${LSR_BASE_DIR:-}" ]; then
-        # get a local clone of the repo
-        if [ ! -d "$LSR_BASE_DIR/$repo" ]; then
-            gh repo clone "$LSR_GH_ORG/$repo" -- -o upstream
-        fi
-        pushd "$LSR_BASE_DIR/$repo" > /dev/null
-        # should have a remote called upstream that points to lsr/repo
-        if ! git remote get-url upstream | grep -q "$LSR_GH_ORG/$repo"; then
-            echo Error: non-standard git remote config - upstream does not point
-            echo to "$LSR_GH_ORG/$repo"
-            git remote get-url upstream
-            echo please use git remote to configure upstream to point to "$LSR_GH_ORG/$repo"
-            exit 1
-        fi
-        def_repo="$(gh repo set-default xxx/xxx --view 2>&1)"
-        if [ -z "$def_repo" ] || [[ "$def_repo" =~ "no default repository" ]]; then
-            gh repo set-default "$LSR_GH_ORG/$repo"
-        fi
-        # make sure we have a fork of this under our personal space
-        # this will also create a git remote in the local repo if there
-        # is not already one - adds a remote called "origin" that points
-        # to our fork
-        if [ "${MAKE_FORK:-true}" = true ]; then
-            prot_save=$(gh config -h github.com get git_protocol)
-            gh config -h github.com set git_protocol ssh
-            forked=false
-            if ! gh repo fork --remote; then
-                echo cannot fork
-            else
-                forked=true
-            fi
-            gh config -h github.com set git_protocol "$prot_save"
-            if [ "$forked" = true ]; then
-                if [[ "$(git remote get-url origin)" =~ .*:([^/]+)/([^/]+)$ ]]; then
-                    origin_org="${BASH_REMATCH[1]}"
-                    origin_repo="${BASH_REMATCH[2]/.git/}"
-                else
-                    echo Error: origin remote points to unknown url "$(git remote get-url origin)"
-                    exit 1
-                fi
-                if [ "${RENAME_FORK:-false}" = true ]; then
-                    newname="${LSR_GH_ORG}"-"$repo"
-                    if [ "$origin_repo" = "$newname" ]; then
-                        : # already renamed
-                    else
-                        gh repo rename "$newname" -R "$origin_org/$origin_repo"
-                        origin_repo="$newname"
-                    fi
-                fi
-            fi
-        fi
-        git fetch
+        clone_repo "$LSR_BASE_DIR" "$LSR_GH_ORG" "$repo"
+    fi
+    if [ -z "${upstream_org:-}" ]; then
+        upstream_org="$LSR_GH_ORG"
     fi
     if [ -z "${origin_org:-}" ]; then
-        origin_org="$LSR_GH_ORG"
+        origin_org="$upstream_org"
     fi
     if [ -z "${EXARRAY[$repo]:-}" ]; then
         if [ -n "${stdincmds:-}" ] && ! eval "$stdincmds"; then
@@ -126,6 +136,7 @@ for repo in $repos; do
         fi
         if [ -n "${1:-}" ]; then
             if [ -f "$1" ]; then
+                # shellcheck disable=SC1090
                 if ! source "$@"; then
                     echo ERROR: command "$1" in "$(pwd)" failed
                 fi

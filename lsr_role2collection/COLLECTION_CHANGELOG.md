@@ -1,6 +1,86 @@
 Changelog
 =========
 
+[1.87.2] - 2024-08-19
+---------------------
+
+### New Features
+
+- metrics - Update metrics role to use roles from the PCP collection
+- metrics - \[PCP\] Add collection from openmetrics end point
+- metrics - Multiple inputs to multiple outputs
+- metrics - Update fields names collected from the openmetrics endpoint
+- metrics - Add centos8
+- metrics - Make sure config dir of PMDAs exist
+- metrics - Make sure elasticsearch\_agent is always defined
+- metrics - Rename the embedded roles to remove 'performancecopilot' naming
+- metrics - Define Fedora specific variables for export into Elasticsearch
+- metrics - Update configuration file paths to support older PCP versions
+- metrics - Add platform variables for RHEL 9 to all roles.
+- metrics - Add CentOS\_9 variable definitions for all PCP roles
+- metrics - Raise supported Ansible version to 2.9
+- metrics - support python 39, ansible-core 2.12, ansible-plugin-scan
+- metrics - Specify grafana username/password
+- metrics - System Roles should consistently use ansible\_managed in configuration files it manages
+- metrics - Add "follow: yes" to the template task in the mssql and elasticsearch subrole.
+- metrics - Support metrics from postfix mail servers
+- metrics - Provide pcp_\single\_control option for control.d vs control files
+- metrics - Add a metrics\_from\_postfix boolean flag for the metrics role
+- metrics - Add CentOS 9 platform variables for each role
+- metrics - None
+- metrics - None
+- metrics - None
+- metrics - None
+- metrics - None
+- metrics - 
+- metrics - feat: support for ostree systems (#175)
+- metrics - feat: support for ostree systems
+- metrics - feat: sync with latest ansible-pcp (#178)
+
+### Bug Fixes
+
+- metrics - Fix centos6 repos; use standard centos images
+- metrics - Fix wrong main role name in sub-roles
+- metrics - Corrections to recently added metrics role functionality
+- metrics - Fix of misspelled "Elasticsearch"
+- metrics - Typo in README.md - metrics\_with\_elasticsearch to be replaced by metrics\_into\_elasticsearch
+- metrics - The role uses wrong role name when pointing to it self
+- metrics - Metrics sub-roles are not visible to Ansible in default configuration
+- metrics - Configuration of Elasticsearch, MSSQL and BPFtrace agents fail
+- metrics - MSSQL agent does not register it self in PMCD due to missing python3-pyodbc package
+- metrics - Wrong setup of bpftrace users
+- metrics - Missing default value for "elasticsearch\_agent" causes "performancecopilot\_metrics\_elasticsearch" role to fail
+- metrics - Missing installation of BCC agent when "metrics\_graph\_service: yes" is set
+- metrics - PMCD is not restarted after installation of ElasticSearch agent
+- metrics - SASL authentication is not configured properly
+- metrics - PMCD is not restarted on RHEL platform
+- metrics - pmrepconf is not available on all platforms
+- metrics - The role fails on RHEL-6 due to missing "cyrus-sasl-scram" package
+- metrics - Local role variable "role\_name" conflicts with global variable of the same name
+- metrics - Configuration of bpftrace PMDA does not work on platforms where PCP version is less or equal to 5.1 
+- metrics - do not use ignore\_errors: yes
+- metrics - Fix ansible-test errors
+- metrics - Partial Revert "RHELPLAN-68122 - Collections - Metrics - fixing ansible-test errors"
+- metrics - Revert accidental inclusion of var path from the spark role
+- metrics - Fix issues found by linters - enable all tests on all repos - remove suppressions
+- metrics - \_\_pcp\_target\_hosts not defined so loop doesn't run
+- metrics - bpftrace: follow bpftrace.conf symlink for latest PCP versions
+- metrics - Address PyYAML vulnerability
+- metrics - Ensure a postfix log file exists for pmdapostfix to start
+- metrics - Resolve race condition with starting pmdapostfix
+- metrics - restart pmie, pmlogger if changed, do not wait for handler
+- metrics - docs: make minimum redis and grafana versions more clear
+- metrics - grafana: update grafana.ini to permit all grafana-pcp plugin components
+- metrics - grafana: include config file for Grafana v9
+- metrics - grafana: small wording tweak to grafana v8/v9 action names
+- metrics - ansible-lint 6.x fixes (#133)
+- metrics - fix pimeconf rule filesys vfs_rules support
+- metrics - fix: make role work on ansible-core 2.15
+- metrics - fix: add missing pmie webhook action configuration functionality (#183)
+- metrics - fix: add support for EL10 (#200)
+- metrics - fix: add configuration files for c10s and el10 (#199)
+- metrics - fix: Handle undefined item in pmie configuration
+
 [1.87.1] - 2024-08-16
 ---------------------
 

@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.88.0] - 2024-08-20
+---------------------
+
+### New Features
+
+- sshd - feat: Add new configuration options from OpenSSH 9.8
+
+### Bug Fixes
+
+- ha_cluster - fix: Fixes for new pcs and ansible (#223)
+
 [1.87.2] - 2024-08-19
 ---------------------
 

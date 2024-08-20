@@ -11,7 +11,7 @@ kdump:
   ref: 1.4.7
   sourcenum: 4
 network:
-  ref: 1.16.2
+  ref: 1.16.3
   sourcenum: 5
 storage:
   ref: 1.18.5
@@ -42,14 +42,14 @@ crypto_policies:
   sourcenum: 14
 sshd:
   org: willshersystems
-  ref: v0.24.1
+  ref: v0.25.0
   repo: ansible-sshd
   sourcenum: 15
 ssh:
   ref: 1.5.0
   sourcenum: 16
 ha_cluster:
-  ref: 1.19.0
+  ref: 1.19.1
   sourcenum: 17
 vpn:
   ref: 1.6.6
@@ -82,7 +82,7 @@ keylime_server:
   ref: 1.1.5
   sourcenum: 27
 fapolicyd:
-  ref: 1.1.4
+  ref: 1.1.5
   sourcenum: 28
 bootloader:
   ref: 1.0.7

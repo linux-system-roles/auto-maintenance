@@ -14,7 +14,7 @@ network:
   ref: 1.16.3
   sourcenum: 5
 storage:
-  ref: 1.18.5
+  ref: 1.18.6
   sourcenum: 6
 metrics:
   ref: 1.10.6
@@ -58,10 +58,10 @@ firewall:
   ref: 1.8.0
   sourcenum: 19
 cockpit:
-  ref: 1.5.9
+  ref: 1.5.10
   sourcenum: 20
 podman:
-  ref: 1.6.1
+  ref: 1.6.2
   sourcenum: 21
 ad_integration:
   ref: 1.4.6
@@ -82,7 +82,7 @@ keylime_server:
   ref: 1.1.5
   sourcenum: 27
 fapolicyd:
-  ref: 1.1.5
+  ref: 1.1.6
   sourcenum: 28
 bootloader:
   ref: 1.0.7

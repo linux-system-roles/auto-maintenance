@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.88.2] - 2024-08-22
+---------------------
+
+### Bug Fixes
+
+- storage - fix: add stratis to list of packages for ostree (#478)
+
 [1.88.1] - 2024-08-22
 ---------------------
 

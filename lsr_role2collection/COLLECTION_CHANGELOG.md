@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.88.1] - 2024-08-22
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - fix: openssl is now required for password (#227)
+
 [1.88.0] - 2024-08-20
 ---------------------
 

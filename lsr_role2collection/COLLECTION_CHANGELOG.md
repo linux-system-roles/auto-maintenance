@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.88.4] - 2024-08-26
+---------------------
+
+### Bug Fixes
+
+- kernel_settings - fix: detect profile parent directory (#222)
+
 [1.88.3] - 2024-08-22
 ---------------------
 

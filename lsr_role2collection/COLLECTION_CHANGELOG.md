@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.88.5] - 2024-08-29
+---------------------
+
+### Bug Fixes
+
+- fapolicyd - fix: use journalctl -t fapolicyd to get fapolicyd log messages (#41)
+- storage - fix: Skip Stratis tests on RHEL 8 and document Stratis support (#482)
+- storage - fix: Use blkid instead of lsblk in tests to get partition table (#480)
+
 [1.88.4] - 2024-08-26
 ---------------------
 

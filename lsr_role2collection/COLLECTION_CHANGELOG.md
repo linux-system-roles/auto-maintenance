@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.88.7] - 2024-09-04
+---------------------
+
+### Bug Fixes
+
+- podman - fix: subgid maps user to gids, not group to gids (#178)
+
 [1.88.6] - 2024-08-30
 ---------------------
 

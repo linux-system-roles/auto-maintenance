@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.88.8] - 2024-09-11
+---------------------
+
+### Bug Fixes
+
+- podman - fix: Cannot remove volumes from kube yaml - need to convert yaml to list (#180)
+
 [1.88.7] - 2024-09-04
 ---------------------
 

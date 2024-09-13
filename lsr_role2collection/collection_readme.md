@@ -55,7 +55,7 @@ dnf install linux-system-roles
 
 ## Use Cases
 
-This collection provides Anible roles that manage different Linux subsystems.
+This collection provides Ansible roles that manage different Linux subsystems.
 
 
 A list of all roles and their documentation can be found at https://linux-system-roles.github.io/ as well as in the Supported Roles section.
@@ -68,7 +68,7 @@ Once Linux System Roles Collection is installed, the individual role documentati
 
 ## Contributing (Optional)
 
-If you wish to contribute to roles within this collection, feel free to open a pull requiest for the role's upstream repository at https://github.com/linux-system-roles/.
+If you wish to contribute to roles within this collection, feel free to open a pull request for the role's upstream repository at https://github.com/linux-system-roles/.
 
 We recommend that prior to submitting a PR, you familiarize yourself with our [Contribution Guidelines](https://linux-system-roles.github.io/contribute.html).
 

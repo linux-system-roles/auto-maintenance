@@ -69,3 +69,8 @@
 
       {% endfor %}
     dest: git-commit-msg
+
+- name: Print issues as a list
+  copy:
+    content: "{{ __issue_list_unsorted | map(attribute='key') | sort | join(' ') ~ '\n' }}"
+    dest: issue-list

@@ -175,7 +175,10 @@ def set_itm_dtm(args):
     if args.itm is None and args.dtm is None:
         return
     iter = ((args.itm_issue_field, args.itm), (args.dtm_issue_field, args.dtm))
-    query = f"component = {args.component} AND '{args.itr_query_field}' = rhel-{args.itr} AND {args.status_query_field} = '{args.status}'"
+    query = (
+        f"component = {args.component} AND '{args.itr_query_field}' = rhel-{args.itr}"
+        f"AND {args.status_query_field} = '{args.status}'"
+    )
     issues = jira.search_issues(
         query, fields=[args.itm_query_field, args.dtm_query_field]
     )

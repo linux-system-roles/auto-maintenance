@@ -6,6 +6,7 @@
 List and perform various lifecycle tasks
 """
 
+import datetime
 import click
 import json
 import logging
@@ -15,6 +16,7 @@ import signal
 import sys
 
 from jira import JIRA
+from operator import attrgetter
 
 try:
     import yaml
@@ -168,41 +170,6 @@ def get_update_value(project, issue_type, field_name_or_id, value, is_create):
     elif schema["system"]:
         rv = {"name": str(value)}
     return {field_data["fieldId"]: rv}
-
-
-def set_itm_dtm(args):
-    """Set ITM and DTM fields to given values."""
-    if args.itm is None and args.dtm is None:
-        return
-    iter = ((args.itm_issue_field, args.itm), (args.dtm_issue_field, args.dtm))
-    query = (
-        f"component = {args.component} AND '{args.itr_query_field}' = rhel-{args.itr}"
-        f"AND {args.status_query_field} = '{args.status}'"
-    )
-    issues = jira.search_issues(
-        query, fields=[args.itm_query_field, args.dtm_query_field]
-    )
-    if args.debug:
-        print(issues)
-    for issue in issues:
-        for issue_field, val in iter:
-            if val is None:
-                continue
-            try:
-                cur_val = int(issue.get_field(issue_field).value)
-            except (ValueError, AttributeError):
-                cur_val = 0
-            update = {}
-            if val == "None":
-                # reset
-                update = {issue_field: None}
-            elif cur_val < int(val):
-                update = {issue_field: {"value": val}}
-            else:
-                continue
-            issue.update(update)
-            if args.debug:
-                print(issue)
 
 
 def __update_jira_issue(issue, fields):
@@ -396,12 +363,169 @@ def project_issue_fields(args):
         except ValueError:
             pass
 
-
-def dump(args):
+@click.command()
+@click.argument("keys", nargs=-1)
+def dump_issue(keys):
     """Dump an issue."""
-    for issue_id in args.params:
-        issue = jira.issue(issue_id)
+    for key in keys:
+        issue = jira.issue(key)
         json.dump(issue.raw, sys.stdout, indent=2)
+        print("\n")
+
+
+def __list_issues(jql, fields):
+    return jira.search_issues(jql, fields=fields)
+
+
+KEY_TO_JQL = {
+    "version": "fixVersion",
+    "issue_type": "type",
+}
+
+
+def __key_to_jql(key):
+    return KEY_TO_JQL.get(key, key)
+
+
+def __format_as_jql_clause(key, val, op="="):
+    clause = ""
+    jql_key = __key_to_jql(key)
+    if isinstance(val, (list, tuple)):
+        if len(val) == 1:
+            clause = f'"{jql_key}" {op} "{val[0]}"'
+        else:
+            clause = f'"{jql_key}" in {val}'
+    else:
+        clause = f'"{jql_key}" {op} "{val}"'
+    return clause
+
+
+@click.command()
+@click.option("--component", type=str, help="component")
+@click.option(
+    "--rpm-version",
+    type=str,
+    required=True,
+    help="RPM version",
+)
+@click.option(
+    "--version",
+    type=str,
+    required=True,
+    help="Internal Target Release e.g. rhel-9.6",
+)
+@click.option(
+    "--status",
+    type=str,
+    default="In Progress",
+    help="issue status",
+)
+@click.option(
+    "--project",
+    type=str,
+    required=True,
+    help="Project for issues",
+)
+@click.option(
+    "--issue-type",
+    type=click.Choice(["Bug", "Story", "Task", "Epic"], case_sensitive=False),
+    multiple=True,
+    default=("Bug", "Story"),
+    help="Type of issue",
+)
+@click.option(
+    "--role",
+    multiple=True,
+    help="One or more role names",
+)
+@click.option(
+    "--label",
+    multiple=True,
+    help="labels",
+)
+@click.option(
+    "--jql",
+    default="",
+    help="JQL string to use",
+)
+@click.option(
+    "--fields",
+    multiple=True,
+    default=("summary", "labels", "issuetype"),
+    help="labels",
+)
+def rpm_release(**kwargs):
+    """Create files used for rpm release data."""
+    rpm_version = kwargs.pop("rpm_version")
+    fields = list(kwargs.pop("fields"))
+    jql = kwargs.pop("jql")
+    roles = list(kwargs.pop("role"))
+    issue_type = kwargs.pop("issue_type")
+    if not jql:
+        for key, val in kwargs.items():
+            if val:
+                clause = __format_as_jql_clause(key, val)
+                if jql:
+                    jql = jql + " AND " + clause
+                else:
+                    jql = clause
+    issues = __list_issues(jql, fields)
+    if not issues:
+        logging.error("Error: no issues match %s", jql)
+        sys.exit(1)
+    # add a role attr to each issue for later sorting by role in alpha order
+    for issue in issues:
+        roles = []
+        for label in issue.get_field("labels"):
+            if not label.startswith("system_role_"):
+                continue
+            role = label.replace("system_role_", "")
+            roles.append(role)
+        role_str = ",".join(sorted(roles))
+        setattr(issue, "role", role_str)
+    spec_lines = []
+    cl_story_lines = []
+    cl_bug_lines = []
+    git_commit_lines = []
+    list_lines = []
+    for issue in sorted(issues, key=attrgetter("role")):
+        key = issue.key
+        role = f"{issue.role} - " if issue.role else ""
+        summary = issue.get_field("summary")
+        issue_type = issue.get_field("issuetype").name
+        line = f"Resolves: {key} : {role}{summary}\n"
+        git_commit_lines.append(line)
+        spec_lines.append("- " + line)
+        line = f"- [{role}{summary}]({issue.permalink()})\n"
+        if issue_type == "Story":
+            cl_story_lines.append(line)
+        else:
+            cl_bug_lines.append(line)
+        list_lines.append(key)
+    now = datetime.datetime.now()
+    dt_spec = now.strftime("%a %b %d %Y")
+    dt_cl = now.strftime("%Y-%m-%d")
+    with open("cl-spec", "w") as out:
+        out.write(f"* {dt_spec} Your Name <email@redhat.com> - {rpm_version}\n")
+        out.writelines(spec_lines)
+    with open("cl-md", "w") as out:
+        out.write(f"[{rpm_version}] - {dt_cl}\n")
+        out.write("----------------------------\n\n")
+        out.write("### New Features\n\n")
+        if cl_story_lines:
+            out.writelines(cl_story_lines)
+        else:
+            out.write("- none\n")
+        out.write("\n### Bug Fixes\n\n")
+        if cl_bug_lines:
+            out.writelines(cl_bug_lines)
+        else:
+            out.write("- none\n")
+    with open("git-commit-msg", "w") as out:
+        out.write(f"System Roles update for {rpm_version}\n\n")
+        out.writelines(git_commit_lines)
+    with open("issue-list", "w") as out:
+        out.write(" ".join(list_lines) + "\n")
 
 
 # for simple fields, map the name used when giving
@@ -494,11 +618,6 @@ create_issues = []
     help="One or more role names",
 )
 @click.option(
-    "--debug",
-    is_flag=True,
-    help="Turn on debug logging.",
-)
-@click.option(
     "--doc-text-type",
     type=str,
     help="release note type",
@@ -550,6 +669,8 @@ def cli(debug):
 
 
 cli.add_command(create_issue)
+cli.add_command(dump_issue)
+cli.add_command(rpm_release)
 
 
 def main():

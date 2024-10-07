@@ -172,6 +172,11 @@ def get_update_value(project, issue_type, field_name_or_id, value, is_create):
     return {field_data["fieldId"]: rv}
 
 
+# NOTE: Some fields specified here may not be available
+# for the specified project and issue_type - we don't know
+# that for sure until we call __update_issue_type_fields to
+# get the editmeta - in that case, don't assume an error, but
+# log to info
 def __update_jira_issue(issue, fields):
     __update_issue_type_fields(issue)
     project = issue.get_field("project").key
@@ -187,8 +192,12 @@ def __update_jira_issue(issue, fields):
             update_item = get_update_value(
                 project, issue_type, field_name, field_value, True
             )
-        update_fields.update(update_item)
-    issue.update(fields=update_fields)
+        if not update_item:
+            logging.info("Field [%s] could not be found for project [%s] type [%s]", field_name, project, issue_type)
+        else:
+            update_fields.update(update_item)
+    if update_fields:
+        issue.update(fields=update_fields)
     return issue
 
 
@@ -197,9 +206,8 @@ def __create_jira_issue(fields):
     project = fields.pop("project")
     __ensure_project_issue_fields(project, issue_type)
     create_fields = {"project": project, "issuetype": issue_type}
-    update_fields = (
-        {}
-    )  # these cannot be passed in the create op, so update after create
+    # update fields cannot be passed in the create op, so update after create
+    update_fields = {}
     for field_name, field_value in fields.items():
         update_value = get_update_value(
             project, issue_type, field_name, field_value, True
@@ -283,7 +291,7 @@ TEMPLATE_FIELDS = ["description", "epic_name", "summary"]
 # this handles creating the jira issue, updating it,
 # doing the status transition, adding links, etc.
 def __create_issue(kwargs):
-    remote_link_data = {}
+    remote_link_data = kwargs.get("remote_link_data", {})
     if kwargs["github_url"]:
         # update missing args with fields from given github issue/pr
         __github_to_args(kwargs)
@@ -326,6 +334,11 @@ def __create_issue(kwargs):
         jira.transition_issue(issue, kwargs["status"])
     if remote_link_data:
         jira.add_simple_link(issue.key, remote_link_data)
+    if kwargs["github_url"]:
+        if not kwargs.get("base_issue"):
+            kwargs["base_issue"] = issue.key
+        if not kwargs.get("remote_link_data"):
+            kwargs["remote_link_data"] = remote_link_data
     return issue
 
 
@@ -549,6 +562,7 @@ ARGS_TO_JIRA_FIELDS = {
     "doc_text": "Release Note Text",
     "docs_impact": "Product Documentation Required",
     "product": "Products",
+    "severity": "Severity",
 }
 
 create_issues = []
@@ -598,6 +612,12 @@ create_issues = []
     help="Type of issue",
 )
 @click.option(
+    "--severity",
+    type=click.Choice(["Critical", "Important", "Moderate", "Low"], case_sensitive=False),
+    default="Low",
+    help="Severity of issue",
+)
+@click.option(
     "--summary",
     type=str,
     help="Issue summary - short title for issue",
@@ -619,7 +639,7 @@ create_issues = []
 )
 @click.option(
     "--doc-text-type",
-    type=str,
+    type=click.Choice(["Bug Fix", "CVE - Common Vulnerabilities and Exposures", "Enhancement", "Release Note Not Required"], case_sensitive=False),
     help="release note type",
 )
 @click.option(
@@ -652,6 +672,11 @@ create_issues = []
     type=str,
     help="product",
 )
+@click.option(
+    "--base-issue",
+    type=str,
+    help="Issue to use for summary and other fields and to link to epic",
+)
 def create_issue(**kwargs):
     """Create an issue."""
     # just append the arguments to the list, so we can process instances
@@ -672,6 +697,22 @@ cli.add_command(create_issue)
 cli.add_command(dump_issue)
 cli.add_command(rpm_release)
 
+def __update_data_from_base_issue(base_issue, data):
+    data["issue_summary"] = base_issue.get_field("summary")
+    for label in base_issue.get_field("labels"):
+        if label.startswith("system_role_"):
+            if not isinstance(data["label"], list):
+                data["label"] = list(data["label"])
+            if not label in data["label"]:
+                data["label"].append(label)
+    # update links to include github link, if any
+    if not data.get("remote_link_data"):
+        base_links = jira.remote_links(base_issue.key)
+        for link in base_links:
+            if link.raw["object"]["url"].startswith("https://github.com"):
+                data["remote_link_data"] = link.raw
+                break
+
 
 def main():
     try:
@@ -679,19 +720,30 @@ def main():
     except SystemExit as se:
         if se.code != 0:
             raise se
+    # this is where we do the actual processing for create_issue
+    issue_keys = set()
     issues = []
-    epic = None
+    epic_issue = None
     issue_summary = None
     for data in create_issues:
         data["issue_summary"] = issue_summary
+        base_issue_key = data.pop("base_issue", None)
+        if base_issue_key:
+            base_issue = jira.issue(base_issue_key)
+            __update_data_from_base_issue(base_issue, data)
+            if not base_issue_key in issue_keys:
+                issue_keys.add(base_issue_key)
+                issues.append(base_issue)
         issue = __create_issue(data)
         issue_summary = data["issue_summary"]
         if data.get("issue_type", "").lower() == "epic":
-            epic = issue
+            epic_issue = issue
         else:
+            issue_keys.add(issue.key)
             issues.append(issue)
-    if epic:
-        jira.add_issues_to_epic(epic.id, [issue.key for issue in issues])
+    if epic_issue:
+        jira.add_issues_to_epic(epic_issue.id, list(issue_keys))
+        print(epic_issue.permalink(), epic_issue.get_field("summary"))
     for issue in issues:
         print(issue.permalink(), issue.get_field("summary"))
 

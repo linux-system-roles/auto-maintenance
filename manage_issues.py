@@ -193,7 +193,12 @@ def __update_jira_issue(issue, fields):
                 project, issue_type, field_name, field_value, True
             )
         if not update_item:
-            logging.info("Field [%s] could not be found for project [%s] type [%s]", field_name, project, issue_type)
+            logging.info(
+                "Field [%s] could not be found for project [%s] type [%s]",
+                field_name,
+                project,
+                issue_type,
+            )
         else:
             update_fields.update(update_item)
     if update_fields:
@@ -375,6 +380,7 @@ def project_issue_fields(args):
                 print("")
         except ValueError:
             pass
+
 
 @click.command()
 @click.argument("keys", nargs=-1)
@@ -613,7 +619,9 @@ create_issues = []
 )
 @click.option(
     "--severity",
-    type=click.Choice(["Critical", "Important", "Moderate", "Low"], case_sensitive=False),
+    type=click.Choice(
+        ["Critical", "Important", "Moderate", "Low"], case_sensitive=False
+    ),
     default="Low",
     help="Severity of issue",
 )
@@ -639,7 +647,15 @@ create_issues = []
 )
 @click.option(
     "--doc-text-type",
-    type=click.Choice(["Bug Fix", "CVE - Common Vulnerabilities and Exposures", "Enhancement", "Release Note Not Required"], case_sensitive=False),
+    type=click.Choice(
+        [
+            "Bug Fix",
+            "CVE - Common Vulnerabilities and Exposures",
+            "Enhancement",
+            "Release Note Not Required",
+        ],
+        case_sensitive=False,
+    ),
     help="release note type",
 )
 @click.option(
@@ -697,13 +713,14 @@ cli.add_command(create_issue)
 cli.add_command(dump_issue)
 cli.add_command(rpm_release)
 
+
 def __update_data_from_base_issue(base_issue, data):
     data["issue_summary"] = base_issue.get_field("summary")
     for label in base_issue.get_field("labels"):
         if label.startswith("system_role_"):
             if not isinstance(data["label"], list):
                 data["label"] = list(data["label"])
-            if not label in data["label"]:
+            if label not in data["label"]:
                 data["label"].append(label)
     # update links to include github link, if any
     if not data.get("remote_link_data"):
@@ -731,7 +748,7 @@ def main():
         if base_issue_key:
             base_issue = jira.issue(base_issue_key)
             __update_data_from_base_issue(base_issue, data)
-            if not base_issue_key in issue_keys:
+            if base_issue_key not in issue_keys:
                 issue_keys.add(base_issue_key)
                 issues.append(base_issue)
         issue = __create_issue(data)

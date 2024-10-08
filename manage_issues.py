@@ -693,6 +693,12 @@ create_issues = []
     type=str,
     help="Issue to use for summary and other fields and to link to epic",
 )
+@click.option(
+    "--epic-issue-link",
+    type=str,
+    multiple=True,
+    help="Additional issues to link to epic, when creating an epic",
+)
 def create_issue(**kwargs):
     """Create an issue."""
     # just append the arguments to the list, so we can process instances
@@ -727,7 +733,10 @@ def __update_data_from_base_issue(base_issue, data):
         base_links = jira.remote_links(base_issue.key)
         for link in base_links:
             if link.raw["object"]["url"].startswith("https://github.com"):
-                data["remote_link_data"] = link.raw
+                data["remote_link_data"] = {
+                    "url": link.raw["object"]["url"],
+                    "title": link.raw["object"]["title"],
+                }
                 break
 
 
@@ -741,6 +750,7 @@ def main():
     issue_keys = set()
     issues = []
     epic_issue = None
+    epic_issue_links = []
     issue_summary = None
     for data in create_issues:
         data["issue_summary"] = issue_summary
@@ -755,12 +765,15 @@ def main():
         issue_summary = data["issue_summary"]
         if data.get("issue_type", "").lower() == "epic":
             epic_issue = issue
+            epic_issue_links = data["epic_issue_link"]
         else:
             issue_keys.add(issue.key)
             issues.append(issue)
     if epic_issue:
         jira.add_issues_to_epic(epic_issue.id, list(issue_keys))
         print(epic_issue.permalink(), epic_issue.get_field("summary"))
+    if epic_issue_links:
+        jira.add_issues_to_epic(epic_issue.id, list(epic_issue_links))
     for issue in issues:
         print(issue.permalink(), issue.get_field("summary"))
 

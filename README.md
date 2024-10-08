@@ -20,6 +20,7 @@ linux-system-roles repos.
   * [configure_squid](#configure_squid)
   * [lsr_fingerprint.py](#lsr_fingerprintpy)
   * [get-github-stats.sh](#get-github-statssh)
+  * [manage_issues.py](README-managed_issues.md)
 <!--te-->
 
 

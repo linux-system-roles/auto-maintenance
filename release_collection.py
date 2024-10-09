@@ -409,7 +409,7 @@ def role_to_collection(
         "--role",
         rolename,
         "--src-path",
-        args.src_path,
+        os.path.join(args.src_path, rolename),
         "--dest-path",
         args.dest_path,
         "--namespace",

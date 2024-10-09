@@ -4,6 +4,9 @@
 
 Management of Jira issues - create issues, list issues, other issue management
 
+
+## Requirements
+
 Python based
 
 Uses the (https://jira.readthedocs.io/)[python jira] library for the Jira REST
@@ -13,6 +16,25 @@ Uses (https://click.palletsprojects.com/en/8.1.x/)[python click] library for CLI
 option/argument management, instead of the built-in python `argparse` library,
 which allows more complex option/arguments.  This is available in Fedora as the
 `python3-click` package.
+
+### Token
+
+You must have a valid Jira API token.
+
+Log in to your Jira instance.  Go to `Profile -> Personal Access Tokens`.  If
+you do not already have a token that you want to use here, go to `Create token`.
+Copy the token value to `~/.config/jira.yml` which looks like this:
+
+```yaml
+production:
+  token: xxxxTheTokenxxxx
+  url: https://issues.example.com
+current: production
+```
+
+Each item is a context e.g. you can use different contexts for production,
+staging, test, etc. each with a different url and token.  The `current` item is
+the name of the current context you want to use.
 
 ## Commands
 

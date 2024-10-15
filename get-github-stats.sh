@@ -143,6 +143,10 @@ else
     echo Issues closed from non-maintainers: "${ISSUES_CLOSED_NON_MAINT[$repo]:-0}"
 fi
 
-#curl -H 'accept: application/json' -H "Authorization: Token $galaxy_token" -L \
-#  -s https://galaxy.ansible.com/api/v1/roles\?namespace=linux-system-roles\&page_size=50 | \
-#  jq -r '.results[] | "\(.name),\(.download_count)"' | sort -r -k2 -n -t, > galaxy.csv
+cat <<EOF
+curl -H 'accept: application/json' -H "Authorization: Token \$galaxy_token" -L \
+ -s https://galaxy.ansible.com/api/v1/roles\?namespace=linux-system-roles\&page_size=50 | \
+ jq -r '.results[] | "\(.name),\(.download_count)"' | sort -r -k2 -n -t, > galaxy.csv
+
+get https://galaxy.ansible.com/ui/standalone/roles/willshersystems/sshd
+EOF

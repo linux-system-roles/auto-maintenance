@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright: (c) 2020, Red Hat, Inc.
+# Copyright: (c) 2024, Red Hat, Inc.
 # SPDX-License-Identifier: MIT
-"""This script is used to manage Bugzilla and Jira issues
+"""This script is used to manage Jira issues
 List and perform various lifecycle tasks
 """
 

@@ -52,6 +52,10 @@ Create a Jira issue.  There are 3 main ways to create an issue:
 
 Required - name of Jira project
 
+#### component
+
+Value for Jira component field
+
 #### issue-type
 
 Required if not using `--github-url` - Jira issue type ("Task", "Bug", etc.) - if using `--github-url` then the issue type will be determined by the Conventional Commit
@@ -145,7 +149,70 @@ One or more other issues to assign to the epic when creating an epic.  This is
 useful if there are already Jira issues created that you want to link into
 the epic `--epic-issue-link PROJECT-123 --epic-issue-link ANOTHER-456`
 
-### Example
+### dump-issue
+
+Print one or more issues in JSON format.
+
+```bash
+manage_issues.py dump-issues PROJECT-123 PROJECT-456 ....
+```
+
+### rpm-release
+
+Doing an RPM release requires several types of text - spec file `%changelog`, CHANGELOG.md,
+git commit message, and a list of issues.  `rpm-release` will create those for you in
+several files - `cl-spec`, `cl-md`, `git-commit-msg`, and `issue-list`.
+
+```bash
+manage_issues.py --project PROJECT --component my-package --rpm-version 1.90.0-0.1 \
+  --status "In Progress" --version rhel-9.6
+```
+
+#### project
+
+Required - name of Jira project
+
+#### component
+
+Value for Jira component field
+
+#### issue-type
+
+Jira issue type ("Task", "Bug", etc.) - default is `("Bug", "Story")`
+
+#### version
+
+Fix version e.g. `rhel-9.6`
+
+#### status
+
+Issue status - default is `"In Progress"`
+
+#### role
+
+One or more role names to associate with the issue.  If more than one, specify
+the argument multiple times on the command line e.g. `--role kdump --role ssh`
+
+#### label
+
+One or more labels.  To specify more than one, use `--label foo --label bar`
+
+#### fields
+
+One or more fields to return in the search.  The default is `("summary", "labels", "issuetype")`
+The code right now is more or less hard coded to expect and output these fields.
+
+#### jql
+
+A Jira JQL query to use in the search rather than a search string constructed from
+the options above.
+
+#### rpm-version
+
+This is the version number to use for the RPM update e.g. `1.88.9-0.1`.  This will
+be used in `cl-spec`, `cl-md`, and `git-commit-msg`.
+
+## Examples
 
 Create a product bug/story in the product project from a github PR, an upstream
 tracking task, a downstream packaging task, and an epic to contain them:

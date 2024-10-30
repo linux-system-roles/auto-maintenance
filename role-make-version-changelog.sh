@@ -94,6 +94,21 @@ else
     tag_range="closed:>$(echo "$releases_latest" | sed -n 2p)"
 fi
 
+cl_query="query { \
+  search(query: \"repo:$owner/$repo is:pr is:open docs(changelog) in:title\", type: ISSUE, first: 1) { \
+    issueCount \
+    edges { \
+      node { \
+        ... on PullRequest { \
+          number \
+          title \
+        } \
+      } \
+    } \
+  } \
+}"
+cl_result="$(gh api graphql -f query="$cl_query" -q .data.search --jq '.data.search.edges[].node | "#\(.number) \(.title)"')"
+
 # Note that first: 100 is a maximum, it would work only if there are <100 PRs since last tag
 prs_query="$(cat <<EOF
 query {
@@ -115,7 +130,13 @@ EOF
 )"
 gh api graphql -f query="$prs_query" -q .data.search > "$prs_file"
 count=$(jq '.issueCount' "$prs_file")
-if [ "${count:-0}" = 0 ]; then
+if [ -n "$cl_result" ]; then
+    echo There is already a PR for version changelog:
+    echo "$cl_result"
+    echo skipping tag/release for role "$repo"
+    echo ""
+    skip=true
+elif [ "${count:-0}" = 0 ]; then
     echo There are no merged PRs since latest tag "$latest_tag"
     if [ "$AUTOSKIP" = true ]; then
         echo Autoskip enabled - skipping tag/release for role "$repo"

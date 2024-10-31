@@ -1,6 +1,25 @@
 Changelog
 =========
 
+[1.89.0] - 2024-10-31
+---------------------
+
+### New Features
+
+- ha_cluster - feat: crmsh 4.6.0 support and stonith-enabled workflow update (#232)
+- network - feat: Support `wait_ip` property (#741)
+- network - feat: Support autoconnect_retries (#737)
+- sudo - feat: Add variable that handles semantic check for sudoers (#22)
+
+### Bug Fixes
+
+- firewall - fix: Prevent interface definitions overriding 'changed' value when other elements are changed (#241)
+- metrics - fix: add leading triple-hyphen to all github workflow files (#214)
+- metrics - fix: add support for Valkey (#212)
+- podman - fix: make role work on el 8.8 and el 9.2 and podman version less than 4.7.0 (#188)
+- podman - fix: ignore pod not found errors when removing kube specs (#186)
+- postgresql - fix: postgresql_cert_name didn't work properly, using this parameter (#102)
+
 [1.88.9] - 2024-09-13
 ---------------------
 

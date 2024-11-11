@@ -1,0 +1,5 @@
+# requirements for check_logs.py
+requests
+requests_cache
+ghapi
+bs4

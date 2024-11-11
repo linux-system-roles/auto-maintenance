@@ -21,6 +21,7 @@ linux-system-roles repos.
   * [lsr_fingerprint.py](#lsr_fingerprintpy)
   * [get-github-stats.sh](#get-github-statssh)
   * [manage_issues.py](README-managed_issues.md)
+  * [check_logs.py](#check_logspy)
 <!--te-->
 
 
@@ -1183,3 +1184,105 @@ Example date range - `2024-07-01..2024-09-30` for 2024 Q3.
 
 Writes the files `prs.csv` and `issues.csv` which are CSV files and can be
 imported into Google Sheets or other spreadsheet applications.
+
+# check_logs.py
+
+Download test run logs from various places like github test runs, cold
+storage, and more.
+
+## Requirements
+
+```bash
+python -mvenv .venv
+. .venv/bin/activate
+pip install -r check_logs.requirements.txt
+./check_logs.py .....
+```
+
+## Usage
+
+The one required argument is `--log-dir` - this is a path to a directory
+on your local file system where the logs will be downloaded for further
+analysis.  When you run `./check_logs.py` again, it will not download a
+log that has already been downloaded, unless you use the `--force` option.
+
+To get the latest logs with failures for each role from the default cold
+storage:
+
+```bash
+./check_logs.py --log-dir /var/tmp/lsr
+```
+
+under `/var/tmp/lsr` will be one or more directories which will have a name like
+`tf_podman-190_CentOS-Stream-10-2.17_20241111-144216`, and the log files will be
+written to this directory.  The log files will have a name like
+`tests_quadlet_demo-ANSIBLE-2.17-general-FAIL.log`.  The `-FAIL` means there was
+a failure in the test run.  A `-SUCCESS` means there were no failures.
+
+Some additional flags:
+
+* `-v` - increase log verbosity - specify multiple times for more verbosity
+* `--force` - by default, `check_logs.py` will not download logs that already
+  exist.  Use `--force` to download and overwrite existing logs.
+* `--all-statuses` - by default, `check-logs.py` will only download `FAIL` logs.
+  Use `--all-statuses` to download all logs.
+* `--log-url` - to use a different cold storage location
+* `--date-range` - by default, `check_logs.py` will download the logs from the
+  latest test run for each role.  To download historical logs, specify the date
+  range like this: `STARTDATE..ENDDATE` where `STARTDATE` and `ENDDATE` are in
+  ISO 8601 format: `YYYY-MM-DD[THH:MM:SS[+ZZ:ZZ]]`.  `check_logs.py` uses python
+  [datetime.datetime.fromisoformat](https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat)
+  to parse the date.  If no timezone is given it will use UTC.
+* `--role` - by default, `check_logs.py` will download logs from all roles.  Use
+  `--role A --role B --role C` to download logs only from roles `A, B, and C`.
+* `--beaker-job` - specify one or more beaker jobs - use `--beaker-job ALL` to
+  get information about all of your current beaker jobs.  This uses the `bkr`
+  command line tool, so you will have to install that and have a Kerberos ticket
+  for auth.
+* `--failed-tests-to-show` - integer - number of failed tests to show when
+  reporting beaker logs.
+* `--junit-log` - print information about an Ansible junit callback plugin log
+  file.
+* `--gspread` - string URL - write errors to this spreadsheet - you will need a
+google sheets API service account token
+* `--gspread-creds` - default `~/.config/gspread/google_secret.json` - google
+sheets API service account token
+* `--gspread-worksheet-title` - name of worksheet in the spreadsheet to write
+errors to - default is the first worksheet - if the specified worksheet does not
+exist it will be created
+
+To get the logs from the latest test run from a github PR:
+
+```bash
+./check_logs.py --log-dir /var/tmp/lsr --github-repo ROLENAME --github-pr PRNUM
+```
+
+NOTE: You may have to use `--token GITHUBTOKEN` if you run into rate limiting
+errors.
+
+### beaker logs
+
+```bash
+check_logs.py --log-dir /var/tmp/lsr --beaker-job ALL --failed-tests-to-show 5
+```
+
+This will produce output like this:
+
+```
+Distro [RHEL-10.0-20241120.1] arch [x86_64] whiteboard [whiteboard info ...] job [J:10227166]
+  Install start [2024-11-20 21:23:27] end [2024-11-20 21:28:11]
+  Task name [/distribution/check-install] result [Pass] status [Completed] start_time [2024-11-20 21:29:22] finish_time [2024-11-20 21:29:27] duration [0:00:05]
+  Task name [/distribution/install/brew-build] result [Pass] status [Completed] start_time [2024-11-20 21:29:27] finish_time [2024-11-20 21:30:20] duration [0:00:53]
+  Task name [/distribution/command] result [Pass] status [Completed] start_time [2024-11-20 21:30:21] finish_time [2024-11-20 21:30:24] duration [0:00:03]
+  Task name [basic-smoke-test] result [New] status [Running] start_time [2024-11-20 21:30:24] finish_time [N/A] duration [Time Remaining 19:22:32]
+  Status RUNNING - 19 passed - 29 failed - logging/tests_enabled.yml last test
+    failed ha_cluster/tests_sbd_all_options_inventory.yml
+    failed ha_cluster/tests_sbd_all_options_play.yml
+    failed ha_cluster/tests_sbd_defaults_disabled.yml
+    failed ha_cluster/tests_sbd_defaults.yml
+    failed ha_cluster/tests_sbd_delay_start.yml
+```
+
+This test is in progress (`RUNNING`).  19 tests have passed, 29 tests have
+failed.  Under the `Status` line is printed the last 5 tests that failed
+(`--failed-tests-to-show 5`).

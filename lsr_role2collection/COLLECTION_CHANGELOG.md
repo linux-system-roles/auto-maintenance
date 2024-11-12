@@ -1,6 +1,16 @@
 Changelog
 =========
 
+[1.90.0] - 2024-11-12
+---------------------
+
+### New Features
+
+- aide - New Role
+- logging - feat: support custom templates (#425)
+- podman - feat: support for Pod quadlets (#190)
+- systemd - feat: support user units (#67)
+
 [1.89.1] - 2024-11-06
 ---------------------
 

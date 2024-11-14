@@ -94,7 +94,7 @@ gfs2:
   ref: 1.0.1
   sourcenum: 31
 sudo:
-  ref: 1.2.0
+  ref: 1.2.1
   sourcenum: 32
 aide:
   ref: 0.0.1

@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.90.2] - 2024-11-19
+---------------------
+
+### Bug Fixes
+
+- gfs2 - fix: remove el10 support (#33)
+- metrics - fix: Use correct syntax for keyserver port and test check
+- metrics - fix: use __grafana_keyserver_datasource_type variable instead of its string value
+
 [1.90.1] - 2024-11-13
 ---------------------
 

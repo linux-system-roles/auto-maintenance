@@ -8,7 +8,8 @@ import re
 import subprocess
 import pytz
 import requests
-import requests_cache
+
+# import requests_cache
 import shutil
 import signal
 import sys
@@ -324,8 +325,9 @@ def print_beaker_job_info(args, info):
         if status != "RUNNING" and duration:
             print(f"  Duration {duration}")
         if args.failed_tests_to_show > 0:
-            for failed_test in failed[-args.failed_tests_to_show :]:
+            for failed_test in failed[-args.failed_tests_to_show:]:  # fmt: skip
                 print(f"    failed {failed_test}")
+
     print("")
 
 

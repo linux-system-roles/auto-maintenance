@@ -5,16 +5,17 @@ import datetime
 import logging
 import os.path
 import re
+import subprocess
 import pytz
 import requests
-
-# import requests_cache
+import requests_cache
 import shutil
 import signal
 import sys
 from ghapi.all import GhApi
 from ghapi.page import paged as gh_paged
 from bs4 import BeautifulSoup
+from http.client import HTTPConnection
 
 signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 
@@ -22,12 +23,39 @@ signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 # needed to download large files
 # requests_cache.install_cache("web_cache", backend="filesystem")
 
+# there seems to be some problem on my system with IPV6 resolution
+# downloads take forever - I guess it is trying to use IPV6 first,
+# then it times out after a minute or so, then it falls back to IPV4
+requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
-def download_file(url, dest_file):
-    """Download file from url and write to dest_file."""
-    with requests.get(url, stream=True) as resp:
-        with open(dest_file, "wb") as ff:
-            shutil.copyfileobj(resp.raw, ff)
+def debug_requests_on():
+    '''Switches on logging of the requests module.'''
+    HTTPConnection.debuglevel = 1
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(logging.DEBUG)
+    requests_log.propagate = True
+
+
+def debug_requests_off():
+    '''Switches off logging of the requests module, might be some side-effects'''
+    HTTPConnection.debuglevel = 0
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.WARNING)
+    root_logger.handlers = []
+    requests_log = logging.getLogger("requests.packages.urllib3")
+    requests_log.setLevel(logging.WARNING)
+    requests_log.propagate = False
+
+
+def download_file(args, url, dest_file):
+    """Download file from url and write to dest_file.  Create dest directory if needed."""
+    if args.force or not os.path.exists(dest_file):
+        os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+        with requests.get(url, stream=True) as resp:
+            with open(dest_file, "wb") as ff:
+                shutil.copyfileobj(resp.raw, ff)
 
 
 def gh_iter(op, subfield, *args, **kwargs):
@@ -101,12 +129,8 @@ def get_logs_from_artifacts_page(args, url):
     directory = match.group(1)
     for item in parsed_html.find_all(href=log_re):
         log_url = url + "/" + item.attrs["href"]
-        dest_dir = os.path.join(args.log_dir, directory)
-        dest_file = os.path.join(dest_dir, item.attrs["href"])
-        if os.path.exists(dest_file) and not args.force:
-            continue
-        os.makedirs(dest_dir, exist_ok=True)
-        download_file(log_url, dest_file)
+        dest_file = os.path.join(args.log_dir, directory, item.attrs["href"])
+        download_file(args, log_url, dest_file)
 
 
 def get_logs_from_github(args):
@@ -195,6 +219,146 @@ def get_logs_from_url(args):
                 get_logs_from_artifacts_page(args, url)
 
 
+def parse_beaker_job_log(log_file):
+    result_re = re.compile(r"^::   OVERALL RESULT: ([A-Z]+)")
+    fail_re = re.compile(r":: \[   FAIL   \] :: Test ([a-z0-9_]+)/([^\ ]+)")
+    pass_re = re.compile(r":: \[   PASS   \] :: Test ([a-z0-9_]+)/([^\ ]+)")
+    duration_re = re.compile(r"Duration: ([0-9a-zA-Z_]+)")
+    failed = []
+    passed = []
+    duration = None
+    last_test = None
+    status = "RUNNING"
+    with open(log_file) as df:
+        for line in df:
+            match = duration_re.search(line)
+            if match:
+                duration = match.group(1)
+            match = result_re.search(line)
+            if match:
+                status = match.group(1)
+                break
+            match = fail_re.search(line)
+            if match:
+                last_test = match.group(1) + "/" + match.group(2)
+                failed.append(last_test)
+                continue
+            match = pass_re.search(line)
+            if match:
+                last_test = match.group(1) + "/" + match.group(2)
+                passed.append(last_test)
+                continue
+    return status, duration, failed, passed, last_test
+
+
+def get_beaker_job_info(job):
+    result = subprocess.run(["bkr", "job-results", job], capture_output=True, text=True, check=True)
+    bs = BeautifulSoup(result.stdout, "xml")
+    data = {}
+    data["job"] = job
+    data["whiteboard"] = bs.find("whiteboard").text
+    data["system"] = bs.find("recipe").get("system")
+    data["distro"] = bs.find("recipe").get("distro")
+    data["arch"] = bs.find("recipe").get("arch")
+    data["install_start"] = bs.find("installation").get("install_started")
+    data["post_install_end"] = bs.find("installation").get("postinstall_finished")
+    data["tasks"] = []
+    for task in bs.find_all("task"):
+        task_data = {}
+        for key in ("name", "result", "status", "start_time", "finish_time", "duration"):
+            task_data[key] = task.get(key)
+        if task_data["name"].endswith("basic-smoke-test"):
+            task_data["name"] = "basic-smoke-test"
+            for log in task.find("logs"):
+                link = log.get("href")
+                name = log.get("name")
+                log_urls = []
+                if name == "taskout.log":
+                    task_data["taskout_log"] = link
+                elif name.startswith("SYSTEM-ROLE-"):
+                    log_urls.append(link)
+        data["tasks"].append(task_data)
+    return data
+
+
+def print_beaker_job_info(args, info):
+    print(f"Distro [{info['distro']}] arch [{info['arch']}] whiteboard [{info['whiteboard']}] job [{info['job']}]")
+    print(f"  Install start [{info['install_start']}] end [{info['post_install_end']}]")
+    for task in info["tasks"]:
+        sys.stdout.write("  Task")
+        for key in ("name", "result", "status", "start_time", "finish_time", "duration"):
+            val = task[key]
+            if not val:
+                val = "N/A"
+            sys.stdout.write(" " + key + " [" + val + "]")
+        print("")
+        taskout_url = task.get("taskout_log")
+        if not taskout_url:
+            continue
+        dest_file = args.log_dir + "/" + os.path.basename(taskout_url)
+        download_file(args, taskout_url, dest_file)
+        status, duration, failed, passed, last_test = parse_beaker_job_log(dest_file)
+        os.unlink(dest_file)  # don't need it anymore
+        print(f"  Status {status} - {len(passed)} passed - {len(failed)} failed - {last_test} last test")
+        if status != "RUNNING" and duration:
+            print(f"  Duration {duration}")
+        if args.failed_tests_to_show > 0:
+            for failed_test in failed[-args.failed_tests_to_show:]:
+                print(f"    failed {failed_test}")
+    print("")
+
+
+def get_logs_from_beaker(args):
+    if args.beaker_job == ["ALL"]:
+        result = subprocess.run(["bkr", "job-list", "--mine", "--format=list"], capture_output=True, text=True, check=True)
+        args.beaker_job = result.stdout.split("\n")
+    for job in args.beaker_job:
+        if not job:
+            continue
+        info = get_beaker_job_info(job)
+        print_beaker_job_info(args, info)
+
+
+def parse_ansible_junit_log(log_file):
+    rv = []
+    name_re = re.compile(r"\[([^]]+)\] (.+)$")
+    with open(log_file) as lf:
+        bs = BeautifulSoup(lf, "xml")
+        for failure in bs.find_all(["failure", "error"]):
+            name = failure.parent.get("name")
+            match = name_re.search(name)
+            host = match.group(1)
+            ary = match.group(2).split(":")
+            if len(ary) > 2:
+                play = ary[0].strip()
+                role = ary[1].strip()
+                task = ary[2].strip()
+            else:
+                play = ary[0].strip()
+                task = ary[1].strip()
+                role = ""
+            data = {
+                "context": failure.parent.get("classname"),
+                "message": failure.get("message"),
+                "play": play,
+                "role": role,
+                "task": task,
+                "time": failure.parent.get("time"),
+                "host": host,
+            }
+            rv.append(data)
+        # last element in the return array is the summary
+        summary = bs.find_all("testsuite")[-1]
+        data = {}
+        for attr in ("failures", "errors", "disabled", "name", "skipped", "tests", "time"):
+            if attr == "tests":
+                data["tasks"] = summary.get("tests")
+            else:
+                data[attr] = summary.get(attr)
+        rv.append(data)
+    return rv
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -252,6 +416,24 @@ def main():
         help="roles to download",
     )
     parser.add_argument(
+        "--beaker-job",
+        default=[],
+        action="append",
+        help="beaker jobs to get logs for - use ALL to get logs from all jobs",
+    )
+    parser.add_argument(
+        "--failed-tests-to-show",
+        type=int,
+        default=0,
+        help="for beaker logs, show this many failed tests",
+    )
+    parser.add_argument(
+        "--junit-log",
+        default=[],
+        action="append",
+        help="junit log file",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -263,12 +445,20 @@ def main():
 
     if args.verbose > 1:
         logging.getLogger().setLevel(logging.DEBUG)
+        debug_requests_on()
     elif args.verbose > 0:
         logging.getLogger().setLevel(logging.INFO)
 
-    if any((args.github_repo, args.github_pr, args.github_pr_search)):
+    if args.junit_log:
+        import pprint
+        for log_file in args.junit_log:
+            failures = parse_ansible_junit_log(log_file)
+            pprint.pprint(failures)
+    elif args.beaker_job:
+        get_logs_from_beaker(args)
+    elif any((args.github_repo, args.github_pr, args.github_pr_search)):
         get_logs_from_github(args)
-    if args.log_url:
+    elif args.log_url:
         get_logs_from_url(args)
 
 

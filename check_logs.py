@@ -28,8 +28,9 @@ signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 # then it times out after a minute or so, then it falls back to IPV4
 requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
+
 def debug_requests_on():
-    '''Switches on logging of the requests module.'''
+    """Switches on logging of the requests module."""
     HTTPConnection.debuglevel = 1
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
@@ -39,7 +40,7 @@ def debug_requests_on():
 
 
 def debug_requests_off():
-    '''Switches off logging of the requests module, might be some side-effects'''
+    """Switches off logging of the requests module, might be some side-effects"""
     HTTPConnection.debuglevel = 0
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.WARNING)
@@ -252,7 +253,9 @@ def parse_beaker_job_log(log_file):
 
 
 def get_beaker_job_info(job):
-    result = subprocess.run(["bkr", "job-results", job], capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        ["bkr", "job-results", job], capture_output=True, text=True, check=True
+    )
     bs = BeautifulSoup(result.stdout, "xml")
     data = {}
     data["job"] = job
@@ -265,7 +268,14 @@ def get_beaker_job_info(job):
     data["tasks"] = []
     for task in bs.find_all("task"):
         task_data = {}
-        for key in ("name", "result", "status", "start_time", "finish_time", "duration"):
+        for key in (
+            "name",
+            "result",
+            "status",
+            "start_time",
+            "finish_time",
+            "duration",
+        ):
             task_data[key] = task.get(key)
         if task_data["name"].endswith("basic-smoke-test"):
             task_data["name"] = "basic-smoke-test"
@@ -282,11 +292,20 @@ def get_beaker_job_info(job):
 
 
 def print_beaker_job_info(args, info):
-    print(f"Distro [{info['distro']}] arch [{info['arch']}] whiteboard [{info['whiteboard']}] job [{info['job']}]")
+    print(
+        f"Distro [{info['distro']}] arch [{info['arch']}] whiteboard [{info['whiteboard']}] job [{info['job']}]"
+    )
     print(f"  Install start [{info['install_start']}] end [{info['post_install_end']}]")
     for task in info["tasks"]:
         sys.stdout.write("  Task")
-        for key in ("name", "result", "status", "start_time", "finish_time", "duration"):
+        for key in (
+            "name",
+            "result",
+            "status",
+            "start_time",
+            "finish_time",
+            "duration",
+        ):
             val = task[key]
             if not val:
                 val = "N/A"
@@ -299,18 +318,25 @@ def print_beaker_job_info(args, info):
         download_file(args, taskout_url, dest_file)
         status, duration, failed, passed, last_test = parse_beaker_job_log(dest_file)
         os.unlink(dest_file)  # don't need it anymore
-        print(f"  Status {status} - {len(passed)} passed - {len(failed)} failed - {last_test} last test")
+        print(
+            f"  Status {status} - {len(passed)} passed - {len(failed)} failed - {last_test} last test"
+        )
         if status != "RUNNING" and duration:
             print(f"  Duration {duration}")
         if args.failed_tests_to_show > 0:
-            for failed_test in failed[-args.failed_tests_to_show:]:
+            for failed_test in failed[-args.failed_tests_to_show :]:
                 print(f"    failed {failed_test}")
     print("")
 
 
 def get_logs_from_beaker(args):
     if args.beaker_job == ["ALL"]:
-        result = subprocess.run(["bkr", "job-list", "--mine", "--format=list"], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["bkr", "job-list", "--mine", "--format=list"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         args.beaker_job = result.stdout.split("\n")
     for job in args.beaker_job:
         if not job:
@@ -350,7 +376,15 @@ def parse_ansible_junit_log(log_file):
         # last element in the return array is the summary
         summary = bs.find_all("testsuite")[-1]
         data = {}
-        for attr in ("failures", "errors", "disabled", "name", "skipped", "tests", "time"):
+        for attr in (
+            "failures",
+            "errors",
+            "disabled",
+            "name",
+            "skipped",
+            "tests",
+            "time",
+        ):
             if attr == "tests":
                 data["tasks"] = summary.get("tests")
             else:
@@ -451,6 +485,7 @@ def main():
 
     if args.junit_log:
         import pprint
+
         for log_file in args.junit_log:
             failures = parse_ansible_junit_log(log_file)
             pprint.pprint(failures)

@@ -1230,6 +1230,14 @@ Some additional flags:
   to parse the date.  If no timezone is given it will use UTC.
 * `--role` - by default, `check_logs.py` will download logs from all roles.  Use
   `--role A --role B --role C` to download logs only from roles `A, B, and C`.
+* `--beaker-job` - specify one or more beaker jobs - use `--beaker-job ALL` to
+  get information about all of your current beaker jobs.  This uses the `bkr`
+  command line tool, so you will have to install that and have a Kerberos ticket
+  for auth.
+* `--failed-tests-to-show` - integer - number of failed tests to show when
+  reporting beaker logs.
+* `--junit-log` - print information about an Ansible junit callback plugin log
+  file.
 
 To get the logs from the latest test run from a github PR:
 
@@ -1239,3 +1247,30 @@ To get the logs from the latest test run from a github PR:
 
 NOTE: You may have to use `--token GITHUBTOKEN` if you run into rate limiting
 errors.
+
+### beaker logs
+
+```bash
+check_logs.py --log-dir /var/tmp/lsr --beaker-job ALL --failed-tests-to-show 5
+```
+
+This will produce output like this:
+
+```
+Distro [RHEL-10.0-20241120.1] arch [x86_64] whiteboard [whiteboard info ...] job [J:10227166]
+  Install start [2024-11-20 21:23:27] end [2024-11-20 21:28:11]
+  Task name [/distribution/check-install] result [Pass] status [Completed] start_time [2024-11-20 21:29:22] finish_time [2024-11-20 21:29:27] duration [0:00:05]
+  Task name [/distribution/install/brew-build] result [Pass] status [Completed] start_time [2024-11-20 21:29:27] finish_time [2024-11-20 21:30:20] duration [0:00:53]
+  Task name [/distribution/command] result [Pass] status [Completed] start_time [2024-11-20 21:30:21] finish_time [2024-11-20 21:30:24] duration [0:00:03]
+  Task name [basic-smoke-test] result [New] status [Running] start_time [2024-11-20 21:30:24] finish_time [N/A] duration [Time Remaining 19:22:32]
+  Status RUNNING - 19 passed - 29 failed - logging/tests_enabled.yml last test
+    failed ha_cluster/tests_sbd_all_options_inventory.yml
+    failed ha_cluster/tests_sbd_all_options_play.yml
+    failed ha_cluster/tests_sbd_defaults_disabled.yml
+    failed ha_cluster/tests_sbd_defaults.yml
+    failed ha_cluster/tests_sbd_delay_start.yml
+```
+
+This test is in progress (`RUNNING`).  19 tests have passed, 29 tests have
+failed.  Under the `Status` line is printed the last 5 tests that failed
+(`--failed-tests-to-show 5`).

@@ -399,6 +399,8 @@ def __list_issues(jql, fields):
 KEY_TO_JQL = {
     "version": "fixVersion",
     "issue_type": "type",
+    "role": "labels",
+    "label": "labels",
 }
 
 
@@ -410,6 +412,8 @@ def __format_as_jql_clause(key, val, op="="):
     clause = ""
     jql_key = __key_to_jql(key)
     if isinstance(val, (list, tuple)):
+        if key == "role":
+            val = tuple(["system_role_" + ii for ii in val])
         if len(val) == 1:
             clause = f'"{jql_key}" {op} "{val[0]}"'
         else:
@@ -478,8 +482,6 @@ def rpm_release(**kwargs):
     rpm_version = kwargs.pop("rpm_version")
     fields = list(kwargs.pop("fields"))
     jql = kwargs.pop("jql")
-    roles = list(kwargs.pop("role"))
-    issue_type = kwargs.pop("issue_type")
     if not jql:
         for key, val in kwargs.items():
             if val:

@@ -30,6 +30,45 @@ signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
 
+TZ_UTC = datetime.UTC
+
+
+def hr_min_sec_to_dt(ref_dt, hour, minute, second):
+    dt = ref_dt.replace(hour=int(hour), minute=int(minute), second=int(second))
+    if dt < ref_dt:
+        # time has wrapped around to next day
+        dt = dt + datetime.timedelta(hours=24)
+    return dt.astimezone(TZ_UTC)
+
+
+# This represents data from a beaker test log which looks like this:
+# :: [ 22:37:43 ] :: [  BEGIN   ] :: Test ad_integration/tests_default.yml ...
+# :: [ 22:37:49 ] :: [   PASS   ] :: Test ad_integration/tests_default.yml ...
+# or
+# :: [ 22:37:49 ] :: [   FAIL   ] :: Test ad_integration/tests_default.yml ...
+# start_data is the data parsed from the BEGIN line
+# end_data is the data parsed from the PASS or FAIL line
+# ref_dt is the reference datetime with timezone information for converting
+# the time from the line to a tz and date aware datetime
+class BeakerTestRec(object):
+    def __init__(self, ref_dt, start_data, end_data):
+        self.start_dt = hr_min_sec_to_dt(ref_dt, start_data["hour"], start_data["min"], start_data["sec"])
+        self.end_dt = hr_min_sec_to_dt(ref_dt, end_data["hour"], end_data["min"], end_data["sec"])
+        self.status = end_data["status"]
+        self.role = end_data["role"]
+        self.test_name = end_data["test_name"]
+
+    def __str__(self):
+        return (
+            f"{self.role}/{self.test_name} "
+            f"{self.start_dt.isoformat()} "
+            f"{self.end_dt.isoformat()}"
+        )
+
+    def dt_during_test(self, dt):
+        return dt >= self.start_dt and dt <= self.end_dt
+
+
 def debug_requests_on():
     """Switches on logging of the requests module."""
     HTTPConnection.debuglevel = 1
@@ -51,13 +90,17 @@ def debug_requests_off():
     requests_log.propagate = False
 
 
-def download_file(args, url, dest_file):
+def get_file_data(args, url, dest_file=None):
     """Download file from url and write to dest_file.  Create dest directory if needed."""
-    if args.force or not os.path.exists(dest_file):
+    if dest_file and (args.force or not os.path.exists(dest_file)):
         os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-        with requests.get(url, stream=True) as resp:
+    with requests.get(url, stream=True) as resp:
+        if dest_file:
             with open(dest_file, "wb") as ff:
                 shutil.copyfileobj(resp.raw, ff)
+        else:
+            for line in resp.iter_lines():
+                yield line.decode("utf-8")
 
 
 def gh_iter(op, subfield, *args, **kwargs):
@@ -132,7 +175,7 @@ def get_logs_from_artifacts_page(args, url):
     for item in parsed_html.find_all(href=log_re):
         log_url = url + "/" + item.attrs["href"]
         dest_file = os.path.join(args.log_dir, directory, item.attrs["href"])
-        download_file(args, log_url, dest_file)
+        get_file_data(args, log_url, dest_file)
 
 
 def get_logs_from_github(args):
@@ -176,7 +219,7 @@ def parse_date_range(date_range):
         dt = datetime.datetime.fromisoformat(dt_str)
         if not dt.tzinfo:
             # need timezone for comparison
-            dt = dt.replace(tzinfo=pytz.timezone("UTC"))
+            dt = dt.replace(tzinfo=TZ_UTC)
         rv.append(dt)
     return rv[0], rv[1]
 
@@ -221,39 +264,76 @@ def get_logs_from_url(args):
                 get_logs_from_artifacts_page(args, url)
 
 
-def parse_beaker_job_log(log_file):
+def print_avcs_and_tasks(task_data):
+    avcs = task_data["avcs"]
+    if not avcs:
+        return
+    job_data_roles = task_data["job_data"]["roles"]
+    for role, avc_list in avcs.items():
+        for avc in avc_list:
+            for btr in job_data_roles[role]:
+                if btr.dt_during_test(avc["dt"]):
+                    print(f"    avc in {btr} {avc['avc']}")
+
+
+# Times printed in job log have no TZ information - figure out TZ based
+# on offset from given start_dt
+def parse_beaker_job_log(args, start_dt_utc, taskout_url):
     result_re = re.compile(r"^::   OVERALL RESULT: ([A-Z]+)")
-    fail_re = re.compile(r":: \[   FAIL   \] :: Test ([a-z0-9_]+)/([^\ ]+)")
-    pass_re = re.compile(r":: \[   PASS   \] :: Test ([a-z0-9_]+)/([^\ ]+)")
+    test_re_str = (
+        r"^:: \[ (?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2}) \] "
+        r":: \[ +(?P<status>[A-Z]+) +\] :: Test (?P<role>[a-z0-9_]+)/(?P<test_name>[^ ]+)"
+    )
+    test_re = re.compile(test_re_str)
     duration_re = re.compile(r"Duration: ([0-9a-zA-Z_]+)")
-    failed = []
-    passed = []
-    duration = None
-    last_test = None
-    status = "RUNNING"
-    with open(log_file) as df:
-        for line in df:
-            match = duration_re.search(line)
-            if match:
-                duration = match.group(1)
-            match = result_re.search(line)
-            if match:
-                status = match.group(1)
-                break
-            match = fail_re.search(line)
-            if match:
-                last_test = match.group(1) + "/" + match.group(2)
-                failed.append(last_test)
-                continue
-            match = pass_re.search(line)
-            if match:
-                last_test = match.group(1) + "/" + match.group(2)
-                passed.append(last_test)
-                continue
-    return status, duration, failed, passed, last_test
+    start_dt = None
+    start_data = None
+    job_data = {"roles": {}, "passed": [], "failed": [], "status": "RUNNING"}
+    for line in get_file_data(args, taskout_url):
+        match = duration_re.search(line)
+        if match:
+            job_data["duration"] = match.group(1)
+        match = result_re.search(line)
+        if match:
+            job_data["status"] = match.group(1)
+            break
+        match = test_re.search(line)
+        if match:
+            data = match.groupdict()
+            if not start_dt:
+                # figure out TZ offset and set in start_dt
+                start_dt = start_dt_utc.replace(hour=int(data["hour"]), minute=int(data["min"]), second=int(data["sec"]))
+                hour_offset = round((start_dt - start_dt_utc).total_seconds()/3600.0)
+                tz_str = f"{hour_offset:+03d}00"
+                dt_with_tz = datetime.datetime.strptime(tz_str, "%z")
+                start_dt = start_dt.replace(tzinfo=dt_with_tz.tzinfo)
+            if data["status"] == "BEGIN":
+                job_data["last_test"] = data["role"] + "/" + data["test_name"]
+                start_data = data
+            elif start_data:
+                btr = BeakerTestRec(start_dt, start_data, data)
+                job_data["roles"].setdefault(data["role"], []).append(btr)
+                if data["status"] == "PASS":
+                    job_data["passed"].append(btr)
+                else:
+                    job_data["failed"].append(btr)
+                start_data = None
+    return job_data
 
 
-def get_beaker_job_info(job):
+def parse_avc_log(args, log_url):
+    avcs = []
+    avc_re = re.compile(r"type=AVC msg=audit\(([0-9.]+)")
+    for line in get_file_data(args, log_url):
+        match = avc_re.match(line)
+        if match:
+            avc_dt = datetime.datetime.fromtimestamp(float(match.group(1)), TZ_UTC)
+            avc_data = {"dt": avc_dt, "avc": line.strip()}
+            avcs.append(avc_data)
+    return avcs
+
+
+def get_beaker_job_info(args, job):
     result = subprocess.run(
         ["bkr", "job-results", job], capture_output=True, text=True, check=True
     )
@@ -278,16 +358,32 @@ def get_beaker_job_info(job):
             "duration",
         ):
             task_data[key] = task.get(key)
+            if key in ("start_time", "finish_time") and task_data[key]:
+                dt = datetime.datetime.fromisoformat(task_data[key] + "+00:00")
+                task_data[key] = dt
         if task_data["name"].endswith("basic-smoke-test"):
             task_data["name"] = "basic-smoke-test"
+            log_urls = []
             for log in task.find("logs"):
                 link = log.get("href")
                 name = log.get("name")
-                log_urls = []
                 if name == "taskout.log":
-                    task_data["taskout_log"] = link
+                    task_data["job_data"] = parse_beaker_job_log(args, task_data["start_time"], link)
                 elif name.startswith("SYSTEM-ROLE-"):
                     log_urls.append(link)
+            task_data["logs"] = log_urls
+            role = None
+            task_data["avcs"] = {}
+            for result in task.find_all("result"):
+                match = re.match(r"^Test-role-([a-z0-9_-]+)", result.get("path"))
+                if match:
+                    role = match.group(1).replace("-", "_")
+                match = re.search(r"avc_check", result.get("path"))
+                if match and role:
+                    log_url = result.find("log").get("href")
+                    avc_data = parse_avc_log(args, log_url)
+                    task_data["avcs"][role] = avc_data
+                    role = None
         data["tasks"].append(task_data)
     return data
 
@@ -310,24 +406,21 @@ def print_beaker_job_info(args, info):
             val = task[key]
             if not val:
                 val = "N/A"
-            sys.stdout.write(" " + key + " [" + val + "]")
+            sys.stdout.write(" " + key + " [" + str(val) + "]")
         print("")
-        taskout_url = task.get("taskout_log")
-        if not taskout_url:
+        job_data = task.get("job_data")
+        if not job_data:
             continue
-        dest_file = args.log_dir + "/" + os.path.basename(taskout_url)
-        download_file(args, taskout_url, dest_file)
-        status, duration, failed, passed, last_test = parse_beaker_job_log(dest_file)
-        os.unlink(dest_file)  # don't need it anymore
         print(
-            f"  Status {status} - {len(passed)} passed - {len(failed)} failed - {last_test} last test"
+            f"  Status {job_data["status"]} - {len(job_data["passed"])} passed - "
+            f"{len(job_data["failed"])} failed - {job_data["last_test"]} last test"
         )
-        if status != "RUNNING" and duration:
-            print(f"  Duration {duration}")
+        if job_data["status"] != "RUNNING" and job_data.get("duration"):
+            print(f"  Duration {job_data["duration"]}")
         if args.failed_tests_to_show > 0:
-            for failed_test in failed[-args.failed_tests_to_show:]:  # fmt: skip
+            for failed_test in job_data["failed"][-args.failed_tests_to_show:]:  # fmt: skip
                 print(f"    failed {failed_test}")
-
+            print_avcs_and_tasks(task)
     print("")
 
 
@@ -343,7 +436,7 @@ def get_logs_from_beaker(args):
     for job in args.beaker_job:
         if not job:
             continue
-        info = get_beaker_job_info(job)
+        info = get_beaker_job_info(args, job)
         print_beaker_job_info(args, info)
 
 

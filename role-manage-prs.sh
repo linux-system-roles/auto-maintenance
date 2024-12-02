@@ -8,8 +8,11 @@ set -euo pipefail
 repo=${repo:-$(git remote get-url origin | awk -F'/' '{print $NF}')}
 
 AUTHOR="${AUTHOR:-"@me"}"
+APP="${APP:-""}"
 declare -a searchargs=("--search" "draft:false")
-if [ "$AUTHOR" != "@all" ]; then
+if [ -n "$APP" ]; then
+    searchargs=("--app" "$APP")
+elif [ "$AUTHOR" != "@all" ]; then
     searchargs=("--author" "$AUTHOR")
 fi
 

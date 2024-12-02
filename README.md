@@ -712,8 +712,13 @@ PRs
 `AUTHOR=richm ./manage-role-repos.sh ./role-manage-prs.sh` - View all non-draft
 PRs authored by richm
 
+`APP=dependabot ./manage-role-repos.sh ./role-manage-prs.sh` - View all
+non-draft PRs authored by dependabot
+
 * `AUTHOR` - default is `@me` - look for PRs authored by this username.  Use
   `@all` to list all PRs.
+* `APP` - use instead of `AUTHOR` when searching for PRs opened by apps.
+  Applicable for e.g. `dependabot`.
 * `DELETE_BRANCH` - default is `true` - use `false` if you do not want to delete
   the PR branch after merging (the `gh pr merge` flag `-d` is used to delete the
   branch)

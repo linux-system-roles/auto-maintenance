@@ -688,6 +688,21 @@ def file_replace(path, find, replace, file_patterns):
                 with open(filepath, "w", encoding="utf-8") as f:
                     f.write(s)
 
+def main_file_exists(src_path, role):
+    filenames = ["main.yml", "main.yaml"]
+    paths = [
+        os.path.join(src_path, "tasks"),
+        os.path.join(src_path, role, "tasks")
+    ]
+
+    for path in paths:
+        for filename in filenames:
+            logging.debug(f"Testing if  {os.path.join(path, filename)} is a file.")
+            if os.path.isfile(os.path.join(path, filename)):
+                logging.debug(f"{os.path.join(path, filename)} exists and is a file - setting src_path to {path}.")
+                src_path = os.path.join(path)
+                return True
+    return False
 
 def copy_tree_with_replace(
     src_path,
@@ -1338,12 +1353,8 @@ def role2collection():
     src_owner = args.src_owner
     if not src_owner:
         src_owner = os.path.basename(src_path)
-    _tasks_main = src_path / "tasks/main.yml"
-    if not _tasks_main.exists():
-        src_path = src_path / role
-        _tasks_main = src_path / "tasks/main.yml"
 
-    if not _tasks_main.exists():
+    if not main_file_exists(src_path, role):
         logging.error(
             f"Neither {src_path} nor {src_path.parent} is a role top directory."
         )

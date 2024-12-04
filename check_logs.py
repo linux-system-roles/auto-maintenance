@@ -13,8 +13,11 @@ import requests
 import shutil
 import signal
 import sys
-from ghapi.all import GhApi
-from ghapi.page import paged as gh_paged
+try:
+    from ghapi.all import GhApi
+    from ghapi.page import paged as gh_paged
+except ModuleNotFoundError:
+    logging.warning("no ghapi library")
 from bs4 import BeautifulSoup
 from http.client import HTTPConnection
 

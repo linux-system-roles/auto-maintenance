@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.91.0] - 2024-12-04
+---------------------
+
+### New Features
+
+- postfix - feat: support postfix_default_database_type (#165)
+
+### Bug Fixes
+
+- certificate - fix: Workaround getcert issue when cert key-file is missing (#243)
+- storage - fix: VDO tests and packages fixes for Fedora and RHEL 10 (#490)
+
 [1.90.3] - 2024-11-20
 ---------------------
 

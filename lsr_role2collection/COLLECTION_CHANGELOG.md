@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.92.0] - 2024-12-09
+---------------------
+
+### New Features
+
+- ha_cluster - feat: export corosync configuration (#231)
+
+### Bug Fixes
+
+- ha_cluster - fix: list cloud agent packages by architecture (#244)
+
 [1.91.0] - 2024-12-04
 ---------------------
 

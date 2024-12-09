@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import argparse
+import copy
+import csv
 import datetime
 import logging
 import os.path
@@ -42,6 +44,52 @@ def hr_min_sec_to_dt(ref_dt, hour, minute, second):
         # time has wrapped around to next day
         dt = dt + datetime.timedelta(hours=24)
     return dt.astimezone(TZ_UTC)
+
+
+class AVC(object):
+    avc_re = re.compile(
+      r"type=AVC msg=audit\(([0-9.]+):\d+\): avc:\s+denied\s+{([^}]+)}"
+      r"\s+for\s+pid=\d+ (.+)$"
+    )
+
+    # this is the dict as returned by csv.DictReader from the output of ausearch --format csv
+    def __init__(self, avc_dict_or_str):
+        if isinstance(avc_dict_or_str, dict):
+            for key, val in avc_dict_or_str.items():
+                setattr(self, key.lower(), val)
+            self.dt_iso_str = f"{self.year:04d}-{self.month:02d}-{self.day:02d}T{self.time},{self.milli}{self.gmt_offset}"
+            self.dt = datetime.datetime.fromisoformat(self.dt_iso_str)
+            self.valid = True
+        elif avc_dict_or_str.startswith("type=AVC "):
+            match = AVC.avc_re.match(avc_dict_or_str)
+            if not match:
+                raise Exception(f"cannot parse as AVC: {avc_dict_or_str}")
+            self.dt = datetime.datetime.fromtimestamp(float(match.group(1)), TZ_UTC)
+            self.dt_iso_str = self.dt.isoformat()
+            self.actions = match.group(2)
+            self.text = match.group(3)
+            self.valid = True
+        else:
+            self.valid = False
+
+    def __str__(self):
+        if hasattr(self, "event_kind"):
+            return (
+                f"{self.dt_iso_str} {self.event_kind} {self.subj_prime}:{self.subj_sec} {self.subj_label}"
+                f" {self.action} {self.obj_kind} {self.how}"
+            )
+        else:
+            return f"{self.dt_iso_str} denied {{{self.actions}}} {self.text}"
+
+    def __eq__(self, other):
+        if hasattr(self, "event_kind"):
+            comp_fields = ["event_kind", "subj_prime", "subj_sec", "subj_label", "action", "obj_kind", "how"]
+        else:
+            comp_fields = ["actions", "text"]
+        for field in comp_fields:
+            if getattr(self, field, None) != getattr(other, field, None):
+                return False
+        return True
 
 
 # This represents data from a beaker test log which looks like this:
@@ -160,6 +208,26 @@ def get_statuses(gh, org, repo, pr_num):
     return statuses
 
 
+# returns a list of dict
+# each dict contains the following keys:
+# * error - the error line from the log
+# * url - link to ansible log file
+# * context_lines - log lines to give some context for the error
+def get_errors_from_ansible_log(args, log_url):
+    errors = []
+    context_lines = []
+    logging.debug("Getting errors from ansible log [%s]", log_url)
+    for line in get_file_data(args, log_url):
+        context_lines.append(line)
+        if len(context_lines) > 4:
+            context_lines.pop(0)
+        if line.startswith("fatal:"):
+            error = {"url": log_url, "context_lines": copy.deepcopy(context_lines), "error": line}
+            errors.append(error)
+    logging.debug("Found [%d] errors", len(errors))
+    return errors
+
+
 def get_logs_from_artifacts_page(args, url):
     """The url is the directory of the artifacts from a pr CI tests run."""
     logging.info("Getting results from %s", url)
@@ -175,10 +243,11 @@ def get_logs_from_artifacts_page(args, url):
     info_re = re.compile(r"/logs/([^/]+)/")
     match = info_re.search(url)
     directory = match.group(1)
+    errors = []
     for item in parsed_html.find_all(href=log_re):
         log_url = url + "/" + item.attrs["href"]
-        dest_file = os.path.join(args.log_dir, directory, item.attrs["href"])
-        get_file_data(args, log_url, dest_file)
+        errors.extend(get_errors_from_ansible_log(args, log_url))
+    return errors
 
 
 def get_logs_from_github(args):
@@ -260,23 +329,29 @@ def get_logs_from_url(args):
                 if dt > last_dt:
                     logs[0] = item.attrs["href"]
     # data[role][platform] = [log1, log2, ...]
+    errors = []
     for platform in data.values():
         for log_dirs in platform.values():
             for log_dir in log_dirs:
                 url = args.log_url + "/" + log_dir + "/artifacts"
-                get_logs_from_artifacts_page(args, url)
+                errors.extend(get_logs_from_artifacts_page(args, url))
+    return errors
 
 
-def print_avcs_and_tasks(task_data):
+def print_avcs_and_tasks(args, task_data):
     avcs = task_data["avcs"]
     if not avcs:
         return
     job_data_roles = task_data["job_data"]["roles"]
     for role, avc_list in avcs.items():
-        for avc in avc_list:
-            for btr in job_data_roles[role]:
-                if btr.dt_during_test(avc["dt"]):
-                    print(f"    avc in {btr} {avc['avc']}")
+        avc_count = len(avc_list)
+        if args.print_all_avcs:
+            for avc in avc_list:
+                for btr in job_data_roles[role]:
+                    if btr.dt_during_test(avc.dt):
+                        print(f"    AVC in {btr}: {avc}")
+        elif avc_count > 0:
+          print(f"    {avc_count} AVCs during tests for role {role}")
 
 
 # Times printed in job log have no TZ information - figure out TZ based
@@ -291,7 +366,7 @@ def parse_beaker_job_log(args, start_dt_utc, taskout_url):
     duration_re = re.compile(r"Duration: ([0-9a-zA-Z_]+)")
     start_dt = None
     start_data = None
-    job_data = {"roles": {}, "passed": [], "failed": [], "status": "RUNNING"}
+    job_data = {"roles": {}, "passed": [], "failed": [], "status": "RUNNING", "last_test": "N/A"}
     for line in get_file_data(args, taskout_url):
         match = duration_re.search(line)
         if match:
@@ -326,13 +401,10 @@ def parse_beaker_job_log(args, start_dt_utc, taskout_url):
 
 def parse_avc_log(args, log_url):
     avcs = []
-    avc_re = re.compile(r"type=AVC msg=audit\(([0-9.]+)")
     for line in get_file_data(args, log_url):
-        match = avc_re.match(line)
-        if match:
-            avc_dt = datetime.datetime.fromtimestamp(float(match.group(1)), TZ_UTC)
-            avc_data = {"dt": avc_dt, "avc": line.strip()}
-            avcs.append(avc_data)
+        avc = AVC(line)
+        if avc.valid:
+            avcs.append(avc)
     return avcs
 
 
@@ -423,7 +495,7 @@ def print_beaker_job_info(args, info):
         if args.failed_tests_to_show > 0:
             for failed_test in job_data["failed"][-args.failed_tests_to_show:]:  # fmt: skip
                 print(f"    failed {failed_test}")
-            print_avcs_and_tasks(task)
+            print_avcs_and_tasks(args, task)
     print("")
 
 
@@ -491,6 +563,21 @@ def parse_ansible_junit_log(log_file):
     return rv
 
 
+def print_ansible_errors(args, errors):
+    if args.csv_errors:
+        if args.csv_errors == "-":
+            csv_f = sys.stdout
+        else:
+            csv_f = open(args.csv_errors, "w")
+        fieldnames = ["error", "context_lines", "url"]
+        writer = csv.DictWriter(csv_f, fieldnames=fieldnames)
+        writer.writeheader()
+        for error in errors:
+            writer.writerow(error)
+        if csv_f != sys.stdout:
+            csv_f.close()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -500,7 +587,6 @@ def main():
     parser.add_argument(
         "--log-dir",
         help="log directory - will create if does not exist",
-        required=True,
     )
     parser.add_argument(
         "--github-org",
@@ -566,18 +652,30 @@ def main():
         help="junit log file",
     )
     parser.add_argument(
+        "--print-all-avcs",
+        default=False,
+        action="store_true",
+        help="print all AVCs - otherwise, just print count",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
         help="-v -v to increase verbosity",
     )
+    parser.add_argument(
+        "--csv-errors",
+        default="",
+        help="write errors in csv format to this given file, or - for stdout",
+    )
 
     args = parser.parse_args()
 
     if args.verbose > 1:
         logging.getLogger().setLevel(logging.DEBUG)
-        debug_requests_on()
+        #debug_requests_on()
+        debug_requests_off()
     elif args.verbose > 0:
         logging.getLogger().setLevel(logging.INFO)
 
@@ -592,7 +690,8 @@ def main():
     elif any((args.github_repo, args.github_pr, args.github_pr_search)):
         get_logs_from_github(args)
     elif args.log_url:
-        get_logs_from_url(args)
+        errors = get_logs_from_url(args)
+        print_ansible_errors(args, errors)
 
 
 if __name__ == "__main__":

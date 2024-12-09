@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.92.1] - 2024-12-09
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - fix: update constraints commands syntax for pcs-0.12 (#245)
+- systemd - fix: Always become user we are managing (#73)
+
 [1.92.0] - 2024-12-09
 ---------------------
 

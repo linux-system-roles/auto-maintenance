@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.93.0] - 2024-12-13
+---------------------
+
+### New Features
+
+- ha_cluster - feat: Remove python expect dependency in crmsh (#249)
+
 [1.92.1] - 2024-12-09
 ---------------------
 

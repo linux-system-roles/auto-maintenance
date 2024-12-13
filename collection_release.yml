@@ -14,7 +14,7 @@ network:
   ref: 1.17.0
   sourcenum: 5
 storage:
-  ref: 1.18.9
+  ref: 1.18.10
   sourcenum: 6
 metrics:
   ref: 1.10.8
@@ -49,7 +49,7 @@ ssh:
   ref: 1.5.1
   sourcenum: 16
 ha_cluster:
-  ref: 1.21.1
+  ref: 1.22.0
   sourcenum: 17
 vpn:
   ref: 1.6.8
@@ -58,7 +58,7 @@ firewall:
   ref: 1.8.1
   sourcenum: 19
 cockpit:
-  ref: 1.5.13
+  ref: 1.5.14
   sourcenum: 20
 podman:
   ref: 1.7.1

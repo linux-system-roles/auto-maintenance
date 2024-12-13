@@ -23,6 +23,14 @@ except ModuleNotFoundError:
 from bs4 import BeautifulSoup
 from http.client import HTTPConnection
 
+try:
+    import gspread
+    from oauth2client.service_account import ServiceAccountCredentials
+except ImportError:
+    logging.warning("no gspread/oauth")
+except ModuleNotFoundError:
+    logging.warning("no gspread/oauth")
+
 signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 
 # don't use cache for now - it interferes with stream=True
@@ -487,11 +495,11 @@ def print_beaker_job_info(args, info):
         if not job_data:
             continue
         print(
-            f"  Status {job_data["status"]} - {len(job_data["passed"])} passed - "
-            f"{len(job_data["failed"])} failed - {job_data["last_test"]} last test"
+            f"  Status {job_data['status']} - {len(job_data['passed'])} passed - "
+            f"{len(job_data['failed'])} failed - {job_data['last_test']} last test"
         )
         if job_data["status"] != "RUNNING" and job_data.get("duration"):
-            print(f"  Duration {job_data["duration"]}")
+            print(f"  Duration {job_data['duration']}")
         if args.failed_tests_to_show > 0:
             for failed_test in job_data["failed"][-args.failed_tests_to_show:]:  # fmt: skip
                 print(f"    failed {failed_test}")
@@ -564,18 +572,40 @@ def parse_ansible_junit_log(log_file):
 
 
 def print_ansible_errors(args, errors):
+    headings = list(errors[0].keys())
     if args.csv_errors:
         if args.csv_errors == "-":
             csv_f = sys.stdout
         else:
             csv_f = open(args.csv_errors, "w")
-        fieldnames = ["error", "context_lines", "url"]
-        writer = csv.DictWriter(csv_f, fieldnames=fieldnames)
+        writer = csv.DictWriter(csv_f, fieldnames=headings)
         writer.writeheader()
         for error in errors:
             writer.writerow(error)
         if csv_f != sys.stdout:
             csv_f.close()
+    if args.gspread:
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        credentials = ServiceAccountCredentials.from_json_keyfile_name(args.gspread_creds, scope)
+        gc = gspread.authorize(credentials)
+        if args.gspread == "NEW":
+            # create a new spreadsheet
+            sh = gc.create("LSR testing spreadsheet")
+            # need to show url to new spreadsheet
+            # and share with given user
+        else:
+            sh = gc.open_by_url(args.gspread)
+        values = [headings]
+        for error in errors:
+            value_list = []
+            for key in headings:
+                if isinstance(error[key], list):
+                    value = "\n".join(error[key])
+                else:
+                    value = str(error[key])
+                value_list.append(value)
+            values.append(value_list)
+        sh.values_update("sheet1", {"valueInputOption": "USER_ENTERED"}, {"values": values})
 
 
 def main():
@@ -669,13 +699,22 @@ def main():
         default="",
         help="write errors in csv format to this given file, or - for stdout",
     )
+    parser.add_argument(
+        "--gspread",
+        default="",
+        help="update this google spreadsheet - or use NEW to create a new one",
+    )
+    parser.add_argument(
+        "--gspread-creds",
+        default=os.environ["HOME"] + "/.config/gspread/google_secret.json",
+        help="path to google spreadsheet api credentials",
+    )
 
     args = parser.parse_args()
 
     if args.verbose > 1:
         logging.getLogger().setLevel(logging.DEBUG)
-        #debug_requests_on()
-        debug_requests_off()
+        debug_requests_on()
     elif args.verbose > 0:
         logging.getLogger().setLevel(logging.INFO)
 

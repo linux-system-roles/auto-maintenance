@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.94.0] - 2025-01-07
+---------------------
+
+### New Features
+
+- sshd - feat: Use sshd_config instead of sshd which has been deprecated (#299)
+- sshd - feat: New options in OpenSSH + fixes for bugx in OpenSSH 9.9p1 (#304)
+
+### Bug Fixes
+
+- sshd - fix: Reload the service when needed (#303)
+- sshd - fix: use quote with command, shell and validate with variable (#298)
+
 [1.93.0] - 2024-12-13
 ---------------------
 

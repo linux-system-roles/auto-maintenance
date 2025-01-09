@@ -1,6 +1,19 @@
 Changelog
 =========
 
+[1.94.1] - 2025-01-09
+---------------------
+
+### New Features
+
+- aide - feat: Allow setup aide inside of cron job (#7)
+
+### Bug Fixes
+
+- network - fix: Prioritize find link info by permanent MAC address, with fallback to current address (#749)
+- podman - fix: get user information for secrets (#198)
+- ssh - fix: Workaround for CentOS 10 issues in openssh (#167)
+
 [1.94.0] - 2025-01-07
 ---------------------
 

@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.94.2] - 2025-01-27
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - fix: update for EL10 (#254)
+- rhc - fix: use the right systemd service for remediations in EL 10+ (#209)
+- storage - fix: Fix PV grow_to_fill feature  (#502)
+
 [1.94.1] - 2025-01-09
 ---------------------
 

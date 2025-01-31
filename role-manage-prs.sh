@@ -162,39 +162,49 @@ merge_pr() {
     local pr
     pr="$1"; shift
     gh pr merge "$pr" -R "$upstream_org/$repo" "${mergeargs[@]}" "$@"
-    echo merged - sleeping to refresh pr list
-    sleep 5
 }
 
 approve_pr() {
     local pr
     pr="$1"
     gh pr review --approve "$pr" -R "$upstream_org/$repo"
-    sleep 1
 }
 
-prs="$(list_prs --json number -q .[].number)"
+get_pr_list() {
+    local pr prs
+    unset PR_LIST
+    prs="$(list_prs --json number -q .[].number)"
+    # shellcheck disable=SC2086
+    if [ -z "$prs" ]; then
+        return 1
+    fi
+    for pr in $prs; do
+        PR_LIST["$pr"]=$(show_pr "$pr")
+    done
+    return 0
+}
+
+show_pr_list() {
+    local data
+    for data in "${PR_LIST[@]}"; do
+        echo "$data"
+    done
+}
+
+if [ "${PR_LIST_DECLARED:-false}" = false ]; then
+    declare -A PR_LIST
+    PR_LIST_DECLARED=true
+fi
+
 done=false
-if [ -z "$prs" ]; then
+if ! get_pr_list; then
     echo INFO: role "$repo" has no PRs matching search/author criteria - skipping
     done=true
 fi
 while [ "$done" = false ]; do
-    prs="$(list_prs --json number -q .[].number)"
-    if [ -z "$prs" ]; then
-        echo INFO: role "$repo" has no more PRs matching search/author criteria - skipping
-        done=true
-    else
-        if [ "${LSR_DEBUG:-false}" = true ]; then
-            echo DEBUG: prs ["$prs"]
-            echo "$prs" | od -c
-        fi
-        # shellcheck disable=SC2086
-        for pr in $prs; do
-            show_pr "$pr"
-        done
-        echo ""
-        cat <<EOF
+    echo ""
+    show_pr_list
+    cat <<EOF
 Actions:
 "NUM" - merge PR                 | "w" - list PRs in browser
 "l" - refresh the list           | "v NUM" - view PR in browser
@@ -207,56 +217,69 @@ Actions:
 "pm NUM" - approve and merge PR - cannot approve your own PRs
 Press Enter to skip to next role
 EOF
-        read -r -p "Action? " input
-        if [[ "$input" =~ ^[0-9]+$ ]]; then
-            merge_pr "$input"
-        elif [ "$input" = w ]; then
-            list_prs -w
-        elif [ "$input" = l ]; then
-            done=false
-        elif [[ "$input" =~ ^v\ ([0-9]+)$ ]]; then
-            gh pr view "${BASH_REMATCH[1]}" --web -R "$upstream_org/$repo"
-        elif [[ "$input" =~ ^a\ ([0-9]+)$ ]]; then
-            merge_pr "${BASH_REMATCH[1]}" --admin
-            echo merged with admin - sleeping to refresh pr list
-            sleep 5
-        elif [[ "$input" =~ ^ci\ ([0-9]+)$ ]]; then
-            gh pr comment "${BASH_REMATCH[1]}" --body "[citest]" -R "$upstream_org/$repo"
-        elif [[ "$input" =~ ^t\ ([0-9]+)$ ]]; then
-            get_check_detail "${BASH_REMATCH[1]}" "!=" SUCCESS
-        elif [[ "$input" =~ ^s\ ([0-9]+)\ (.+)$ ]]; then
-            "${BASH_REMATCH[2]}" "$repo" "${BASH_REMATCH[1]}"
-        elif [[ "$input" =~ ^c\ ([0-9]+)(\ (.+))?$ ]]; then
-            args=("${BASH_REMATCH[1]}" -R "$upstream_org/$repo" -d)
-            if [ -n "${BASH_REMATCH[2]}" ]; then
-                args+=(-c "${BASH_REMATCH[2]}")
-            fi
-            gh pr close "${args[@]}"
-            echo closed - sleeping to refresh pr list
-            sleep 5
-        elif [[ "$input" =~ ^d\ ([0-9]+)(\ (.+))?$ ]]; then
-            args=("${BASH_REMATCH[1]}" -R "$upstream_org/$repo")
-            if [ -n "${BASH_REMATCH[2]}" ]; then
-                args+=("${BASH_REMATCH[2]}")
-            fi
-            gh pr diff "${args[@]}"
-        elif [[ "$input" =~ ^e\ ([0-9]+)(\ (.+))?$ ]]; then
-            args=(gh pr edit "${BASH_REMATCH[1]}" -R "$upstream_org/$repo")
-            if [ -n "${BASH_REMATCH[3]:-}" ]; then
-                "${args[@]}" ${BASH_REMATCH[3]}
-            else
-                "${args[@]}"
-            fi
-        elif [[ "$input" =~ ^p\ ([0-9]+)$ ]]; then
-            approve_pr "${BASH_REMATCH[1]}"
-        elif [[ "$input" =~ ^pm\ ([0-9]+)$ ]]; then
-            approve_pr "${BASH_REMATCH[1]}"
-            merge_pr "${BASH_REMATCH[1]}"
-        elif [ -z "$input" ]; then
-            done=true
-        else
-            echo ERROR: invalid input ["$input"]
+    read -r -p "Action? " input
+    if [[ "$input" =~ ^[0-9]+$ ]]; then
+        if merge_pr "$input"; then
+            unset PR_LIST["$input"]
         fi
+    elif [ "$input" = w ]; then
+        list_prs -w
+    elif [ "$input" = l ]; then
+        if get_pr_list; then
+            done=false
+        else
+            done=true
+            echo INFO: role "$repo" has no more PRs matching search/author criteria - skipping
+        fi
+    elif [[ "$input" =~ ^v\ ([0-9]+)$ ]]; then
+        gh pr view "${BASH_REMATCH[1]}" --web -R "$upstream_org/$repo"
+    elif [[ "$input" =~ ^a\ ([0-9]+)$ ]]; then
+        if merge_pr "${BASH_REMATCH[1]}" --admin; then
+            unset PR_LIST["${BASH_REMATCH[1]}"]
+        fi
+    elif [[ "$input" =~ ^ci\ ([0-9]+)$ ]]; then
+        gh pr comment "${BASH_REMATCH[1]}" --body "[citest]" -R "$upstream_org/$repo"
+    elif [[ "$input" =~ ^t\ ([0-9]+)$ ]]; then
+        get_check_detail "${BASH_REMATCH[1]}" "!=" SUCCESS
+    elif [[ "$input" =~ ^s\ ([0-9]+)\ (.+)$ ]]; then
+        "${BASH_REMATCH[2]}" "$repo" "${BASH_REMATCH[1]}"
+    elif [[ "$input" =~ ^c\ ([0-9]+)(\ (.+))?$ ]]; then
+        args=("${BASH_REMATCH[1]}" -R "$upstream_org/$repo" -d)
+        if [ -n "${BASH_REMATCH[2]}" ]; then
+            args+=(-c "${BASH_REMATCH[2]}")
+        fi
+        if gh pr close "${args[@]}"; then
+            unset PR_LIST["${BASH_REMATCH[1]}"]
+        fi
+    elif [[ "$input" =~ ^d\ ([0-9]+)(\ (.+))?$ ]]; then
+        args=("${BASH_REMATCH[1]}" -R "$upstream_org/$repo")
+        if [ -n "${BASH_REMATCH[2]}" ]; then
+            args+=("${BASH_REMATCH[2]}")
+        fi
+        gh pr diff "${args[@]}"
+    elif [[ "$input" =~ ^e\ ([0-9]+)(\ (.+))?$ ]]; then
+        args=(gh pr edit "${BASH_REMATCH[1]}" -R "$upstream_org/$repo")
+        if [ -n "${BASH_REMATCH[3]:-}" ]; then
+            "${args[@]}" ${BASH_REMATCH[3]}
+        else
+            "${args[@]}"
+        fi
+    elif [[ "$input" =~ ^p\ ([0-9]+)$ ]]; then
+        approve_pr "${BASH_REMATCH[1]}"
+    elif [[ "$input" =~ ^pm\ ([0-9]+)$ ]]; then
+        approve_pr "${BASH_REMATCH[1]}"
+        sleep 1  # wait for approval to be applied
+        if merge_pr "${BASH_REMATCH[1]}" --admin; then
+            unset PR_LIST["${BASH_REMATCH[1]}"]
+        fi
+    elif [ -z "$input" ]; then
+        done=true
+    else
+        echo ERROR: invalid input ["$input"]
+    fi
+    if [ "$done" = false ] && [ "${#PR_LIST[*]}" = 0 ]; then
+        done=true
+        echo INFO: role "$repo" has no more PRs matching search/author criteria - skipping
     fi
 done
 

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.95.0] - 2025-02-01
+---------------------
+
+### New Features
+
+- aide - feat: ensure role works on ostree systems (#15)
+
 [1.94.2] - 2025-01-27
 ---------------------
 

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.95.1] - 2025-02-03
+---------------------
+
+### Bug Fixes
+
+- storage - fix: ensure ostree has libblockdev and libblockdev-loop (#509)
+
 [1.95.0] - 2025-02-01
 ---------------------
 

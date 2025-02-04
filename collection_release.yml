@@ -8,7 +8,7 @@ timesync:
   ref: 1.9.2
   sourcenum: 3
 kdump:
-  ref: 1.4.9
+  ref: 1.4.10
   sourcenum: 4
 network:
   ref: 1.17.1

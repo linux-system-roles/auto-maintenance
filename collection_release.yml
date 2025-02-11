@@ -97,5 +97,5 @@ sudo:
   ref: 1.2.2
   sourcenum: 32
 aide:
-  ref: 1.1.0
+  ref: 1.1.1
   sourcenum: 33

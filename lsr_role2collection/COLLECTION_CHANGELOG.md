@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.95.4] - 2025-02-11
+---------------------
+
+### Bug Fixes
+
+- aide - fix: aide --check should not report changed (#19)
+
 [1.95.3] - 2025-02-04
 ---------------------
 

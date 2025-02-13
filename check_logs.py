@@ -235,9 +235,18 @@ def get_statuses(gh, org, repo, pr_num):
     return statuses
 
 
+# beaker
 SYSTEM_ROLE_LOG_RE = re.compile(
     r"/SYSTEM-ROLE-(?P<role>[a-z0-9_]+)_(?P<test_name>tests_[a-z0-9_]+"
     r"[.]yml)-.*-ANSIBLE-(?P<ansible_ver>[0-9.]+).*[.]log$"
+)
+
+
+# testing farm
+SYSTEM_ROLE_TF_LOG_RE = re.compile(
+    r"/data/(?P<role>[a-z0-9_]+)-(?P<test_name>tests_[a-z0-9_]+)"
+    r"-ANSIBLE-(?P<ansible_ver>[0-9.]+)-(?P<tf_job_name>[0-9a-z_]+)"
+    r"-(?P<test_status>SUCCESS|FAIL)[.]log$"
 )
 
 
@@ -252,30 +261,47 @@ def get_errors_from_ansible_log(args, log_url):
     logging.debug("Getting errors from ansible log [%s]", log_url)
 
     # Extracts the system role name
-    extracted_part = log_url.split("logs/")[1]
-    start_index = extracted_part.find("tf_") + 3  # +3 to skip "tf_"
-    if start_index > 2:
-        end_index = extracted_part.index("-", start_index)
-        role = extracted_part[start_index:end_index]
-        pattern = r"ANSIBLE-(\d+\.\d+)"
-        ansible_version_matches = re.findall(pattern, log_url)
-        ansible_version = (
-            ansible_version_matches[0] if ansible_version_matches else "UNKNOWN"
-        )
+    if "logs/tf_" in log_url:
+        extracted_part = log_url.split("logs/")[1]
+        start_index = extracted_part.find("tf_") + 3  # +3 to skip "tf_"
+        if start_index > 2:
+            end_index = extracted_part.index("-", start_index)
+            role = extracted_part[start_index:end_index]
+            pattern = r"ANSIBLE-(\d+\.\d+)"
+            ansible_version_matches = re.findall(pattern, log_url)
+            ansible_version = (
+                ansible_version_matches[0] if ansible_version_matches else "UNKNOWN"
+            )
     else:
         # https://....//SYSTEM-ROLE-$ROLENAME_$TEST_NAME.yml-legacy-ANSIBLE-2.log
         match = SYSTEM_ROLE_LOG_RE.search(log_url)
-        role = match.group("role")
-        if args.role != ["ALL"] and role not in args.role:
-            logging.info(
-                "Skipping log - role [%s] not in args.role [%s]: [%s]",
-                role,
-                str(args.role),
-                log_url,
-            )
-            return []
-        # test = match.group(2)  # unused for now
-        ansible_version = match.group("ansible_ver")
+        if match:
+            role = match.group("role")
+            if args.role != ["ALL"] and role not in args.role:
+                logging.info(
+                    "Skipping log - role [%s] not in args.role [%s]: [%s]",
+                    role,
+                    str(args.role),
+                    log_url,
+                )
+                return []
+            # test = match.group(2)  # unused for now
+            ansible_version = match.group("ansible_ver")
+        else:
+            # testing farm - https://...../data/$ROLENAME-$TESTNAME-ANSIBLE-$VER-$TFTESTNAME-$STATUS.log
+            match = SYSTEM_ROLE_TF_LOG_RE.search(log_url)
+            if match:
+                role = match.group("role")
+                if args.role != ["ALL"] and role not in args.role:
+                    logging.info(
+                        "Skipping log - role [%s] not in args.role [%s]: [%s]",
+                        role,
+                        str(args.role),
+                        log_url,
+                    )
+                    return []
+                ansible_version = match.group("ansible_ver")
+                # other fields not used here
 
     for line in get_file_data(args, log_url):
         if (
@@ -774,6 +800,64 @@ def parse_ansible_junit_log(log_file):
     return rv
 
 
+def get_testing_farm_result(args):
+    rv = []
+    errors = []
+    verify = not args.disable_verify
+    for url in args.testing_farm_job_url:
+        result = requests.get(url, verify=verify).json()
+        data = {"plan_filter": result["test"]["fmf"]["plan_filter"],
+                "state": result["state"],
+                "arch": result["environments_requested"][0]["arch"],
+                "compose": result["environments_requested"][0]["os"]["compose"],
+                "role": result["environments_requested"][0]["variables"].get("ROLE_NAME", "ALL"),
+                "included_tests": result["environments_requested"][0]["variables"].get("SYSTEM_ROLES_ONLY_TESTS", "ALL"),
+                "excluded_tests": result["environments_requested"][0]["variables"].get("SYSTEM_ROLES_EXCLUDED_TESTS", "ALL"),
+                "result": result["result"]["overall"],
+                "xunit_url": result["result"]["xunit_url"],
+                "artifacts_url": result["run"]["artifacts"],
+                "pipeline_type": result["settings"]["pipeline"]["type"],
+                "queued_time": result["queued_time"],
+                "run_time": result["run_time"],
+                "created_ts": result["created"],
+                "updated_ts": result["updated"],
+                "passed": [],
+                "failed": [],
+        }
+        xml_data = requests.get(data["xunit_url"], verify=verify).content
+        bs = BeautifulSoup(xml_data, "xml")
+        for log_set in bs.find_all("logs"):
+            for log_item in log_set.find_all("log", href=SYSTEM_ROLE_TF_LOG_RE):
+                log_url = log_item.attrs["href"]
+                match = SYSTEM_ROLE_TF_LOG_RE.search(log_url)
+                test_result = match.groupdict()
+                status = test_result["test_status"]
+                if status == "SUCCESS":
+                    data["passed"].append(test_result)
+                else:
+                    data["failed"].append(test_result)
+                if args.all_statuses or status == "FAIL":
+                    errors.extend(get_errors_from_ansible_log(args, log_url))
+        rv.append(data)
+        return rv, errors
+
+
+def print_testing_farm_result(args, result):
+    print(
+        f"Test plan filter [{result['plan_filter']}] arch [{result['arch']}] compose [{result['compose']}]"
+    )
+    print(f"  Start [{result['created_ts']}] updated [{result['updated_ts']}] queued_time [{result['queued_time']}] run_time [{result['run_time']}]")
+    print(f"  Role [{result['role']}] included tests [{result['included_tests']}] excluded tests [{result['excluded_tests']}]")
+    print(
+        f"  Result {result['result']} - {len(result['passed'])} passed - "
+        f"{len(result['failed'])} failed"
+    )
+    if args.failed_tests_to_show > 0:
+        for failed_test in result["failed"][-args.failed_tests_to_show:]:  # fmt: skip
+            print(f"    failed {failed_test}")
+    print("")
+
+
 def print_ansible_errors(args, errors):
     if not errors:
         print("No errors found")
@@ -969,6 +1053,12 @@ def parse_arguments():
         action="store_true",
         help="Scan all logs for Ansible errors/failures",
     )
+    parser.add_argument(
+        "--testing-farm-job-url", "--tf-job-url",
+        default=[],
+        action="append",
+        help="url of testing farm job api e.g. https://api.dev.testing-farm.io/v0.1/requests/xxxxx",
+    )
 
     args = parser.parse_args()
     return args
@@ -986,7 +1076,12 @@ def main():
     if args.csv_errors or args.gspread:
         args.gather_errors = True
 
-    if args.junit_log:
+    if args.testing_farm_job_url:
+        results, failures = get_testing_farm_result(args)
+        for result in results:
+            print_testing_farm_result(args, result)
+        print_ansible_errors(args, failures)
+    elif args.junit_log:
         import pprint
 
         for log_file in args.junit_log:

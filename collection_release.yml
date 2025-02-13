@@ -35,7 +35,7 @@ nbde_client:
   ref: 1.3.2
   sourcenum: 12
 certificate:
-  ref: 1.3.9
+  ref: 1.3.10
   sourcenum: 13
 crypto_policies:
   ref: 1.4.2

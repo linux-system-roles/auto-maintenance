@@ -806,23 +806,30 @@ def get_testing_farm_result(args):
     verify = not args.disable_verify
     for url in args.testing_farm_job_url:
         result = requests.get(url, verify=verify).json()
-        data = {"plan_filter": result["test"]["fmf"]["plan_filter"],
-                "state": result["state"],
-                "arch": result["environments_requested"][0]["arch"],
-                "compose": result["environments_requested"][0]["os"]["compose"],
-                "role": result["environments_requested"][0]["variables"].get("ROLE_NAME", "ALL"),
-                "included_tests": result["environments_requested"][0]["variables"].get("SYSTEM_ROLES_ONLY_TESTS", "ALL"),
-                "excluded_tests": result["environments_requested"][0]["variables"].get("SYSTEM_ROLES_EXCLUDED_TESTS", "ALL"),
-                "result": result["result"]["overall"],
-                "xunit_url": result["result"]["xunit_url"],
-                "artifacts_url": result["run"]["artifacts"],
-                "pipeline_type": result["settings"]["pipeline"]["type"],
-                "queued_time": result["queued_time"],
-                "run_time": result["run_time"],
-                "created_ts": result["created"],
-                "updated_ts": result["updated"],
-                "passed": [],
-                "failed": [],
+        data = {
+            "plan_filter": result["test"]["fmf"]["plan_filter"],
+            "state": result["state"],
+            "arch": result["environments_requested"][0]["arch"],
+            "compose": result["environments_requested"][0]["os"]["compose"],
+            "role": result["environments_requested"][0]["variables"].get(
+                "ROLE_NAME", "ALL"
+            ),
+            "included_tests": result["environments_requested"][0]["variables"].get(
+                "SYSTEM_ROLES_ONLY_TESTS", "ALL"
+            ),
+            "excluded_tests": result["environments_requested"][0]["variables"].get(
+                "SYSTEM_ROLES_EXCLUDED_TESTS", "ALL"
+            ),
+            "result": result["result"]["overall"],
+            "xunit_url": result["result"]["xunit_url"],
+            "artifacts_url": result["run"]["artifacts"],
+            "pipeline_type": result["settings"]["pipeline"]["type"],
+            "queued_time": result["queued_time"],
+            "run_time": result["run_time"],
+            "created_ts": result["created"],
+            "updated_ts": result["updated"],
+            "passed": [],
+            "failed": [],
         }
         xml_data = requests.get(data["xunit_url"], verify=verify).content
         bs = BeautifulSoup(xml_data, "xml")
@@ -844,10 +851,17 @@ def get_testing_farm_result(args):
 
 def print_testing_farm_result(args, result):
     print(
-        f"Test plan filter [{result['plan_filter']}] arch [{result['arch']}] compose [{result['compose']}]"
+        f"Test plan filter [{result['plan_filter']}] arch [{result['arch']}] "
+        f"compose [{result['compose']}]"
     )
-    print(f"  Start [{result['created_ts']}] updated [{result['updated_ts']}] queued_time [{result['queued_time']}] run_time [{result['run_time']}]")
-    print(f"  Role [{result['role']}] included tests [{result['included_tests']}] excluded tests [{result['excluded_tests']}]")
+    print(
+        f"  Start [{result['created_ts']}] updated [{result['updated_ts']}] "
+        f"queued_time [{result['queued_time']}] run_time [{result['run_time']}]"
+    )
+    print(
+        f"  Role [{result['role']}] included tests [{result['included_tests']}] "
+        f"excluded tests [{result['excluded_tests']}]"
+    )
     print(
         f"  Result {result['result']} - {len(result['passed'])} passed - "
         f"{len(result['failed'])} failed"
@@ -1054,7 +1068,8 @@ def parse_arguments():
         help="Scan all logs for Ansible errors/failures",
     )
     parser.add_argument(
-        "--testing-farm-job-url", "--tf-job-url",
+        "--testing-farm-job-url",
+        "--tf-job-url",
         default=[],
         action="append",
         help="url of testing farm job api e.g. https://api.dev.testing-farm.io/v0.1/requests/xxxxx",

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.95.7] - 2025-03-06
+---------------------
+
+### Bug Fixes
+
+- storage - fix: there is no kmod-kvdo on EL10 and later (#514)
+
 [1.95.6] - 2025-02-26
 ---------------------
 

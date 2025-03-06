@@ -800,6 +800,53 @@ def parse_ansible_junit_log(log_file):
     return rv
 
 
+def parse_tf_job_log(args, url, ref_dt):
+    test_re_str = (
+        r"^(?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2})\s+out: :: "
+        r"\[ [0-9]{2}:[0-9]{2}:[0-9]{2} \] "
+        r":: \[ +(?P<status>[A-Z]+) +\] :: Test (?P<role>[a-z0-9_]+)/(?P<test_name>tests_[^ ]+) "
+        r"with ANSIBLE-(?P<ansible_ver>[0-9.]+) on (?P<managed_node>\S+)"
+    )
+    test_re = re.compile(test_re_str)
+    job_data = {
+        "roles": {},
+        "passed": [],
+        "failed": [],
+        "status": "RUNNING",
+        "last_test": "N/A",
+    }
+    for line in get_file_data(args, url):
+        match = test_re.search(line)
+        if match:
+            data = match.groupdict()
+            test_data = (
+                job_data["roles"]
+                .setdefault(data["role"], {})
+                .setdefault(data["test_name"], {})
+            )
+            test_name = data["role"] + "/" + data["test_name"]
+            dt = ref_dt.replace(
+                hour=int(data["hour"]),
+                minute=int(data["min"]),
+                second=int(data["sec"]),
+            )
+            if dt < ref_dt:
+                # time wrapped around
+                dt = dt + datetime.timedelta(days=1)
+            if data["status"] == "BEGIN":
+                test_data["start_dt"] = dt
+                job_data["last_test"] = test_name
+            else:
+                test_data["end_dt"] = dt
+                test_data["status"] = data["status"]
+                if data["status"] == "PASS":
+                    job_data["passed"].append(test_name)
+                else:
+                    job_data["failed"].append(test_name)
+            job_data["roles"][data["role"]][data["test_name"]] = test_data
+    return job_data
+
+
 def get_testing_farm_result(args):
     rv = []
     errors = []
@@ -811,40 +858,52 @@ def get_testing_farm_result(args):
             "state": result["state"],
             "arch": result["environments_requested"][0]["arch"],
             "compose": result["environments_requested"][0]["os"]["compose"],
-            "role": result["environments_requested"][0]["variables"].get(
-                "ROLE_NAME", "ALL"
-            ),
             "included_tests": result["environments_requested"][0]["variables"].get(
-                "SYSTEM_ROLES_ONLY_TESTS", "ALL"
+                "SR_ONLY_TESTS", "ALL"
             ),
             "excluded_tests": result["environments_requested"][0]["variables"].get(
-                "SYSTEM_ROLES_EXCLUDED_TESTS", "ALL"
+                "SR_EXCLUDED_TESTS", "ALL"
             ),
-            "result": result["result"]["overall"],
-            "xunit_url": result["result"]["xunit_url"],
             "artifacts_url": result["run"]["artifacts"],
             "pipeline_type": result["settings"]["pipeline"]["type"],
             "queued_time": result["queued_time"],
             "run_time": result["run_time"],
-            "created_ts": result["created"],
-            "updated_ts": result["updated"],
+            "created_ts": datetime.datetime.fromisoformat(result["created"] + "+00:00"),
+            "updated_ts": datetime.datetime.fromisoformat(result["updated"] + "+00:00"),
             "passed": [],
             "failed": [],
+            "role": "ALL",
         }
-        xml_data = requests.get(data["xunit_url"], verify=verify).content
-        bs = BeautifulSoup(xml_data, "xml")
-        for log_set in bs.find_all("logs"):
-            for log_item in log_set.find_all("log", href=SYSTEM_ROLE_TF_LOG_RE):
-                log_url = log_item.attrs["href"]
-                match = SYSTEM_ROLE_TF_LOG_RE.search(log_url)
-                test_result = match.groupdict()
-                status = test_result["test_status"]
-                if status == "SUCCESS":
-                    data["passed"].append(test_result)
-                else:
-                    data["failed"].append(test_result)
-                if args.all_statuses or status == "FAIL":
-                    errors.extend(get_errors_from_ansible_log(args, log_url))
+        if result["result"]:
+            if "overall" in result["result"]:
+                data["result"] = result["result"]["overall"]
+            if result["result"].get("xunit_url"):
+                data["xunit_url"] = result["result"]["xunit_url"]
+
+                xml_data = requests.get(data["xunit_url"], verify=verify).content
+                bs = BeautifulSoup(xml_data, "xml")
+                for log_set in bs.find_all("logs"):
+                    for log_item in log_set.find_all("log", href=SYSTEM_ROLE_TF_LOG_RE):
+                        log_url = log_item.attrs["href"]
+                        match = SYSTEM_ROLE_TF_LOG_RE.search(log_url)
+                        test_result = match.groupdict()
+                        status = test_result["test_status"]
+                        if status == "SUCCESS":
+                            data["passed"].append(test_result)
+                        else:
+                            data["failed"].append(test_result)
+                        if args.all_statuses or status == "FAIL":
+                            errors.extend(get_errors_from_ansible_log(args, log_url))
+        elif "artifacts" in result["run"]:
+            results_xml = result["run"]["artifacts"] + "/results.xml"
+            xml_data = requests.get(results_xml, verify=verify).content
+            bs = BeautifulSoup(xml_data, "xml")
+            for log_item in bs.find_all("log", href=re.compile(r"/log.txt$")):
+                data["job_data"] = parse_tf_job_log(
+                    args, log_item.attrs["href"], data["created_ts"]
+                )
+                data["passed"].extend(data["job_data"]["passed"])
+                data["failed"].extend(data["job_data"]["failed"])
         rv.append(data)
         return rv, errors
 
@@ -863,7 +922,7 @@ def print_testing_farm_result(args, result):
         f"excluded tests [{result['excluded_tests']}]"
     )
     print(
-        f"  Result {result['result']} - {len(result['passed'])} passed - "
+        f"  Result {result.get('result', 'RUNNING')} - {len(result['passed'])} passed - "
         f"{len(result['failed'])} failed"
     )
     if args.failed_tests_to_show > 0:

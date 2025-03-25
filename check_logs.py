@@ -250,10 +250,11 @@ SYSTEM_ROLE_TF_LOG_RE = re.compile(
 )
 
 
-def get_errors_from_ansible_log(args, log_url):
+def get_errors_from_ansible_log(args, log_url, extra_fields={}):
     errors = []
     current_task = None
     total_failed = 0
+    total_unreachable = 0
     task_lines = []
     task_has_fatal = False
     task_path = None
@@ -316,14 +317,17 @@ def get_errors_from_ansible_log(args, log_url):
                 if task_match:
                     current_task = task_match.group(1)
                 # end task
-                error = {
-                    "Url": log_url,
-                    "Role": role,
-                    "Ansible Version": ansible_version,
-                    "Task": current_task,
-                    "Detail": copy.deepcopy(task_lines[3:]),
-                    "Task Path": task_path,
-                }
+                error = copy.deepcopy(extra_fields)
+                error.update(
+                    {
+                        "Role": role,
+                        "Ansible Version": ansible_version,
+                        "Task": current_task,
+                        "Task Path": task_path,
+                        "Url": log_url,
+                        "Detail": copy.deepcopy(task_lines[3:]),
+                    }
+                )
                 errors.append(error)
             if line.startswith("TASK "):
                 task_lines = [line.strip()]
@@ -344,16 +348,17 @@ def get_errors_from_ansible_log(args, log_url):
             elif line.startswith("...ignoring"):
                 task_has_fatal = False
         else:
-            match = re.search(r"\sfailed=(\d+)\s", line)
+            match = re.search(r"\sunreachable=(\d+)\s+failed=(\d+)\s", line)
             if match:
-                total_failed += int(match.group(1))
+                total_unreachable += int(match.group(1))
+                total_failed += int(match.group(2))
 
     logging.debug(
         "Found [%d] errors and Ansible reported [%d] failures",
         len(errors),
         total_failed,
     )
-    if total_failed == 0:
+    if total_unreachable == 0 and total_failed == 0:
         errors = []
     for error in errors:
         error["Fails expected"] = total_failed
@@ -594,12 +599,31 @@ def get_beaker_job_info(args, job):
     data["install_start"] = bs.find("installation").get("install_started")
     data["post_install_end"] = bs.find("installation").get("postinstall_finished")
     data["tasks"] = []
+    image = ""
+    collection = ""
+    ansible_gathering = ""
+    for param in bs.find_all("param"):
+        if param.get("name") == "IMAGE":
+            data["image"] = param.get("value")
+            image = data["image"]
+        if param.get("name") == "SYSTEM_ROLES_USE_COLLECTIONS":
+            data["collection"] = param.get("value")
+            collection = data["collection"]
+        if param.get("name") == "ANSIBLE_GATHERING":
+            data["ansible_gathering"] = param.get("value")
+            ansible_gathering = data["ansible_gathering"]
+    extra_fields = {}
+    for field in ["distro", "arch", "image", "collection", "ansible_gathering"]:
+        extra_fields[field] = data.get(field, "N/A")
     logging.info(
-        "Begin processing logs for beaker job [%s] [%s] [%s] [%s]",
+        "Begin processing logs for beaker job [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
         data["distro"],
         data["arch"],
         data["whiteboard"],
         data["job"],
+        image,
+        collection,
+        ansible_gathering,
     )
     for task in bs.find_all("task"):
         task_data = {"errors": []}
@@ -622,6 +646,7 @@ def get_beaker_job_info(args, job):
                 task_data["name"] = "basic-smoke-test"
             else:
                 task_data["name"] = "Upstream-testsuite"
+            extra_fields["test_name"] = task_data["name"]
             log_urls = []
             for log in task.find("logs"):
                 if hasattr(log, "get"):
@@ -650,7 +675,9 @@ def get_beaker_job_info(args, job):
                         if btr and btr.status != "PASS":
                             logging.debug("    Processing test log [%s]", log)
                             task_data["errors"].extend(
-                                get_errors_from_ansible_log(args, log)
+                                get_errors_from_ansible_log(
+                                    args, log, extra_fields=extra_fields
+                                )
                             )
 
             role = None
@@ -674,7 +701,6 @@ def print_beaker_job_info(args, info):
         f"Distro [{info['distro']}] arch [{info['arch']}] whiteboard [{info['whiteboard']}] job [{info['job']}]"
     )
     print(f"  Install start [{info['install_start']}] end [{info['post_install_end']}]")
-    errors = []
     for task in info["tasks"]:
         sys.stdout.write("  Task")
         for key in (
@@ -699,16 +725,15 @@ def print_beaker_job_info(args, info):
         )
         if job_data["status"] != "RUNNING" and job_data.get("duration"):
             print(f"  Duration {job_data['duration']}")
-        errors.extend(task["errors"])
         if args.failed_tests_to_show > 0:
             for failed_test in job_data["failed"][-args.failed_tests_to_show:]:  # fmt: skip
                 print(f"    failed {failed_test}")
             print_avcs_and_tasks(args, task)
     print("")
-    print_ansible_errors(args, errors)
 
 
 def get_logs_from_beaker(args):
+    beaker_jobs = []
     if args.beaker_job == ["ALL"]:
         result = subprocess.run(
             ["bkr", "job-list", "--mine", "--format=list"],
@@ -716,12 +741,23 @@ def get_logs_from_beaker(args):
             text=True,
             check=True,
         )
-        args.beaker_job = result.stdout.split("\n")
-    for job in args.beaker_job:
+        beaker_jobs = result.stdout.split("\n")
+    elif args.beaker_job:
+        beaker_jobs = args.beaker_job
+    if args.beaker_job_list:
+        beaker_jobs.extend(args.beaker_job_list.split())
+
+    errors = []
+    for job in beaker_jobs:
         if not job:
             continue
         info = get_beaker_job_info(args, job)
         print_beaker_job_info(args, info)
+        for task in info["tasks"]:
+            task_errors = task.get("errors")
+            if task_errors:
+                errors.extend(task_errors)
+    print_ansible_errors(args, errors)
 
 
 def parse_ansible_junit_log(log_file):
@@ -804,7 +840,7 @@ def parse_tf_job_log(args, url, ref_dt):
     test_re_str = (
         r"^(?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2})\s+out: :: "
         r"\[ [0-9]{2}:[0-9]{2}:[0-9]{2} \] "
-        r":: \[ +(?P<status>[A-Z]+) +\] :: Test (?P<role>[a-z0-9_]+)/(?P<test_name>tests_[^ ]+) "
+        r":: \[ +(?P<status>[A-Z]+) +\] :: (?P<role>[a-z0-9_]+): (?P<test_name>tests_[^ ]+) "
         r"with ANSIBLE-(?P<ansible_ver>[0-9.]+) on (?P<managed_node>\S+)"
     )
     test_re = re.compile(test_re_str)
@@ -812,10 +848,12 @@ def parse_tf_job_log(args, url, ref_dt):
         "roles": {},
         "passed": [],
         "failed": [],
-        "status": "RUNNING",
+        "status": "running",
         "last_test": "N/A",
+        "last_line": "",
     }
     for line in get_file_data(args, url):
+        job_data["last_line"] = line
         match = test_re.search(line)
         if match:
             data = match.groupdict()
@@ -922,9 +960,11 @@ def print_testing_farm_result(args, result):
         f"excluded tests [{result['excluded_tests']}]"
     )
     print(
-        f"  Result {result.get('result', 'RUNNING')} - {len(result['passed'])} passed - "
+        f"  Result {result.get('result', 'running')} - {len(result['passed'])} passed - "
         f"{len(result['failed'])} failed"
     )
+    if result.get("result", "running") == "running":
+        print("  last line: " + result["job_data"]["last_line"])
     if args.failed_tests_to_show > 0:
         for failed_test in result["failed"][-args.failed_tests_to_show:]:  # fmt: skip
             print(f"    failed {failed_test}")
@@ -1064,6 +1104,10 @@ def parse_arguments():
         help="beaker jobs to get logs for - use ALL to get logs from all jobs",
     )
     parser.add_argument(
+        "--beaker-job-list",
+        help='space delimited list of beaker jobs e.g. --beaker-job-list "$(bkr job-list .... --format list)"',
+    )
+    parser.add_argument(
         "--failed-tests-to-show",
         type=int,
         default=0,
@@ -1161,7 +1205,7 @@ def main():
         for log_file in args.junit_log:
             failures = parse_ansible_junit_log(log_file)
             pprint.pprint(failures)
-    elif args.beaker_job:
+    elif args.beaker_job or args.beaker_job_list:
         get_logs_from_beaker(args)
     elif any((args.github_repo, args.github_pr, args.github_pr_search)):
         get_logs_from_github(args)

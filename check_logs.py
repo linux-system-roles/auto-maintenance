@@ -514,9 +514,11 @@ def parse_beaker_job_log(args, start_dt_utc, taskout_url):
         "failed": [],
         "status": "RUNNING",
         "last_test": "N/A",
+        "last_line": "",
     }
     role = None  # Upstream-testsuite does not report role name in test_re
     for line in get_file_data(args, taskout_url):
+        job_data["last_line"] = line
         match = duration_re.search(line)
         if match:
             job_data["duration"] = match.group(1)
@@ -723,6 +725,7 @@ def print_beaker_job_info(args, info):
             f"  Status {job_data['status']} - {len(job_data['passed'])} passed - "
             f"{len(job_data['failed'])} failed - {job_data['last_test']} last test"
         )
+        print("    Last line: " + job_data["last_line"])
         if job_data["status"] != "RUNNING" and job_data.get("duration"):
             print(f"  Duration {job_data['duration']}")
         if args.failed_tests_to_show > 0:

@@ -1,6 +1,34 @@
 Changelog
 =========
 
+[1.96.0] - 2025-04-23
+---------------------
+
+### New Features
+
+- firewall - feat: support includes for services (#259)
+- ha_cluster - feat: crmsh remove python3-rpm dependency (#270)
+- ha_cluster - feat: export pcsd and OS configuration (#264)
+- podman - feat: support TOML tables by using a real TOML formatter (#218)
+- timesync - feat: add support for timesync_ntp_ip_family (#277)
+
+### Bug Fixes
+
+- cockpit - fix: Dynamically ignore cockpit-pcp (#206)
+- cockpit - fix: Run Fedora 42 with dnf instead of default setup (#205)
+- cockpit - fix: Ignore cockpit-pcp on RedHat 9 (#204)
+- ha_cluster - fix: disable proxy when connecting to pcsd local socket (#265)
+- ha_cluster - fix: restart qdevice when its certificates have been regenerated (#262)
+- logging - fix: Only remove rsyslog* packages, remove packages with command line (#440)
+- logging - fix: Add a variable for rsyslog base package on Debian (#436)
+- network - fix: Correct attribute checks for routing rule validation (#774)
+- network - fix: Remove MAC address matching from SysUtil.link_info_find() (#769)
+- network - fix: Refine MAC validation using interface name (#768)
+- podman - fix: Do not change the directory mode for the container parent path (#216)
+- podman - fix: Do not restart logind unless absolutely necessary (#213)
+- podman - fix: render boolean option values correctly in toml files (#209)
+- timesync - fix: add default seccomp filters for el9/10 (#279)
+
 [1.95.7] - 2025-03-06
 ---------------------
 

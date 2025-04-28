@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.97.0] - 2025-04-28
+---------------------
+
+### New Features
+
+- ad_integration - feat: Introduced option to skip package installation (#131)
+
+### Bug Fixes
+
+- systemd - fix: unmask should run at the begin to allow the role to manage the units (#87)
+
 [1.96.0] - 2025-04-23
 ---------------------
 

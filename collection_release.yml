@@ -5,7 +5,7 @@ selinux:
   ref: 1.8.2
   sourcenum: 2
 timesync:
-  ref: 1.10.0
+  ref: 1.10.1
   sourcenum: 3
 kdump:
   ref: 1.4.10
@@ -64,10 +64,10 @@ podman:
   ref: 1.8.0
   sourcenum: 21
 ad_integration:
-  ref: 1.4.8
+  ref: 1.5.0
   sourcenum: 22
 rhc:
-  ref: 1.6.10
+  ref: 1.6.11
   sourcenum: 23
 journald:
   ref: 1.3.5
@@ -76,7 +76,7 @@ postgresql:
   ref: 1.3.10
   sourcenum: 25
 systemd:
-  ref: 1.3.1
+  ref: 1.3.2
   sourcenum: 26
 keylime_server:
   ref: 1.1.7

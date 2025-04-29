@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.97.1] - 2025-04-29
+---------------------
+
+### Bug Fixes
+
+- systemd - fix: files and templates in nested directories are not placed correctly (#89)
+
 [1.97.0] - 2025-04-28
 ---------------------
 

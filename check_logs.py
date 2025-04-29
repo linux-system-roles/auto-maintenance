@@ -18,13 +18,26 @@ import shutil
 import signal
 import sys
 
+# for request retries
+from urllib3.util import Retry
+
+# for parsing html and xml docs
+from bs4 import BeautifulSoup
+
+# for debugging http requests
+from http.client import HTTPConnection
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.WARNING,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
 try:
     from ghapi.all import GhApi
     from ghapi.page import paged as gh_paged
 except ModuleNotFoundError:
     logging.warning("no ghapi library")
-from bs4 import BeautifulSoup
-from http.client import HTTPConnection
 
 try:
     import gspread
@@ -44,6 +57,12 @@ signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 # downloads take forever - I guess it is trying to use IPV6 first,
 # then it times out after a minute or so, then it falls back to IPV4
 requests.packages.urllib3.util.connection.HAS_IPV6 = False
+
+
+class LSRRetry(Retry):
+    def is_retry(self, method, status_code, has_retry_after):
+        logging.info("in is_retry")
+        return super().is_retry(method, status_code, has_retry_after)
 
 
 TZ_UTC = datetime.UTC
@@ -250,6 +269,81 @@ SYSTEM_ROLE_TF_LOG_RE = re.compile(
 )
 
 
+def get_errors_from_ansible_log_ai(
+    args, log_url, role, ansible_version, extra_fields={}
+):
+    headers = {
+        "Authorization": "Bearer " + args.ai_api_key,
+        "Content-Type": "application/json",
+    }
+    data = {"model": args.ai_model_id, "temperature": args.ai_temperature}
+    if args.ai_max_tokens > 0:
+        data["max_tokens"] = args.ai_max_tokens
+    log_file = "\n".join([line for line in get_file_data(args, log_url)])
+    content = (
+        "Given the following Ansible log file, please find the tasks that had an error "
+        "and return a JSON formatted list of the task and the task output of the tasks "
+        "that had an error.  The data should include fields for the task name, the task "
+        "path, and the output of the task: " + log_file
+    )
+    data["messages"] = [{"role": "user", "content": content}]
+    session = requests.Session()
+    retries = LSRRetry(
+        total=3,
+        backoff_factor=60,
+        status_forcelist=[413, 429, 502, 503, 504],
+        allowed_methods=["GET", "POST"],
+    )
+    session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
+    try:
+        resp = session.post(args.ai_model_url, headers=headers, data=json.dumps(data))
+    except requests.exceptions.RetryError:
+        logging.error("Too many retries for [%s] size [%d]", log_url, len(log_file))
+        return []
+    resp_data = resp.json()
+    if "code" in resp_data:
+        logging.error(
+            "Could not parse [%s] len [%d]: Code [%d]: [%s]",
+            log_url,
+            len(log_file),
+            resp_data["code"],
+            resp_data["message"],
+        )
+        return []
+    content_str = resp_data["choices"][0]["message"]["content"]
+    # sometimes the entire string is already JSON
+    try:
+        resp_content = json.loads(content_str)
+    except json.decoder.JSONDecodeError:
+        # find where the embedded json string is
+        start_str = "```json\n"
+        start_json = content_str.find(start_str)
+        start_json += len(start_str)
+        end_char = {"[": "]", "{": "}"}[content_str[start_json]]
+        end_str = end_char + "\n```"
+        end_json = content_str.rfind(end_str) + 1
+        resp_content = json.loads(content_str[start_json:end_json])
+    errors = []
+    if isinstance(resp_content, dict):
+        resp_content = [resp_content]
+    for item in resp_content:
+        output = item.get("output", item.get("task_output"))
+        task_name = item.get("task_name", item.get("task"))
+        error = copy.deepcopy(extra_fields)
+        error.update(
+            {
+                "Role": role,
+                "Ansible Version": ansible_version,
+                "Task": task_name,
+                "Task Path": item.get("task_path", "NOT_FOUND"),
+                "Url": log_url,
+                "Detail": output,
+            }
+        )
+        errors.append(error)
+    return errors
+
+
 def get_errors_from_ansible_log(args, log_url, extra_fields={}):
     errors = []
     current_task = None
@@ -304,6 +398,10 @@ def get_errors_from_ansible_log(args, log_url, extra_fields={}):
                 ansible_version = match.group("ansible_ver")
                 # other fields not used here
 
+    if args.ai_model_url:
+        return get_errors_from_ansible_log_ai(
+            args, log_url, role, ansible_version, extra_fields
+        )
     for line in get_file_data(args, log_url):
         if (
             line.startswith("TASK ")
@@ -1194,6 +1292,33 @@ def parse_arguments():
         default=[],
         action="append",
         help="url of testing farm job api e.g. https://api.dev.testing-farm.io/v0.1/requests/xxxxx",
+    )
+    parser.add_argument(
+        "--ai-model-url",
+        default="",
+        help="AI model url",
+    )
+    parser.add_argument(
+        "--ai-model-id",
+        default="",
+        help="AI model id",
+    )
+    parser.add_argument(
+        "--ai-api-key",
+        default="",
+        help="AI API key/token",
+    )
+    parser.add_argument(
+        "--ai-max-tokens",
+        type=int,
+        default=0,
+        help="AI max tokens",
+    )
+    parser.add_argument(
+        "--ai-temperature",
+        type=int,
+        default=0,
+        help="AI temperature",
     )
 
     args = parser.parse_args()

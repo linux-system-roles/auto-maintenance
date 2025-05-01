@@ -213,7 +213,6 @@ def format_fields(task, task_state, ts, is_header=False):
 
 def get_task_ts(server, task_num):
     """Return the task info and timestamp."""
-    global tasks_info
     task, ts = tasks_info.get(task_num, (None, None))
     if task is None:
         task = server.get_build_info(job_name, task_num)

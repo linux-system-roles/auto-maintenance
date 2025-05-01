@@ -894,19 +894,32 @@ def get_testing_farm_result(args):
     verify = not args.disable_verify
     for url in args.testing_farm_job_url:
         result = requests.get(url, verify=verify).json()
+        os = result["environments_requested"][0].get("os")
+        if os:
+            compose = os["compose"]
+        else:
+            compose = result["environments_requested"][0]["variables"].get(
+                "COMPOSE_MANAGED_NODE"
+            )
+        if result["state"] == "queued":
+            artifacts_url = "QUEUED"
+            pipeline_type = "QUEUED"
+        else:
+            artifacts_url = result["run"]["artifacts"]
+            pipeline_type = result["settings"]["pipeline"]["type"]
         data = {
             "plan_filter": result["test"]["fmf"]["plan_filter"],
             "state": result["state"],
             "arch": result["environments_requested"][0]["arch"],
-            "compose": result["environments_requested"][0]["os"]["compose"],
+            "compose": compose,
             "included_tests": result["environments_requested"][0]["variables"].get(
                 "SR_ONLY_TESTS", "ALL"
             ),
             "excluded_tests": result["environments_requested"][0]["variables"].get(
                 "SR_EXCLUDED_TESTS", "ALL"
             ),
-            "artifacts_url": result["run"]["artifacts"],
-            "pipeline_type": result["settings"]["pipeline"]["type"],
+            "artifacts_url": artifacts_url,
+            "pipeline_type": pipeline_type,
             "queued_time": result["queued_time"],
             "run_time": result["run_time"],
             "created_ts": datetime.datetime.fromisoformat(result["created"] + "+00:00"),
@@ -935,7 +948,7 @@ def get_testing_farm_result(args):
                             data["failed"].append(test_result)
                         if args.all_statuses or status == "FAIL":
                             errors.extend(get_errors_from_ansible_log(args, log_url))
-        elif "artifacts" in result["run"]:
+        elif result["run"] and "artifacts" in result["run"]:
             results_xml = result["run"]["artifacts"] + "/results.xml"
             xml_data = requests.get(results_xml, verify=verify).content
             bs = BeautifulSoup(xml_data, "xml")
@@ -945,8 +958,10 @@ def get_testing_farm_result(args):
                 )
                 data["passed"].extend(data["job_data"]["passed"])
                 data["failed"].extend(data["job_data"]["failed"])
+        elif result["state"] == "queued":
+            data["result"] = "queued"
         rv.append(data)
-        return rv, errors
+    return rv, errors
 
 
 def print_testing_farm_result(args, result):
@@ -966,7 +981,7 @@ def print_testing_farm_result(args, result):
         f"  Result {result.get('result', 'running')} - {len(result['passed'])} passed - "
         f"{len(result['failed'])} failed"
     )
-    if result.get("result", "running") == "running":
+    if result.get("result", "running") == "running" and "job_data" in result:
         print("  last line: " + result["job_data"]["last_line"])
     if args.failed_tests_to_show > 0:
         for failed_test in result["failed"][-args.failed_tests_to_show:]:  # fmt: skip

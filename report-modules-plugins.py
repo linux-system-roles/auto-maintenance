@@ -362,7 +362,6 @@ def find_plugins(args, filectx):
                 )
                 continue
             if isinstance(item, jinja2.nodes.Macro):
-                global jinja2_macros
                 jinja2_macros.add(item_name)
                 logging.debug(f"\titem {item_name} {item.__class__}")
                 continue

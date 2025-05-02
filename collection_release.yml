@@ -14,7 +14,7 @@ network:
   ref: 1.17.2
   sourcenum: 5
 storage:
-  ref: 1.18.14
+  ref: 1.18.15
   sourcenum: 6
 metrics:
   ref: 1.10.9

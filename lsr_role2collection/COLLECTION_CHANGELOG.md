@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.97.2] - 2025-05-02
+---------------------
+
+### Bug Fixes
+
+- storage - fix: Correctly check PVs for grow_to_fill feature (#523)
+
 [1.97.1] - 2025-04-29
 ---------------------
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import ast
 import copy
 import csv
 import datetime
@@ -22,7 +21,7 @@ try:
     from ghapi.all import GhApi
     from ghapi.page import paged as gh_paged
 except ModuleNotFoundError:
-    logging.warning("no ghapi library")
+    pass
 from bs4 import BeautifulSoup
 from http.client import HTTPConnection
 
@@ -235,10 +234,19 @@ def get_statuses(gh, org, repo, pr_num):
     return statuses
 
 
+# upstream
+SYSTEM_ROLE_UPSTREAM_LOG_RE = re.compile(
+    r"/logs/tf_(?P<role>(tft-tests|[a-z0-9_]+))-(?P<pr_num>[0-9]+)_"
+    r"(?P<platform_version>[a-zA-Z0-9-]+)-2[.][0-9]+_(?P<date>[0-9]+)-(?P<time>[0-9]+)"
+    r"/artifacts/(?P<test_name>tests_[a-z0-9_]+)-"
+    r"ANSIBLE-(?P<ansible_ver>[0-9.]+)-.*-(?P<test_status>SUCCESS|FAIL)[.](?P<suffix>log|json)$"
+)
+
+
 # beaker
 SYSTEM_ROLE_LOG_RE = re.compile(
     r"/SYSTEM-ROLE-(?P<role>[a-z0-9_]+)_(?P<test_name>tests_[a-z0-9_]+"
-    r"[.]yml)-.*-ANSIBLE-(?P<ansible_ver>[0-9.]+).*[.]log$"
+    r"[.]yml)-.*-ANSIBLE-(?P<ansible_ver>[0-9.]+).*[.](?P<suffix>log|json)$"
 )
 
 
@@ -246,8 +254,35 @@ SYSTEM_ROLE_LOG_RE = re.compile(
 SYSTEM_ROLE_TF_LOG_RE = re.compile(
     r"/data/(?P<role>[a-z0-9_]+)-(?P<test_name>tests_[a-z0-9_]+)"
     r"-ANSIBLE-(?P<ansible_ver>[0-9.]+)-(?P<tf_job_name>[0-9a-z_]+)"
-    r"-(?P<test_status>SUCCESS|FAIL)[.]log$"
+    r"-(?P<test_status>SUCCESS|FAIL)[.](?P<suffix>log|json)$"
 )
+
+
+# local log file - legacy format
+SYSTEM_ROLE_LOG_LEGACY = re.compile(
+    r"-system-roles[./](?P<role>[a-z0-9_]+)/tests/(?P<test_name>tests_[a-z0-9_]+)[.](yml[.])?(?P<suffix>log|json)$"
+)
+
+
+# local log file - collection format
+SYSTEM_ROLE_LOG_COLLECTION = re.compile(
+    r"_system_roles/tests/(?P<role>[a-z0-9_]+)/(?P<test_name>tests_[a-z0-9_]+)[.](yml[.])?(?P<suffix>log|json)$"
+)
+
+
+# parse the given log file name or url and extract and return the data
+def log_file_or_url_to_data(log_file_or_url):
+    for rx in (
+        SYSTEM_ROLE_UPSTREAM_LOG_RE,
+        SYSTEM_ROLE_LOG_RE,
+        SYSTEM_ROLE_TF_LOG_RE,
+        SYSTEM_ROLE_LOG_LEGACY,
+        SYSTEM_ROLE_LOG_COLLECTION,
+    ):
+        match = rx.search(log_file_or_url)
+        if match:
+            return match.groupdict()
+    return {}
 
 
 def get_errors_from_ansible_log(args, log_url, extra_fields={}):
@@ -260,49 +295,17 @@ def get_errors_from_ansible_log(args, log_url, extra_fields={}):
     task_path = None
 
     logging.debug("Getting errors from ansible log [%s]", log_url)
-
-    # Extracts the system role name
-    if "logs/tf_" in log_url:
-        extracted_part = log_url.split("logs/")[1]
-        start_index = extracted_part.find("tf_") + 3  # +3 to skip "tf_"
-        if start_index > 2:
-            end_index = extracted_part.index("-", start_index)
-            role = extracted_part[start_index:end_index]
-            pattern = r"ANSIBLE-(\d+\.\d+)"
-            ansible_version_matches = re.findall(pattern, log_url)
-            ansible_version = (
-                ansible_version_matches[0] if ansible_version_matches else "UNKNOWN"
-            )
-    else:
-        # https://....//SYSTEM-ROLE-$ROLENAME_$TEST_NAME.yml-legacy-ANSIBLE-2.log
-        match = SYSTEM_ROLE_LOG_RE.search(log_url)
-        if match:
-            role = match.group("role")
-            if args.role != ["ALL"] and role not in args.role:
-                logging.info(
-                    "Skipping log - role [%s] not in args.role [%s]: [%s]",
-                    role,
-                    str(args.role),
-                    log_url,
-                )
-                return []
-            # test = match.group(2)  # unused for now
-            ansible_version = match.group("ansible_ver")
-        else:
-            # testing farm - https://...../data/$ROLENAME-$TESTNAME-ANSIBLE-$VER-$TFTESTNAME-$STATUS.log
-            match = SYSTEM_ROLE_TF_LOG_RE.search(log_url)
-            if match:
-                role = match.group("role")
-                if args.role != ["ALL"] and role not in args.role:
-                    logging.info(
-                        "Skipping log - role [%s] not in args.role [%s]: [%s]",
-                        role,
-                        str(args.role),
-                        log_url,
-                    )
-                    return []
-                ansible_version = match.group("ansible_ver")
-                # other fields not used here
+    data = log_file_or_url_to_data(log_url)
+    role = data["role"]
+    ansible_version = data["ansible_ver"]
+    if args.role != ["ALL"] and role not in args.role:
+        logging.info(
+            "Skipping log - role [%s] not in args.role [%s]: [%s]",
+            role,
+            str(args.role),
+            log_url,
+        )
+        return []
 
     for line in get_file_data(args, log_url):
         if (
@@ -413,14 +416,16 @@ def get_logs_from_github(args):
         for pr in items["items"]:
             ary = pr.url.split("/")
             prs.append((ary[4], ary[5], ary[7]))
+    errors = []
     for org, repo, pr_num in prs:
         for status in get_statuses(gh, org, repo, pr_num):
             if status.target_url:
-                get_logs_from_artifacts_page(args, status.target_url)
+                errors.extend(get_logs_from_artifacts_page(args, status.target_url))
             else:
                 logging.info(
                     f"No logs for [{org}/{repo}/{pr_num}/{status.context}]: {status.description}"
                 )
+    return errors
 
 
 def parse_date_range(date_range):
@@ -763,80 +768,45 @@ def get_logs_from_beaker(args):
     print_ansible_errors(args, errors)
 
 
-def parse_ansible_junit_log(log_file):
-    rv = []
-    name_re = re.compile(r"\[([^]]+)\] (.+)$")
-    with open(log_file) as lf:
-        bs = BeautifulSoup(lf, "xml")
-        error_count = 0
-        failure_count = 0
-        for failure in bs.find_all(["failure", "error"]):
-            if failure.get("type") == "failure":
-                failure_count += 1
-            else:
-                error_count += 1
-            name = failure.parent.get("name")
-            match = name_re.search(name)
-            host = match.group(1)
-            ary = match.group(2).split(":")
-            if len(ary) > 2:
-                play = ary[0].strip()
-                role = ary[1].strip()
-                task = ary[2].strip()
-            else:
-                play = ary[0].strip()
-                task = ary[1].strip()
-                role = ""
-            message = failure.get("message")
-            # see if message is a JSON string or a python object encoded as a string
-            try:
-                message = json.loads(message)
-            except Exception:
-                try:
-                    message = ast.literal_eval(message)
-                except Exception:
-                    pass  # not python object
-                pass  # not json
-            data = {
-                "context": failure.parent.get("classname"),
-                "message": message,
-                "play": play,
-                "role": role,
-                "task": task,
-                "time": failure.parent.get("time"),
-                "host": host,
-            }
-            rv.append(data)
-        # last element in the return array is the summary
-        summary = bs.find_all("testsuite")[-1]
-        data = {}
-        for attr in (
-            "failures",
-            "errors",
-            "disabled",
-            "name",
-            "skipped",
-            "tests",
-            "time",
-        ):
-            if attr == "tests":
-                data["tasks"] = summary.get("tests")
-            else:
-                data[attr] = summary.get(attr)
-        if int(data["failures"]) != failure_count:
-            logging.error(
-                "Failure count [%d] does not match failures [%s] from summary",
-                failure_count,
-                data["failures"],
+def get_lsr_stat_items(log_data):
+    start_token = "SYSTEM ROLES ERRORS BEGIN v1"
+    end_token = "SYSTEM ROLES ERRORS END v1"
+    start_pos = log_data.find(start_token)
+    while start_pos > 0:
+        end_pos = log_data.find(end_token, start_pos)
+        if end_pos == -1:
+            logging.error("Error: end token [%s] not found", end_token)
+            return None
+        start_pos += len(start_token)
+        yield json.loads(log_data[start_pos:end_pos])
+        start_pos = log_data.find(start_token, end_pos + 1)
+
+
+def parse_lsr_error_log(args, log_url, extra_fields={}):
+    errors = []
+    if log_url.startswith("http://") or log_url.startswith("https://"):
+        verify = not args.disable_verify
+        log_data = requests.get(log_url, verify=verify).content.decode("utf-8")
+    else:  # assume a local file
+        log_data = open(log_url).read()
+    url_data = log_file_or_url_to_data(log_url)
+    role = url_data["role"]
+    for data in get_lsr_stat_items(log_data):
+        for error_item in data:
+            error = copy.deepcopy(extra_fields)
+            error.update(
+                {
+                    "Role": role,
+                    "Ansible Version": error_item["ansible_version"],
+                    "Task": error_item["task_name"],
+                    "Task Path": error_item["task_path"],
+                    "Parents": error_item["parents"],
+                    "Url": log_url,
+                    "Detail": error_item["message"],
+                }
             )
-        if int(data["errors"]) != error_count:
-            logging.error(
-                "Error count [%d] does not match errors [%s] from summary",
-                error_count,
-                data["errors"],
-            )
-        rv.append(data)
-    return rv
+            errors.append(error)
+    return errors
 
 
 def parse_tf_job_log(args, url, ref_dt):
@@ -1135,10 +1105,10 @@ def parse_arguments():
         help="for beaker logs, show this many failed tests",
     )
     parser.add_argument(
-        "--junit-log",
+        "--lsr-error-log",
         default=[],
         action="append",
-        help="junit log file",
+        help="lsr error log file from lsr_report_errors.py",
     )
     parser.add_argument(
         "--print-all-avcs",
@@ -1220,16 +1190,16 @@ def main():
         for result in results:
             print_testing_farm_result(args, result)
         print_ansible_errors(args, failures)
-    elif args.junit_log:
-        import pprint
-
-        for log_file in args.junit_log:
-            failures = parse_ansible_junit_log(log_file)
-            pprint.pprint(failures)
+    elif args.lsr_error_log:
+        errors = []
+        for log_url in args.lsr_error_log:
+            errors.extend(parse_lsr_error_log(args, log_url))
+        print_ansible_errors(args, errors)
     elif args.beaker_job or args.beaker_job_list:
         get_logs_from_beaker(args)
     elif any((args.github_repo, args.github_pr, args.github_pr_search)):
-        get_logs_from_github(args)
+        errors = get_logs_from_github(args)
+        print_ansible_errors(args, errors)
     elif args.log_url:
         errors = get_logs_from_url(args)
         print_ansible_errors(args, errors)

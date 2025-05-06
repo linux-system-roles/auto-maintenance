@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.98.0] - 2025-05-06
+---------------------
+
+### New Features
+
+- metrics - feat: add missing Spark import/export support for metrics (#233)
+
 [1.97.3] - 2025-05-05
 ---------------------
 

@@ -907,10 +907,13 @@ def get_testing_farm_result(args):
         else:
             artifacts_url = result["run"]["artifacts"]
             pipeline_type = result["settings"]["pipeline"]["type"]
+        arch = result["environments_requested"][0]["variables"].get(
+            "ARCH_MANAGED_NODE", result["environments_requested"][0]["arch"]
+        )
         data = {
             "plan_filter": result["test"]["fmf"]["plan_filter"],
             "state": result["state"],
-            "arch": result["environments_requested"][0]["arch"],
+            "arch": arch,
             "compose": compose,
             "included_tests": result["environments_requested"][0]["variables"].get(
                 "SR_ONLY_TESTS", "ALL"
@@ -967,7 +970,7 @@ def get_testing_farm_result(args):
 def print_testing_farm_result(args, result):
     print(
         f"Test plan filter [{result['plan_filter']}] arch [{result['arch']}] "
-        f"compose [{result['compose']}]"
+        f"compose [{result['compose']}] url [{result['artifacts_url']}]"
     )
     print(
         f"  Start [{result['created_ts']}] updated [{result['updated_ts']}] "

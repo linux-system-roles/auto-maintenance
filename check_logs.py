@@ -260,13 +260,13 @@ SYSTEM_ROLE_TF_LOG_RE = re.compile(
 
 # local log file - legacy format
 SYSTEM_ROLE_LOG_LEGACY = re.compile(
-    r"-system-roles[./](?P<role>[a-z0-9_]+)/tests/(?P<test_name>tests_[a-z0-9_]+)[.](?P<suffix>log|json)$"
+    r"-system-roles[./](?P<role>[a-z0-9_]+)/tests/(?P<test_name>tests_[a-z0-9_]+)[.](yml[.])?(?P<suffix>log|json)$"
 )
 
 
 # local log file - collection format
 SYSTEM_ROLE_LOG_COLLECTION = re.compile(
-    r"_system_roles/tests/(?P<role>[a-z0-9_]+)/(?P<test_name>tests_[a-z0-9_]+)[.](?P<suffix>log|json)$"
+    r"_system_roles/tests/(?P<role>[a-z0-9_]+)/(?P<test_name>tests_[a-z0-9_]+)[.](yml[.])?(?P<suffix>log|json)$"
 )
 
 
@@ -766,12 +766,30 @@ def get_logs_from_beaker(args):
     print_ansible_errors(args, errors)
 
 
-def parse_lsr_error_log(log_file, extra_fields={}):
-    rv = []
-    log_data = log_file_or_url_to_data(log_file)
-    role = log_data["role"]
-    with open(log_file) as lf:
-        data = json.load(lf)
+def get_lsr_stat_items(log_data):
+    start_token = "SYSTEM ROLES ERRORS BEGIN"
+    end_token = "SYSTEM ROLES ERRORS END"
+    start_pos = log_data.find(start_token)
+    while start_pos > 0:
+        end_pos = log_data.find(end_token, start_pos)
+        if end_pos == -1:
+            logging.error("Error: end token [%s] not found", end_token)
+            return None
+        start_pos += len(start_token)
+        yield json.loads(log_data[start_pos:end_pos])
+        start_pos = log_data.find(start_token, end_pos + 1)
+
+
+def parse_lsr_error_log(args, log_url, extra_fields={}):
+    errors = []
+    if log_url.startswith("http://") or log_url.startswith("https://"):
+        verify = not args.disable_verify
+        log_data = requests.get(log_url, verify=verify).content
+    else:  # assume a local file
+        log_data = open(log_url).read()
+    url_data = log_file_or_url_to_data(log_url)
+    role = url_data["role"]
+    for data in get_lsr_stat_items(log_data):
         ansible_version = data["ansible_version"]
         for play_data in data["plays"]:
             for task_data in play_data["tasks"]:
@@ -785,12 +803,12 @@ def parse_lsr_error_log(log_file, extra_fields={}):
                         "Task": task_data["task"]["name"],
                         "Task Path": task_data["task"]["path"],
                         "Parents": task_data["task"]["parents"],
-                        "Url": log_file,
+                        "Url": log_url,
                         "Detail": message,
                     }
                 )
-                rv.append(error)
-    return rv
+                errors.append(error)
+    return errors
 
 
 def parse_tf_job_log(args, url, ref_dt):
@@ -1176,8 +1194,8 @@ def main():
         print_ansible_errors(args, failures)
     elif args.lsr_error_log:
         errors = []
-        for log_file in args.lsr_error_log:
-            errors.extend(parse_lsr_error_log(log_file))
+        for log_url in args.lsr_error_log:
+            errors.extend(parse_lsr_error_log(args, log_url))
         print_ansible_errors(args, errors)
     elif args.beaker_job or args.beaker_job_list:
         get_logs_from_beaker(args)

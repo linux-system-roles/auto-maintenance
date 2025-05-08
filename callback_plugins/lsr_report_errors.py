@@ -128,6 +128,10 @@ class CallbackModule(CallbackBase):
         self._write_log_name = None
         self.parents = Parents()
 
+    def reset(self):
+        self.parents.clear()
+        self.results = []
+
     def _new_play(self, play):
         self._is_lockstep = play.strategy in LOCKSTEP_CALLBACKS
         return {
@@ -217,19 +221,31 @@ class CallbackModule(CallbackBase):
             "global_custom_stats": global_custom_stats,
         }
 
-        # self._display.display(json.dumps(output, cls=AnsibleJSONEncoder, indent=self._json_indent, sort_keys=True))
-        if self._write_log_name:
-            output_dir = self.get_option("lsr_json_output_dir")
-            os.makedirs(output_dir, exist_ok=True)
-            output_file = os.path.join(output_dir, self._write_log_name)
-            with open(output_file, "w") as of:
-                json.dump(
+        output_dir = self.get_option("lsr_json_output_dir")
+        if output_dir:
+            if self._write_log_name:
+                os.makedirs(output_dir, exist_ok=True)
+                output_file = os.path.join(output_dir, self._write_log_name)
+                with open(output_file, "w") as of:
+                    json.dump(
+                        output,
+                        of,
+                        cls=AnsibleJSONEncoder,
+                        indent=self._json_indent,
+                        sort_keys=True,
+                    )
+        else:
+            self._display.display("SYSTEM ROLES ERRORS BEGIN")
+            self._display.display(
+                json.dumps(
                     output,
-                    of,
                     cls=AnsibleJSONEncoder,
                     indent=self._json_indent,
                     sort_keys=True,
                 )
+            )
+            self._display.display("SYSTEM ROLES ERRORS END")
+            self.reset()
 
     def _record_task_result(self, on_info, result, **kwargs):
         """This function is used as a partial to add failed/skipped info in a single method"""
@@ -251,10 +267,6 @@ class CallbackModule(CallbackBase):
             task_result["task"]["parents"] = self.parents.get_parents()
             if task_result["task"]["parents"][-1] == task_result["task"]["path"]:
                 task_result["task"]["parents"].pop()
-
-        if not self._is_lockstep:
-            key = (host.get_name(), task._uuid)
-            del self._task_map[key]
 
     def __getattribute__(self, name):
         """Return ``_record_task_result`` partial with a dict containing skipped/failed if necessary"""

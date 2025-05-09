@@ -236,7 +236,7 @@ def get_statuses(gh, org, repo, pr_num):
 
 # upstream
 SYSTEM_ROLE_UPSTREAM_LOG_RE = re.compile(
-    r"/logs/tf_(?P<role>[a-z0-9_]+)-(?P<pr_num>[0-9]+)_"
+    r"/logs/tf_(?P<role>(tft-tests|[a-z0-9_]+))-(?P<pr_num>[0-9]+)_"
     r"(?P<platform_version>[a-zA-Z0-9-]+)-2[.][0-9]+_(?P<date>[0-9]+)-(?P<time>[0-9]+)"
     r"/artifacts/(?P<test_name>tests_[a-z0-9_]+)-"
     r"ANSIBLE-(?P<ansible_ver>[0-9.]+)-.*-(?P<test_status>SUCCESS|FAIL)[.](?P<suffix>log|json)$"
@@ -784,7 +784,7 @@ def parse_lsr_error_log(args, log_url, extra_fields={}):
     errors = []
     if log_url.startswith("http://") or log_url.startswith("https://"):
         verify = not args.disable_verify
-        log_data = requests.get(log_url, verify=verify).content
+        log_data = requests.get(log_url, verify=verify).content.decode("utf-8")
     else:  # assume a local file
         log_data = open(log_url).read()
     url_data = log_file_or_url_to_data(log_url)
@@ -794,20 +794,30 @@ def parse_lsr_error_log(args, log_url, extra_fields={}):
         for play_data in data["plays"]:
             for task_data in play_data["tasks"]:
                 for full_host, host_data in task_data["hosts"].items():
-                    message = host_data["msg"]
-                error = copy.deepcopy(extra_fields)
-                error.update(
-                    {
-                        "Role": role,
-                        "Ansible Version": ansible_version,
-                        "Task": task_data["task"]["name"],
-                        "Task Path": task_data["task"]["path"],
-                        "Parents": task_data["task"]["parents"],
-                        "Url": log_url,
-                        "Detail": message,
-                    }
-                )
-                errors.append(error)
+                    results = host_data.get("results")
+                    if not results:
+                        results = [host_data]
+                    for item in results:
+                        message = item.get("msg")
+                        if not message:
+                            message = item.get("censored")
+                        if not message:
+                            message = "No error message could be found"
+                        if isinstance(message, list):
+                            message = "\n".join(message)
+                        error = copy.deepcopy(extra_fields)
+                        error.update(
+                            {
+                                "Role": role,
+                                "Ansible Version": ansible_version,
+                                "Task": task_data["task"]["name"],
+                                "Task Path": task_data["task"]["path"],
+                                "Parents": task_data["task"]["parents"],
+                                "Url": log_url,
+                                "Detail": message,
+                            }
+                        )
+                        errors.append(error)
     return errors
 
 

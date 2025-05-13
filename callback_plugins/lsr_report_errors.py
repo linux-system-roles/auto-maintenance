@@ -246,14 +246,26 @@ class CallbackModule(CallbackBase):
                     "start_time": start_time,
                     "end_time": end_time,
                 }
+                loop_label = result_item.get("_ansible_item_label")
+                loop_item_key = result_item.get("ansible_loop_var")
+                if loop_label or loop_item_key:
+                    if loop_item_key:
+                        error["loop_var"] = loop_item_key
+                        loop_item = result_item[loop_item_key]
+                    else:
+                        loop_item = None
+                    if loop_item and loop_item == message:
+                        loop_item = "<same as message>"
+                    if loop_label and loop_label == loop_item:
+                        loop_label = "<same as loop_item>"
+                    if loop_label and loop_label == message:
+                        loop_label = "<same as message>"
+                    if loop_item:
+                        error["loop_item"] = loop_item
+                    if loop_label:
+                        error["loop_label"] = loop_label
                 if "delta" in result_item:
                     error["delta"] = result_item["delta"]
-                if "_ansible_item_label" in result_item:
-                    error["loop_label"] = result_item["_ansible_item_label"]
-                item_key = result_item.get("ansible_loop_var")
-                if item_key:
-                    error["loop_var"] = item_key
-                    error["loop_item"] = result_item[item_key]
                 if "rc" in result_item:
                     error["rc"] = result_item["rc"]
                 if "attempts" in result_item:

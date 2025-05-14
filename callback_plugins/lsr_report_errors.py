@@ -1,5 +1,8 @@
+# original code from Ansible
 # (c) 2016, Matt Martz <matt@sivel.net>
 # (c) 2017 Ansible Project
+# New features from Red Hat
+# (c) 2025 Red Hat, Inc.
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 # Make coding more python3-ish
@@ -27,16 +30,6 @@ DOCUMENTATION = """
     requirements:
       - Set as stdout in config
     options:
-      lsr_show_custom_stats:
-        name: Show custom stats
-        description: 'This adds the custom stats set via the set_stats plugin to the play recap'
-        default: False
-        env:
-          - name: ANSIBLE_LSR_SHOW_CUSTOM_STATS
-        ini:
-          - key: lsr_show_custom_stats
-            section: defaults
-        type: bool
       lsr_json_indent:
         name: Use indenting for the JSON output
         description:
@@ -51,7 +44,7 @@ DOCUMENTATION = """
         type: integer
       lsr_json_output_dir:
         name: Output directory
-        description: 'Output directory'
+        description: Output directory - by default, output goes into regular log output
         env:
           - name: ANSIBLE_LSR_JSON_OUTPUT_DIR
         ini:

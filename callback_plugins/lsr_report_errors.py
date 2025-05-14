@@ -70,7 +70,6 @@ class Parents(object):
         self.files = []
 
     def push_or_pop(self, path_obj):
-        # import pdb; pdb.set_trace()
         path = path_obj.get_path()
         file_name, line_no = path.split(":")
         if self.files and file_name == self.files[-1]:
@@ -209,7 +208,7 @@ class CallbackModule(CallbackBase):
 
     def _record_task_result(self, on_info, result, **kwargs):
         """This function is used as a partial to add failed/skipped info in a single method"""
-        if on_info.get("failed"):
+        if on_info.get("failed") or on_info.get("unreachable"):
             task_path = self._current_task["task"]["path"]
             parents = self.parents.get_parents()
             if parents[-1] == task_path:
@@ -266,19 +265,17 @@ class CallbackModule(CallbackBase):
                 self.errors.append(error)
 
     def __getattribute__(self, name):
-        """Return ``_record_task_result`` partial with a dict containing skipped/failed if necessary"""
+        """Return ``_record_task_result`` partial with a dict containing unreachable/failed if necessary"""
         if name not in (
-            "v2_runner_on_ok",
             "v2_runner_on_failed",
             "v2_runner_on_unreachable",
-            "v2_runner_on_skipped",
         ):
             return object.__getattribute__(self, name)
 
         on = name.rsplit("_", 1)[1]
 
         on_info = {}
-        if on in ("failed", "skipped"):
+        if on in ("failed", "unreachable"):
             on_info[on] = True
 
         return partial(self._record_task_result, on_info)

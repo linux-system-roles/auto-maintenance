@@ -962,6 +962,10 @@ def print_testing_farm_result(args, result):
     print("")
 
 
+def sanitize_for_actions(text):
+    return re.sub(r"^::", " ::", text, flags=re.M)
+
+
 def print_ansible_errors(args, errors):
     if not errors:
         print("No errors found")
@@ -1031,6 +1035,23 @@ def print_ansible_errors(args, errors):
         sh.values_update(
             worksheet.title, {"valueInputOption": "USER_ENTERED"}, {"values": values}
         )
+    if args.github_action_format:
+        for error in errors:
+            print(f"::group::{os.path.basename(error['Url'])} {error['Task']}")
+            print(
+                f"Role: [{error['Role']}] Ansible Version: [{error['Ansible Version']}]"
+            )
+            print(f"Task Path: {error['Task Path']}")
+            parents = error.get("Parents")
+            if parents:
+                print("Parents:")
+                for parent in parents:
+                    print(f"    {parent}")
+            print(f"Log url: {error['Url']}")
+            print("Detail:")
+            detail = sanitize_for_actions(error["Detail"])
+            print(detail)
+            print("::endgroup::")
 
 
 def parse_arguments():
@@ -1168,6 +1189,13 @@ def parse_arguments():
         action="append",
         help="url of testing farm job api e.g. https://api.dev.testing-farm.io/v0.1/requests/xxxxx",
     )
+    parser.add_argument(
+        "--github-action-format",
+        "--gh-format",
+        default=False,
+        action="store_true",
+        help="Write errors in GitHub Actions-friendly format",
+    )
 
     args = parser.parse_args()
     return args
@@ -1182,7 +1210,7 @@ def main():
     elif args.verbose > 0:
         logging.getLogger().setLevel(logging.INFO)
 
-    if args.csv_errors or args.gspread:
+    if args.csv_errors or args.gspread or args.github_action_format:
         args.gather_errors = True
 
     if args.testing_farm_job_url:

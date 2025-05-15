@@ -339,6 +339,12 @@ Here are your options:
         # shellcheck disable=SC2154
         clone_repo . "$upstream_org" "$repo"
         git checkout "$mainbr"
+        if [ -z "${BRANCH:-}" ]; then
+            BRANCH="changelog-$(date -I)"
+            if [ -n "$(git branch --list "$BRANCH")" ]; then
+                BRANCH="changelog-$(date -Isec)"
+            fi
+        fi
         if [ -n "$(git branch --list "$BRANCH")" ]; then
             git checkout "$BRANCH"
             git rebase "$mainbr"

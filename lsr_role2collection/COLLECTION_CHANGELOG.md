@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.99.0] - 2025-05-15
+---------------------
+
+### New Features
+
+- logging - feat: Support this role in container builds (#444)
+
+### Bug Fixes
+
+- logging - fix: Consider "degraded" systemd state as booted (#449)
+
 [1.98.0] - 2025-05-06
 ---------------------
 

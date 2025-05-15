@@ -20,18 +20,20 @@ import sys
 try:
     from ghapi.all import GhApi
     from ghapi.page import paged as gh_paged
-except ModuleNotFoundError:
-    pass
-from bs4 import BeautifulSoup
+except ImportError:
+    logging.debug("No ghapi library")
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    logging.debug("No bs4 library - no soup for you")
 from http.client import HTTPConnection
 
 try:
     import gspread
     from oauth2client.service_account import ServiceAccountCredentials
 except ImportError:
-    logging.warning("no gspread/oauth")
-except ModuleNotFoundError:
-    logging.warning("no gspread/oauth")
+    logging.debug("no gspread/oauth")
 
 signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 
@@ -790,13 +792,12 @@ def parse_lsr_error_log(args, log_url, extra_fields={}):
     else:  # assume a local file
         log_data = open(log_url).read()
     url_data = log_file_or_url_to_data(log_url)
-    role = url_data["role"]
+    role = url_data.get("role")
     for data in get_lsr_stat_items(log_data):
         for error_item in data:
             error = copy.deepcopy(extra_fields)
             error.update(
                 {
-                    "Role": role,
                     "Ansible Version": error_item["ansible_version"],
                     "Task": error_item["task_name"],
                     "Task Path": error_item["task_path"],
@@ -805,6 +806,8 @@ def parse_lsr_error_log(args, log_url, extra_fields={}):
                     "Detail": error_item["message"],
                 }
             )
+            if role:
+                error["Role"] = role
             errors.append(error)
     return errors
 
@@ -1038,9 +1041,9 @@ def print_ansible_errors(args, errors):
     if args.github_action_format:
         for error in errors:
             print(f"::group::{os.path.basename(error['Url'])} {error['Task']}")
-            print(
-                f"Role: [{error['Role']}] Ansible Version: [{error['Ansible Version']}]"
-            )
+            print(f"Ansible Version: [{error['Ansible Version']}]")
+            if "Role" in error:
+                print(f"Role: {error['Role']}")
             print(f"Task Path: {error['Task Path']}")
             parents = error.get("Parents")
             if parents:

@@ -206,9 +206,16 @@ class CallbackModule(CallbackBase):
             self._display.display("SYSTEM ROLES ERRORS END v1")
         self.reset()
 
+    # some of our tests set `failed_when: false` in order to ignore the failure
+    # and continue - by default `failed_when` is `[]` which evaluates to False
+    # in a boolean context, so we have to look for the explicit False value
     def _record_task_result(self, on_info, result, **kwargs):
         """This function is used as a partial to add failed/skipped info in a single method"""
-        if on_info.get("failed") or on_info.get("unreachable"):
+        if (
+            (on_info.get("failed") or on_info.get("unreachable"))
+            and not result._task_fields.get("ignore_errors")
+            and result._task_fields.get("failed_when") != [False]
+        ):
             task_path = self._current_task["task"]["path"]
             parents = self.parents.get_parents()
             if parents[-1] == task_path:
@@ -233,7 +240,6 @@ class CallbackModule(CallbackBase):
                     "task_name": task_name,
                     "task_path": task_path,
                     "ansible_version": __version__,
-                    "parents": parents,
                     "message": message,
                     "start_time": start_time,
                     "end_time": end_time,
@@ -256,12 +262,17 @@ class CallbackModule(CallbackBase):
                         error["loop_item"] = loop_item
                     if loop_label:
                         error["loop_label"] = loop_label
-                if "delta" in result_item:
-                    error["delta"] = result_item["delta"]
-                if "rc" in result_item:
-                    error["rc"] = result_item["rc"]
-                if "attempts" in result_item:
-                    error["attempts"] = result_item["attempts"]
+                for extra_field in [
+                    "parents",
+                    "delta",
+                    "rc",
+                    "attempts",
+                    "stdout",
+                    "stderr",
+                ]:
+                    value = result_item.get(extra_field)
+                    if value or value == 0:
+                        error[extra_field] = value
                 self.errors.append(error)
 
     def __getattribute__(self, name):

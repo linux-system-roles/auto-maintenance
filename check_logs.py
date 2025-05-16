@@ -801,13 +801,25 @@ def parse_lsr_error_log(args, log_url, extra_fields={}):
                     "Ansible Version": error_item["ansible_version"],
                     "Task": error_item["task_name"],
                     "Task Path": error_item["task_path"],
-                    "Parents": error_item["parents"],
-                    "Url": log_url,
+                    "Log Url": log_url,
                     "Detail": error_item["message"],
                 }
             )
             if role:
                 error["Role"] = role
+            optional_fields = [
+                ("Parents", "parents"),
+                ("Stdout", "stdout"),
+                ("Stderr", "stderr"),
+                ("RC", "rc"),
+                ("Start", "start_time"),
+                ("End", "end_time"),
+                ("Host", "host"),
+            ]
+            for title, field in optional_fields:
+                value = error_item.get(field)
+                if value or value == 0:
+                    error[title] = value
             errors.append(error)
     return errors
 
@@ -1040,20 +1052,31 @@ def print_ansible_errors(args, errors):
         )
     if args.github_action_format:
         for error in errors:
-            print(f"::group::{os.path.basename(error['Url'])} {error['Task']}")
-            print(f"Ansible Version: [{error['Ansible Version']}]")
-            if "Role" in error:
-                print(f"Role: {error['Role']}")
-            print(f"Task Path: {error['Task Path']}")
+            print(f"::group::{os.path.basename(error['Log Url'])} {error['Task']}")
+            for field in [
+                "Ansible Version",
+                "Task Path",
+                "Role",
+                "Log Url",
+                "RC",
+                "Start",
+                "End",
+                "Host",
+            ]:
+                value = error.get(field)
+                if value or value == 0:
+                    print(f"{field}: {value}")
             parents = error.get("Parents")
             if parents:
                 print("Parents:")
                 for parent in parents:
                     print(f"    {parent}")
-            print(f"Log url: {error['Url']}")
-            print("Detail:")
-            detail = sanitize_for_actions(error["Detail"])
-            print(detail)
+            for field in ["Detail", "Stdout", "Stderr"]:
+                value = error.get(field)
+                if value:
+                    print(f"\n{field}:")
+                    sanitized = sanitize_for_actions(value)
+                    print(sanitized)
             print("::endgroup::")
 
 

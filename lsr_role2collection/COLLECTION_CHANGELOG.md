@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.99.1] - 2025-05-16
+---------------------
+
+### Bug Fixes
+
+- storage - fix: Show error when trying to put LVM volume on partition pool (#531)
+- storage - fix: Allow small size differences to match the device min size (#526)
+
 [1.99.0] - 2025-05-15
 ---------------------
 

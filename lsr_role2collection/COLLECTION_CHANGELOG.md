@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.100.0] - 2025-05-19
+---------------------
+
+### New Features
+
+- snapshot - feat: add support for snapshot manager backing the role (#97)
+
 [1.99.1] - 2025-05-16
 ---------------------
 

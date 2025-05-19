@@ -754,8 +754,6 @@ def get_logs_from_beaker(args):
         beaker_jobs = result.stdout.split("\n")
     elif args.beaker_job:
         beaker_jobs = args.beaker_job
-    if args.beaker_job_list:
-        beaker_jobs.extend(args.beaker_job_list.split())
 
     errors = []
     for job in beaker_jobs:
@@ -1138,12 +1136,8 @@ def parse_arguments():
     parser.add_argument(
         "--beaker-job",
         default=[],
-        action="append",
+        nargs="*",
         help="beaker jobs to get logs for - use ALL to get logs from all jobs",
-    )
-    parser.add_argument(
-        "--beaker-job-list",
-        help='space delimited list of beaker jobs e.g. --beaker-job-list "$(bkr job-list .... --format list)"',
     )
     parser.add_argument(
         "--failed-tests-to-show",
@@ -1154,7 +1148,7 @@ def parse_arguments():
     parser.add_argument(
         "--lsr-error-log",
         default=[],
-        action="append",
+        nargs="*",
         help="lsr error log file from lsr_report_errors.py",
     )
     parser.add_argument(
@@ -1212,7 +1206,7 @@ def parse_arguments():
         "--testing-farm-job-url",
         "--tf-job-url",
         default=[],
-        action="append",
+        nargs="*",
         help="url of testing farm job api e.g. https://api.dev.testing-farm.io/v0.1/requests/xxxxx",
     )
     parser.add_argument(
@@ -1249,7 +1243,7 @@ def main():
         for log_url in args.lsr_error_log:
             errors.extend(parse_lsr_error_log(args, log_url))
         print_ansible_errors(args, errors)
-    elif args.beaker_job or args.beaker_job_list:
+    elif args.beaker_job:
         get_logs_from_beaker(args)
     elif any((args.github_repo, args.github_pr, args.github_pr_search)):
         errors = get_logs_from_github(args)

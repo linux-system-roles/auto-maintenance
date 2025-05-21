@@ -1,6 +1,24 @@
 Changelog
 =========
 
+[1.101.0] - 2025-05-21
+---------------------
+
+### New Features
+
+- cockpit - feat: Support this role in container builds (#212)
+- firewall - feat: Support this role in container builds (#274)
+- tlog - feat: Support this role in container builds (#164)
+
+### Bug Fixes
+
+- certificate - fix: update python package dependencies for SLE 16 (#270)
+- cockpit - fix: Consider "degraded" systemd state as booted (#217)
+- cockpit - fix: Ignore extra lines in dnf repoquery parsing (#214)
+- firewall - fix: Fix "interface_pci_id" role option (#278)
+- firewall - fix: Fix "helpers" service option (#277)
+- tlog - fix: Consider "degraded" systemd state as booted (#166)
+
 [1.100.1] - 2025-05-20
 ---------------------
 

@@ -118,6 +118,7 @@ class CallbackModule(CallbackBase):
             self._json_indent = None
         self._write_log_name = None
         self.parents = Parents()
+        self._current_task = None
 
     def reset(self):
         self.parents.clear()
@@ -216,24 +217,28 @@ class CallbackModule(CallbackBase):
             and not result._task_fields.get("ignore_errors")
             and result._task_fields.get("failed_when") != [False]
         ):
-            task_path = self._current_task["task"]["path"]
+            if self._current_task:
+                task_path = self._current_task["task"]["path"]
+            else:
+                task_path = "UNKNOWN"
             parents = self.parents.get_parents()
             if parents[-1] == task_path:
                 parents.pop()
 
             host = os.path.basename(result._host.name)
             task_name = result._task.name
-            if "results" in result._result:
-                results = result._result["results"]
-            else:
+            results = result._result.get("results")
+            if not results:
                 results = [result._result]
             for result_item in results:
                 message = result_item.get(
                     "msg", result_item.get("censored", "No message could be found")
                 )
-                start_time = result_item.get(
-                    "start", self._current_task["task"]["duration"]["start"]
-                )
+                start_time = result_item.get("start")
+                if not start_time and self._current_task:
+                    start_time = self._current_task["task"]["duration"]["start"]
+                if not start_time:
+                    start_time = "UNKNOWN"
                 end_time = result_item.get("end", current_time())
                 error = {
                     "host": host,

@@ -10,6 +10,7 @@ from __future__ import absolute_import, division, print_function
 import os
 import datetime
 import json
+import sys
 
 from functools import partial
 
@@ -61,7 +62,10 @@ PARENT_ACTIONS = frozenset(
 
 
 def current_time():
-    return "%sZ" % datetime.datetime.now(datetime.timezone.utc).isoformat()
+    if sys.version_info.major >= 3:
+        return "%sZ" % datetime.datetime.now(datetime.timezone.utc).isoformat()
+    else:
+        return "%sZ" % datetime.datetime.utcnow().isoformat()  # ansible29
 
 
 class Parents(object):
@@ -70,8 +74,10 @@ class Parents(object):
         self.files = []
 
     def push_or_pop(self, path_obj):
+        if not hasattr(path_obj, "get_path"):
+            return  # ansible29
         path = path_obj.get_path()
-        file_name, line_no = path.split(":")
+        file_name = path.split(":")[0]
         if self.files and file_name == self.files[-1]:
             # update the location
             self.parents[-1] = path
@@ -123,20 +129,6 @@ class CallbackModule(CallbackBase):
     def reset(self):
         self.parents.clear()
         self.errors = []
-
-    def _new_play(self, play):
-        self._is_lockstep = play.strategy in LOCKSTEP_CALLBACKS
-        return {
-            "play": {
-                "name": play.get_name(),
-                "id": to_text(play._uuid),
-                "path": to_text(play.get_path()),
-                "duration": {"start": current_time()},
-                "playbook_path": self._playbook_path,
-                "playbook_name": self._playbook_name,
-            },
-            "tasks": [],
-        }
 
     def _new_task(self, task):
         return {

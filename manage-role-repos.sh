@@ -58,7 +58,7 @@ clone_repo() {
         exit 1
     fi
     def_repo="$(gh repo set-default xxx/xxx --view 2>&1)"
-    if [ -z "$def_repo" ] || [[ "$def_repo" =~ "no default repository" ]]; then
+    if [ -z "$def_repo" ] || [[ "$def_repo" =~ [Nn]o\ default\ .*\ repository ]]; then
         gh repo set-default "$org/$repo"
     fi
     # make sure we have a fork of this under our personal space

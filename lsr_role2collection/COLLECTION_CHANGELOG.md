@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.101.1] - 2025-05-31
+---------------------
+
+### Bug Fixes
+
+- selinux - fix: Set the kernel command line selinux parameter correctly when changing selinux state (#275)
+
 [1.101.0] - 2025-05-21
 ---------------------
 

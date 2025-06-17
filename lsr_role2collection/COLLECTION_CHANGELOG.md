@@ -1,6 +1,23 @@
 Changelog
 =========
 
+[1.102.0] - 2025-06-17
+---------------------
+
+### New Features
+
+- aide - feat: add Suse support (#31)
+- journald - feat: Add support for SystemKeepFree journald.conf option (#109)
+- postgresql - feat: Support this role in container builds (#125)
+- selinux - feat: Partially support this role in container builds (#277)
+
+### Bug Fixes
+
+- postgresql - fix: Fixes for Ansible 2.19 (#129)
+- snapshot - fix: correct issues with LC_ALL and LVM_COMMAND_PROFILE and snapshot manager (#112)
+- storage - fix: Fix getting PVs from raid_disks for RAID LVs (#536)
+- tlog - fix: Set __is_system_running in check mode (#172)
+
 [1.101.1] - 2025-05-31
 ---------------------
 

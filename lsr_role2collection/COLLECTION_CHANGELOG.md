@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.103.0] - 2025-06-21
+---------------------
+
+### New Features
+
+- sshd - feat: Add new options from OpenSSH 10.0 (#312)
+
+### Bug Fixes
+
+- sshd - fix: service: Add default Environment option (#308)
+
 [1.102.0] - 2025-06-17
 ---------------------
 

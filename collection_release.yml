@@ -42,7 +42,7 @@ crypto_policies:
   sourcenum: 14
 sshd:
   org: willshersystems
-  ref: v0.26.0
+  ref: v0.27.0
   repo: ansible-sshd
   sourcenum: 15
 ssh:

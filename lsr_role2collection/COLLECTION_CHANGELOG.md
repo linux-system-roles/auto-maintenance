@@ -1,6 +1,27 @@
 Changelog
 =========
 
+[1.104.0] - 2025-06-23
+---------------------
+
+### New Features
+
+- certificate - feat: Support this role in container builds (#277)
+- crypto_policies - feat: Support this role in container environments and builds (#151)
+- ha_cluster - feat: crmsh SLES 16 changes and introduction of zypper patterns (#283)
+- nbde_server - feat: Support this role in container builds (#188)
+- selinux - feat: Support selinux_modules during bootc builds (#284)
+- selinux - feat: Support selinux_fcontexts during bootc builds (#283)
+- ssh - feat: Support this role in container environments and builds (#185)
+
+### Bug Fixes
+
+- nbde_client - fix: Adjust for Ansible 2.19 (#206)
+- postgresql - fix: Fix removing sql script from the host after inputting it (#131)
+- ssh - fix: Avoid setting ansible_managed variable (#189)
+- sudo - fix: Avoid append() in sudoers file template (#62)
+- sudo - fix: Avoid setting ansible_managed variable (#61)
+
 [1.103.0] - 2025-06-21
 ---------------------
 

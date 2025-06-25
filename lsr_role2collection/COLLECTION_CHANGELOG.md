@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.104.1] - 2025-06-25
+---------------------
+
+### Bug Fixes
+
+- bootloader - fix: Fix removing kernel options with values (#146)
+
 [1.104.0] - 2025-06-23
 ---------------------
 

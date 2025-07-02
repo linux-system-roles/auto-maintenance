@@ -145,8 +145,8 @@ fi
 
 cat <<EOF
 curl -H 'accept: application/json' -H "Authorization: Token \$galaxy_token" -L \
- -s https://galaxy.ansible.com/api/v1/roles\?namespace=linux-system-roles\&page_size=50 | \
- jq -r '.results[] | "\(.name),\(.download_count)"' | sort -r -k2 -n -t, > galaxy.csv
-
+ -s https://galaxy.ansible.com/api/v1/roles\?namespace=linux-system-roles\&page_size=50 \
+ | jq -r '.results[] | select(.name | IN("template", "mssql") | not) | "\(.name),\(.download_count)"' \
+ | sort -k1 -t, > galaxy.csv
 get https://galaxy.ansible.com/ui/standalone/roles/willshersystems/sshd
 EOF

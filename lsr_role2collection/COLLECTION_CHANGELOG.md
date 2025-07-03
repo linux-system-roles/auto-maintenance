@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.105.0] - 2025-07-03
+---------------------
+
+### New Features
+
+- ad_integration - feat: search for name of domain/realm in sssd.conf; merge settings if duplicates (#145)
+- bootloader - feat: Add ability to configure default kernel (#147)
+- cockpit - feat: add sles 16 support (#227)
+- metrics - feat: Support this role in container builds (#243)
+
+### Bug Fixes
+
+- ha_cluster - fix: ensure /var/lib/pcsd exists (#285)
+
 [1.104.1] - 2025-06-25
 ---------------------
 

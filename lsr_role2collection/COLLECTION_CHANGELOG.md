@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.106.0] - 2025-07-09
+---------------------
+
+### New Features
+
+- ha_cluster - feat: export cluster resources (#288)
+- journald - feat: Add MaxRetention configuration (#113)
+
+### Bug Fixes
+
+- sudo - fix: ensure single space before TYPE, ROLE, and correctly format those values (#65)
+
 [1.105.0] - 2025-07-03
 ---------------------
 

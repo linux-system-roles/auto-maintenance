@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.106.1] - 2025-07-15
+---------------------
+
+### Bug Fixes
+
+- postfix - fix: configure postfix to listen only to IPv4 if IPv6 is disabled (#187)
+- selinux - fix: tempdir path not defined in check mode; __selinux_item.path may be undefined (#289)
+
 [1.106.0] - 2025-07-09
 ---------------------
 

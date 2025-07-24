@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.107.0] - 2025-07-24
+---------------------
+
+### New Features
+
+- keylime_server - feat: add openSUSE Leap 15.6 to integration test matrix (#82)
+
+### Bug Fixes
+
+- ha_cluster - fix: use empty init to prevent old ansible issues (#294)
+- podman - fix: do not mix facts with vars (#236)
+- storage - fix: the encryption_key parameter should not be marked as no_log (#546)
+- storage - fix: Show better error when trying to create RAID without enough disks  (#545)
+
 [1.106.1] - 2025-07-15
 ---------------------
 

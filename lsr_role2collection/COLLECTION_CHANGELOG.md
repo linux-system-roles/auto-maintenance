@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.108.0] - 2025-07-24
+---------------------
+
+### New Features
+
+- metrics - feat: add metrics_optional_domains and metrics_optional_packages for users to configure optional domains (#245)
+
+### Bug Fixes
+
+- metrics - fix: add missing Spark import/export support for metrics - part 2 (#246)
+
 [1.107.0] - 2025-07-24
 ---------------------
 

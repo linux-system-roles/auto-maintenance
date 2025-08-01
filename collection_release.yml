@@ -1,5 +1,5 @@
 postfix:
-  ref: 1.6.3
+  ref: 1.6.4
   sourcenum: 1
 selinux:
   ref: 1.10.3
@@ -11,10 +11,10 @@ kdump:
   ref: 1.4.11
   sourcenum: 4
 network:
-  ref: 1.17.4
+  ref: 1.17.5
   sourcenum: 5
 storage:
-  ref: 1.18.19
+  ref: 1.18.20
   sourcenum: 6
 metrics:
   ref: 1.13.0
@@ -49,16 +49,16 @@ ssh:
   ref: 1.6.0
   sourcenum: 16
 ha_cluster:
-  ref: 1.25.2
+  ref: 1.25.3
   sourcenum: 17
 vpn:
   ref: 1.6.11
   sourcenum: 18
 firewall:
-  ref: 1.10.1
+  ref: 1.10.2
   sourcenum: 19
 cockpit:
-  ref: 1.7.0
+  ref: 1.7.1
   sourcenum: 20
 podman:
   ref: 1.8.3
@@ -79,13 +79,13 @@ systemd:
   ref: 1.3.4
   sourcenum: 26
 keylime_server:
-  ref: 1.2.0
+  ref: 1.2.1
   sourcenum: 27
 fapolicyd:
   ref: 1.1.10
   sourcenum: 28
 bootloader:
-  ref: 1.1.1
+  ref: 1.1.2
   sourcenum: 29
 snapshot:
   ref: 1.5.2
@@ -94,7 +94,7 @@ gfs2:
   ref: 1.0.3
   sourcenum: 31
 sudo:
-  ref: 1.2.5
+  ref: 1.2.6
   sourcenum: 32
 aide:
   ref: 1.2.1

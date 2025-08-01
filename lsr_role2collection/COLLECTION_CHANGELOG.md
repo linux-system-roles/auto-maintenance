@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.108.1] - 2025-08-01
+---------------------
+
+### Bug Fixes
+
+- bootloader - fix: Fix Python 2.7.5 compatibility by using msg= in fail_json() calls (#154)
+- bootloader - fix: boolean values and null values are not allowed (#153)
+- ha_cluster - fix: crsmh corosync template wrongly used variable from run_once host (#299)
+- keylime_server - fix: Add SLES_16 var file with required packages and ensure pyasn1 (#84)
+- sudo - fix: Use the correct regular expression to parse Cmnd_Alias and other aliases (#68)
+
 [1.108.0] - 2025-07-24
 ---------------------
 

@@ -47,6 +47,42 @@ signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
 
+TIMING_INFO = []
+TIMING_START_RE = re.compile(r"^=+ *$", re.MULTILINE)
+TIMING_RE = re.compile(r" (\d+[.]\d\d)s$", re.MULTILINE)
+
+
+def get_timing_info(args, role, log_url, log_data):
+    match = TIMING_START_RE.search(log_data)
+    if match:
+        newpos = match.end() + 1
+        match = TIMING_RE.search(log_data[newpos:])
+        if not match:
+            logging.error(
+                "Error: timing info not found in url [%s] log data [%s]",
+                log_url,
+                log_data[newpos : newpos + 100],  # noqa: E203
+            )
+        else:
+            info = {"time": match.group(1), "role": role, "log_url": log_url}
+            TIMING_INFO.append(info)
+
+
+def print_timing_info(args):
+    """Print timing information collected from log files."""
+    if not args.timing_info or not TIMING_INFO:
+        return
+
+    print("\nTiming Information:")
+    print("=" * 50)
+
+    # Sort by time, longest first
+    sorted_timing = sorted(TIMING_INFO, key=lambda x: float(x["time"]), reverse=True)
+
+    for info in sorted_timing[:30]:
+        print(f"{info['time']}s {info['role']} {info['log_url']}")
+
+
 TZ_UTC = datetime.UTC
 
 
@@ -168,18 +204,28 @@ def debug_requests_off():
     requests_log.propagate = False
 
 
-def get_file_data(args, url, dest_file=None):
+def get_file_data(args, url_or_data, dest_file=None):
     """Download file from url and write to dest_file.  Create dest directory if needed."""
     verify = not args.disable_verify
     if dest_file and (args.force or not os.path.exists(dest_file)):
         os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-    with requests.get(url, stream=True, verify=verify) as resp:
+    if url_or_data.startswith("http"):
+        url = url_or_data
+        with requests.get(url, stream=True, verify=verify) as resp:
+            resp.raise_for_status()
+            if dest_file:
+                with open(dest_file, "wb") as ff:
+                    shutil.copyfileobj(resp.raw, ff)
+            else:
+                for line in resp.iter_lines():
+                    yield line.decode("utf-8")
+    else:  # assume it is the actual data
         if dest_file:
             with open(dest_file, "wb") as ff:
-                shutil.copyfileobj(resp.raw, ff)
+                ff.write(url_or_data)
         else:
-            for line in resp.iter_lines():
-                yield line.decode("utf-8")
+            for line in url_or_data.splitlines():
+                yield line
 
 
 def gh_iter(op, subfield, *args, **kwargs):
@@ -287,6 +333,90 @@ def log_file_or_url_to_data(log_file_or_url):
     return {}
 
 
+def get_lsr_stat_items(log_data):
+    start_token = "SYSTEM ROLES ERRORS BEGIN v1"
+    end_token = "SYSTEM ROLES ERRORS END v1"
+    start_pos = log_data.find(start_token)
+    while start_pos > 0:
+        # check for nested errors, like the wrapper tests
+        # just check for one level of nesting
+        start_pos2 = log_data.find(start_token, start_pos + 1)
+        end_pos = log_data.find(end_token, start_pos)
+        if start_pos2 > 0 and start_pos2 < end_pos:
+            end_pos = log_data.find(end_token, start_pos2)
+            end_pos = log_data.find(end_token, end_pos + 1)
+        if end_pos == -1:
+            logging.error("Error: end token [%s] not found", end_token)
+            return None
+        start_pos += len(start_token)
+        yield json.loads(log_data[start_pos:end_pos])
+        start_pos = log_data.find(start_token, end_pos + 1)
+
+
+# these are the fields that are added to each error
+# The key is the name of the field as we want it to appear in the output
+# The value is a dict with the following keys:
+# - error_item_key: the name of the field in the error item
+# - var_name: the name of the local variable with the value
+# - default: the default value to use if the field is not present
+ERROR_FIELDS = {
+    "Ansible Version": {
+        "error_item_key": "ansible_version",
+        "var_name": "ansible_version",
+        "default": "",
+    },
+    "Task": {"error_item_key": "task_name", "var_name": "current_task", "default": ""},
+    "Task Path": {
+        "error_item_key": "task_path",
+        "var_name": "task_path",
+        "default": "",
+    },
+    "Url": {"error_item_key": "log_url", "var_name": "log_url", "default": ""},
+    "Detail": {"error_item_key": "message", "var_name": "detail", "default": ""},
+    "Role": {"error_item_key": "role", "var_name": "role", "default": ""},
+    "Parents": {"error_item_key": "parents", "var_name": "parents", "default": []},
+    "Stdout": {"error_item_key": "stdout", "var_name": "stdout", "default": ""},
+    "Stderr": {"error_item_key": "stderr", "var_name": "stderr", "default": ""},
+    "RC": {"error_item_key": "rc", "var_name": "rc", "default": 0},
+    "Start": {"error_item_key": "start_time", "var_name": "start_time", "default": ""},
+    "End": {"error_item_key": "end_time", "var_name": "end_time", "default": ""},
+    "Host": {"error_item_key": "host", "var_name": "host", "default": ""},
+}
+
+
+def get_error_field(error_item, error_item_key, local_vars, var_name, default):
+    if error_item and error_item_key in error_item:
+        return error_item[error_item_key]
+    if var_name in local_vars:
+        return local_vars[var_name]
+    return default
+
+
+def get_error_fields(error_item, local_vars):
+    error_with_fields = {}
+    for name, field in ERROR_FIELDS.items():
+        error_with_fields[name] = get_error_field(
+            error_item,
+            field["error_item_key"],
+            local_vars,
+            field["var_name"],
+            field["default"],
+        )
+    return error_with_fields
+
+
+def parse_lsr_error_log(args, log_url, log_data, extra_fields={}):
+    errors = []
+    url_data = log_file_or_url_to_data(log_url)
+    role = url_data.get("role")
+    for data in get_lsr_stat_items(log_data):
+        for error_item in data:
+            error = copy.deepcopy(extra_fields)
+            error.update(get_error_fields(error_item, locals()))
+            errors.append(error)
+    return errors
+
+
 def get_errors_from_ansible_log(args, log_url, extra_fields={}):
     errors = []
     current_task = None
@@ -298,8 +428,8 @@ def get_errors_from_ansible_log(args, log_url, extra_fields={}):
 
     logging.debug("Getting errors from ansible log [%s]", log_url)
     data = log_file_or_url_to_data(log_url)
-    role = data["role"]
-    ansible_version = data["ansible_ver"]
+    role = data.get("role")
+    ansible_version = data.get("ansible_ver")
     if args.role != ["ALL"] and role not in args.role:
         logging.info(
             "Skipping log - role [%s] not in args.role [%s]: [%s]",
@@ -308,55 +438,62 @@ def get_errors_from_ansible_log(args, log_url, extra_fields={}):
             log_url,
         )
         return []
+    if log_url.startswith("http://") or log_url.startswith("https://"):
+        verify = not args.disable_verify
+        log_data = requests.get(log_url, verify=verify).content.decode("utf-8")
+    else:  # assume a local file
+        log_data = open(log_url).read()
 
-    for line in get_file_data(args, log_url):
-        if (
-            line.startswith("TASK ")
-            or line.startswith("PLAY ")
-            or line.startswith("META ")
-        ):
-            # end of current task and possibly start of new task
-            if task_lines and task_has_fatal:
-                # Extract task name from the first task line
-                task_match = re.search(r"TASK\s\[(.*?)\]", task_lines[0])
-                if task_match:
-                    current_task = task_match.group(1)
-                # end task
-                error = copy.deepcopy(extra_fields)
-                error.update(
-                    {
-                        "Role": role,
-                        "Ansible Version": ansible_version,
-                        "Task": current_task,
-                        "Task Path": task_path,
-                        "Url": log_url,
-                        "Detail": copy.deepcopy(task_lines[3:]),
-                    }
-                )
-                errors.append(error)
-            if line.startswith("TASK "):
-                task_lines = [line.strip()]
-            else:
-                task_lines = []
-            task_has_fatal = False
-            task_path = None
-        elif task_lines:
-            task_lines.append(line.strip())
-            if line.startswith("fatal:"):
-                task_has_fatal = True
-            elif line.startswith("failed:"):
-                task_has_fatal = True
-            elif line.startswith("task path:"):
-                task_path_match = re.search(r"task path: (.*)", line)
-                if task_path_match:
-                    task_path = task_path_match.group(1)
-            elif line.startswith("...ignoring"):
+    get_timing_info(args, role, log_url, log_data)
+
+    errors = parse_lsr_error_log(args, log_url, log_data, extra_fields)
+    if errors:
+        total_failed = len(errors)
+    else:
+        logging.info(
+            "No system roles error stats found in log file %s - parsing ansible log",
+            log_url,
+        )
+        for line in log_data.splitlines():
+            if (
+                line.startswith("TASK ")
+                or line.startswith("PLAY ")
+                or line.startswith("META ")
+            ):
+                # end of current task and possibly start of new task
+                if task_lines and task_has_fatal:
+                    # Extract task name from the first task line
+                    task_match = re.search(r"TASK\s\[(.*?)\]", task_lines[0])
+                    if task_match:
+                        current_task = task_match.group(1)
+                    # end task
+                    error = copy.deepcopy(extra_fields)
+                    detail = copy.deepcopy(task_lines[3:])
+                    error.update(get_error_fields({}, locals()))
+                    errors.append(error)
+                if line.startswith("TASK "):
+                    task_lines = [line.strip()]
+                else:
+                    task_lines = []
                 task_has_fatal = False
-        else:
-            match = re.search(r"\sunreachable=(\d+)\s+failed=(\d+)\s", line)
-            if match:
-                total_unreachable += int(match.group(1))
-                total_failed += int(match.group(2))
+                task_path = None
+            elif task_lines:
+                task_lines.append(line.strip())
+                if line.startswith("fatal:"):
+                    task_has_fatal = True
+                elif line.startswith("failed:"):
+                    task_has_fatal = True
+                elif line.startswith("task path:"):
+                    task_path_match = re.search(r"task path: (.*)", line)
+                    if task_path_match:
+                        task_path = task_path_match.group(1)
+                elif line.startswith("...ignoring"):
+                    task_has_fatal = False
+            else:
+                match = re.search(r"\sunreachable=(\d+)\s+failed=(\d+)\s", line)
+                if match:
+                    total_unreachable += int(match.group(1))
+                    total_failed += int(match.group(2))
 
     logging.debug(
         "Found [%d] errors and Ansible reported [%d] failures",
@@ -369,6 +506,25 @@ def get_errors_from_ansible_log(args, log_url, extra_fields={}):
         error["Fails expected"] = total_failed
 
     return errors
+
+
+# This works like the dict get method but with a list of keys
+# and it checks each one to see if it is null or not
+# if the key is an int, assume it is a list index
+def get_from_nested_dict(dd, key_list, default=None):
+    for key in key_list:
+        if isinstance(key, int) and isinstance(dd, list):
+            if len(dd) > key:
+                dd = dd[key]
+            else:
+                dd = {}
+        elif isinstance(dd, dict):
+            dd = dd.get(key)
+        if not dd:
+            dd = {}
+    if not dd:
+        dd = default
+    return dd
 
 
 def get_logs_from_artifacts_page(args, url):
@@ -480,7 +636,7 @@ def get_logs_from_url(args):
     for platform in data.values():
         for log_dirs in platform.values():
             for log_dir in log_dirs:
-                url = args.log_url + "/" + log_dir + "/artifacts"
+                url = args.log_url + "/" + log_dir + "artifacts"
                 errors.extend(get_logs_from_artifacts_page(args, url))
     return errors
 
@@ -768,60 +924,6 @@ def get_logs_from_beaker(args):
     print_ansible_errors(args, errors)
 
 
-def get_lsr_stat_items(log_data):
-    start_token = "SYSTEM ROLES ERRORS BEGIN v1"
-    end_token = "SYSTEM ROLES ERRORS END v1"
-    start_pos = log_data.find(start_token)
-    while start_pos > 0:
-        end_pos = log_data.find(end_token, start_pos)
-        if end_pos == -1:
-            logging.error("Error: end token [%s] not found", end_token)
-            return None
-        start_pos += len(start_token)
-        yield json.loads(log_data[start_pos:end_pos])
-        start_pos = log_data.find(start_token, end_pos + 1)
-
-
-def parse_lsr_error_log(args, log_url, extra_fields={}):
-    errors = []
-    if log_url.startswith("http://") or log_url.startswith("https://"):
-        verify = not args.disable_verify
-        log_data = requests.get(log_url, verify=verify).content.decode("utf-8")
-    else:  # assume a local file
-        log_data = open(log_url).read()
-    url_data = log_file_or_url_to_data(log_url)
-    role = url_data.get("role")
-    for data in get_lsr_stat_items(log_data):
-        for error_item in data:
-            error = copy.deepcopy(extra_fields)
-            error.update(
-                {
-                    "Ansible Version": error_item["ansible_version"],
-                    "Task": error_item["task_name"],
-                    "Task Path": error_item["task_path"],
-                    "Log Url": log_url,
-                    "Detail": error_item["message"],
-                }
-            )
-            if role:
-                error["Role"] = role
-            optional_fields = [
-                ("Parents", "parents"),
-                ("Stdout", "stdout"),
-                ("Stderr", "stderr"),
-                ("RC", "rc"),
-                ("Start", "start_time"),
-                ("End", "end_time"),
-                ("Host", "host"),
-            ]
-            for title, field in optional_fields:
-                value = error_item.get(field)
-                if value or value == 0:
-                    error[title] = value
-            errors.append(error)
-    return errors
-
-
 def parse_tf_job_log(args, url, ref_dt):
     test_re_str = (
         r"^(?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2})\s+out: :: "
@@ -877,42 +979,74 @@ def get_testing_farm_result(args):
     verify = not args.disable_verify
     for url in args.testing_farm_job_url:
         result = requests.get(url, verify=verify).json()
-        os = result["environments_requested"][0].get("os")
-        if os:
-            compose = os["compose"]
-        else:
-            compose = result["environments_requested"][0]["variables"].get(
-                "COMPOSE_MANAGED_NODE"
+        data = {}
+        environments_requested = get_from_nested_dict(
+            result, ["environments_requested", 0], {}
+        )
+        data["compose_controller"] = get_from_nested_dict(
+            environments_requested,
+            ["os", "compose"],
+            get_from_nested_dict(
+                environments_requested, ["variables", "COMPOSE_CONTROLLER"], ""
+            ),
+        )
+        data["arch_controller"] = get_from_nested_dict(
+            environments_requested,
+            ["variables", "ARCH_CONTROLLER"],
+            get_from_nested_dict(environments_requested, ["arch"], ""),
+        )
+        for var in [
+            "ARCH_MANAGED_NODE",
+            "COMPOSE_MANAGED_NODE",
+            "SR_ANSIBLE_GATHERING",
+            "SR_USE_COLLECTIONS",
+            "SR_EXCLUDED_TESTS",
+            "SR_ONLY_TESTS",
+        ]:
+            data[var.lower()] = get_from_nested_dict(
+                environments_requested, ["variables", var], ""
             )
         if result["state"] == "queued":
             artifacts_url = "QUEUED"
             pipeline_type = "QUEUED"
         else:
-            artifacts_url = result["run"]["artifacts"]
-            pipeline_type = result["settings"]["pipeline"]["type"]
-        arch = result["environments_requested"][0]["variables"].get(
-            "ARCH_MANAGED_NODE", result["environments_requested"][0]["arch"]
+            artifacts_url = get_from_nested_dict(result, ["run", "artifacts"], "")
+            pipeline_type = get_from_nested_dict(
+                result, ["settings", "pipeline", "type"], ""
+            )
+        build = get_from_nested_dict(
+            environments_requested, ["settings", "provisioning", "tags", "build"], ""
         )
-        data = {
-            "plan_filter": result["test"]["fmf"]["plan_filter"],
-            "state": result["state"],
-            "arch": arch,
-            "compose": compose,
-            "included_tests": result["environments_requested"][0]["variables"].get(
-                "SR_ONLY_TESTS", "ALL"
-            ),
-            "excluded_tests": result["environments_requested"][0]["variables"].get(
-                "SR_EXCLUDED_TESTS", "ALL"
-            ),
-            "artifacts_url": artifacts_url,
-            "pipeline_type": pipeline_type,
-            "queued_time": result["queued_time"],
-            "run_time": result["run_time"],
-            "created_ts": datetime.datetime.fromisoformat(result["created"] + "+00:00"),
-            "updated_ts": datetime.datetime.fromisoformat(result["updated"] + "+00:00"),
-            "passed": [],
-            "failed": [],
-            "role": "ALL",
+        data.update(
+            {
+                "plan_filter": get_from_nested_dict(
+                    result, ["test", "fmf", "plan_filter"], ""
+                ),
+                "state": result["state"],
+                "artifacts_url": artifacts_url,
+                "pipeline_type": pipeline_type,
+                "queued_time": result["queued_time"],
+                "run_time": result["run_time"],
+                "created_ts": datetime.datetime.fromisoformat(
+                    result["created"] + "+00:00"
+                ),
+                "updated_ts": datetime.datetime.fromisoformat(
+                    result["updated"] + "+00:00"
+                ),
+                "passed": [],
+                "failed": [],
+                "role": "ALL",
+                "build": build,
+            }
+        )
+        extra_error_fields = {
+            "Managed Compose": data["compose_managed_node"],
+            "Managed Arch": data["arch_managed_node"],
+            "Control Compose": data["compose_controller"],
+            "Control Arch": data["arch_controller"],
+            "Ansible Gathering": data["sr_ansible_gathering"],
+            "Use Collections": data["sr_use_collections"],
+            "Build": data["build"],
         }
         if result["result"]:
             if "overall" in result["result"]:
@@ -933,7 +1067,11 @@ def get_testing_farm_result(args):
                         else:
                             data["failed"].append(test_result)
                         if args.all_statuses or status == "FAIL":
-                            errors.extend(get_errors_from_ansible_log(args, log_url))
+                            errors.extend(
+                                get_errors_from_ansible_log(
+                                    args, log_url, extra_error_fields
+                                )
+                            )
         elif result["run"] and "artifacts" in result["run"]:
             results_xml = result["run"]["artifacts"] + "/results.xml"
             xml_data = requests.get(results_xml, verify=verify).content
@@ -951,25 +1089,32 @@ def get_testing_farm_result(args):
 
 
 def print_testing_farm_result(args, result):
-    print(
-        f"Test plan filter [{result['plan_filter']}] arch [{result['arch']}] "
-        f"compose [{result['compose']}] url [{result['artifacts_url']}]"
-    )
-    print(
-        f"  Start [{result['created_ts']}] updated [{result['updated_ts']}] "
-        f"queued_time [{result['queued_time']}] run_time [{result['run_time']}]"
-    )
-    print(
-        f"  Role [{result['role']}] included tests [{result['included_tests']}] "
-        f"excluded tests [{result['excluded_tests']}]"
-    )
+    max_line_len = 120
+    indent = ""
+    line = indent
+    sep = ""
+    for key in sorted(result.keys()):
+        val = result[key]
+        if not val or isinstance(val, (list, dict)):
+            continue
+        new_val = f"{sep}{key}={val}"
+        if len(line) + len(new_val) > max_line_len:
+            print(line)
+            indent = "  "
+            line = indent + f"{key}={val}"
+            sep = " "
+        else:
+            line += new_val
+            sep = " "
+    print(line)
     print(
         f"  Result {result.get('result', 'running')} - {len(result['passed'])} passed - "
         f"{len(result['failed'])} failed"
     )
     if result.get("result", "running") == "running" and "job_data" in result:
         print("  last line: " + result["job_data"]["last_line"])
-    if args.failed_tests_to_show > 0:
+    if args.failed_tests_to_show > 0 and result.get("failed"):
+        print("  Failures:")
         for failed_test in result["failed"][-args.failed_tests_to_show:]:  # fmt: skip
             print(f"    failed {failed_test}")
     print("")
@@ -1216,6 +1361,12 @@ def parse_arguments():
         action="store_true",
         help="Write errors in GitHub Actions-friendly format",
     )
+    parser.add_argument(
+        "--timing-info",
+        default=False,
+        action="store_true",
+        help="print timing info",
+    )
 
     args = parser.parse_args()
     return args
@@ -1241,7 +1392,7 @@ def main():
     elif args.lsr_error_log:
         errors = []
         for log_url in args.lsr_error_log:
-            errors.extend(parse_lsr_error_log(args, log_url))
+            errors.extend(get_errors_from_ansible_log(args, log_url))
         print_ansible_errors(args, errors)
     elif args.beaker_job:
         get_logs_from_beaker(args)
@@ -1251,6 +1402,9 @@ def main():
     elif args.log_url:
         errors = get_logs_from_url(args)
         print_ansible_errors(args, errors)
+
+    if args.timing_info:
+        print_timing_info(args)
 
 
 if __name__ == "__main__":

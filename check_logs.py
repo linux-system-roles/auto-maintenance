@@ -51,6 +51,11 @@ TIMING_INFO = []
 TIMING_START_RE = re.compile(r"^=+ *$", re.MULTILINE)
 TIMING_RE = re.compile(r" (\d+[.]\d\d)s$", re.MULTILINE)
 
+# Regex to find IPv4 addresses following 'primary address: "'
+PRIMARY_ADDRESS_RE = re.compile(
+    r"primary address: (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+)
+
 
 def get_timing_info(args, role, log_url, log_data):
     match = TIMING_START_RE.search(log_data)
@@ -939,9 +944,17 @@ def parse_tf_job_log(args, url, ref_dt):
         "status": "running",
         "last_test": "N/A",
         "last_line": "",
+        "ip_addresses": [],
     }
     for line in get_file_data(args, url):
         job_data["last_line"] = line
+
+        # Scan for IP addresses if requested
+        if args.get_addresses:
+            ip_matches = PRIMARY_ADDRESS_RE.findall(line)
+            if ip_matches:
+                job_data["ip_addresses"].extend(ip_matches)
+
         match = test_re.search(line)
         if match:
             data = match.groupdict()
@@ -970,6 +983,12 @@ def parse_tf_job_log(args, url, ref_dt):
                 else:
                     job_data["failed"].append(test_name)
             job_data["roles"][data["role"]][data["test_name"]] = test_data
+
+    # Remove duplicate IP addresses
+    if args.get_addresses:
+        job_data["ip_addresses"] = list(set(job_data["ip_addresses"]))
+        logging.debug(f"Found IP addresses: {job_data['ip_addresses']} in {url}")
+
     return job_data
 
 
@@ -1037,6 +1056,7 @@ def get_testing_farm_result(args):
                 "failed": [],
                 "role": "ALL",
                 "build": build,
+                "ip_addresses": [],
             }
         )
         extra_error_fields = {
@@ -1082,8 +1102,11 @@ def get_testing_farm_result(args):
                 )
                 data["passed"].extend(data["job_data"]["passed"])
                 data["failed"].extend(data["job_data"]["failed"])
+                if args.get_addresses and "ip_addresses" in data["job_data"]:
+                    data["ip_addresses"] = data["job_data"]["ip_addresses"]
         elif result["state"] == "queued":
             data["result"] = "queued"
+
         rv.append(data)
     return rv, errors
 
@@ -1095,7 +1118,9 @@ def print_testing_farm_result(args, result):
     sep = ""
     for key in sorted(result.keys()):
         val = result[key]
-        if not val or isinstance(val, (list, dict)):
+        if key == "ip_addresses":
+            val = ",".join(val)
+        elif not val or isinstance(val, (list, dict)):
             continue
         new_val = f"{sep}{key}={val}"
         if len(line) + len(new_val) > max_line_len:
@@ -1366,6 +1391,12 @@ def parse_arguments():
         default=False,
         action="store_true",
         help="print timing info",
+    )
+    parser.add_argument(
+        "--get-addresses",
+        default=False,
+        action="store_true",
+        help="scan artifacts for IP addresses and add to result data",
     )
 
     args = parser.parse_args()

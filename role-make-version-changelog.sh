@@ -39,6 +39,13 @@ repo_entries="$(gh repo view --json name,owner)"
 repo=${repo:-$(echo "$repo_entries" | jq -r .name)}
 owner=${owner:-$(echo "$repo_entries" | jq -r .owner.login)}
 
+if [ -z "${origin_org:-}" ]; then
+    origin_org="$owner"
+fi
+if [ -z "${upstream_org:-}" ]; then
+    upstream_org="$owner"
+fi
+
 # These roles are usually not released
 NO_RELEASE_ROLES="${NO_RELEASE_ROLES:-template}"
 
@@ -337,18 +344,28 @@ Here are your options:
         ${EDITOR:-vi} "$rel_notes_file"
         # this also will do a pushd to the checkedout repo dir
         # shellcheck disable=SC2154
-        clone_repo . "$upstream_org" "$repo"
-        git checkout "$mainbr"
+        if [ "${CALLED_FROM_MANAGE_ROLE_REPOS:-false}" = true ]; then
+            clone_repo . "$upstream_org" "$repo"
+        else
+            # assume we are in the repo dir
+            popd > /dev/null 2>&1
+        fi
+        current_branch="$(git branch --show-current)"
+        if [ "$current_branch" != "$mainbr" ] && [ "${CALLED_FROM_MANAGE_ROLE_REPOS:-false}" = true ]; then
+            git checkout "$mainbr"
+        elif [ -z "${BRANCH:-}" ] && [ "$current_branch" != "$mainbr" ]; then
+            BRANCH="$current_branch"
+        fi
         if [ -z "${BRANCH:-}" ]; then
             BRANCH="changelog-$(date -I)"
             if [ -n "$(git branch --list "$BRANCH")" ]; then
                 BRANCH="changelog-$(date -Isec)"
             fi
         fi
-        if [ -n "$(git branch --list "$BRANCH")" ]; then
+        if [ -n "$(git branch --list "$BRANCH")" ] && [ "$current_branch" != "$BRANCH" ]; then
             git checkout "$BRANCH"
             git rebase "$mainbr"
-        else
+        elif [ -z "$(git branch --list "$BRANCH")" ]; then
             git checkout -b "$BRANCH"
         fi
         myheader="Changelog
@@ -383,7 +400,9 @@ Here are your options:
             git push -u origin "$BRANCH"
             gh pr create --fill --base "$mainbr" --head "$origin_org":"$BRANCH"
         fi
-        popd > /dev/null 2>&1  # clone_repo does a pushd to repo dir
+        if [ "${CALLED_FROM_MANAGE_ROLE_REPOS:-false}" = true ]; then
+            popd > /dev/null 2>&1  # clone_repo does a pushd to repo dir
+        fi
     fi
     echo ""
     echo ""

@@ -115,6 +115,9 @@ if ! tty -s; then
     stdincmds="$(cat)"
 fi
 
+# tell script called from this script that it was called from manage-role-repos.sh
+CALLED_FROM_MANAGE_ROLE_REPOS=true
+export CALLED_FROM_MANAGE_ROLE_REPOS
 for repo in $repos; do
     if [ -n "${EXARRAY[$repo]:-}" ]; then
         continue

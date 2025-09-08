@@ -1220,12 +1220,12 @@ def print_ansible_errors(args, errors):
         )
     if args.github_action_format:
         for error in errors:
-            print(f"::group::{os.path.basename(error['Log Url'])} {error['Task']}")
+            print(f"::group::{os.path.basename(error['Url'])} {error['Task']}")
             for field in [
                 "Ansible Version",
                 "Task Path",
                 "Role",
-                "Log Url",
+                "Url",
                 "RC",
                 "Start",
                 "End",
@@ -1243,6 +1243,8 @@ def print_ansible_errors(args, errors):
                 value = error.get(field)
                 if value:
                     print(f"\n{field}:")
+                    if isinstance(value, list):
+                        value = "\n".join(value)
                     sanitized = sanitize_for_actions(value)
                     print(sanitized)
             print("::endgroup::")

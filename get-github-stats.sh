@@ -58,14 +58,16 @@ user_is_maintainer() {
 # get PRs
 get_prs() {
     gh pr list -R "$upstream_org/$repo" \
-      -S "created:$DATE_RANGE state:open state:closed" \
+      -S "created:$DATE_RANGE" \
+      --state all \
       --json number,author,state,title \
       --jq '.[] | "\(.number) \(.author.login) \(.state) \(.title)"'
 }
 
 get_issues() {
     gh issue list -R "$upstream_org/$repo" \
-      -S "created:$DATE_RANGE state:open state:closed" \
+      -S "created:$DATE_RANGE" \
+      --state all \
       --json number,author,state \
       --jq '.[] | "\(.number) \(.author.login) \(.state)"'
 }

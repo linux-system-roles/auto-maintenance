@@ -5,28 +5,28 @@ selinux:
   ref: 1.10.4
   sourcenum: 2
 timesync:
-  ref: 1.10.2
+  ref: 1.11.0
   sourcenum: 3
 kdump:
-  ref: 1.4.13
+  ref: 1.4.14
   sourcenum: 4
 network:
-  ref: 1.17.5
+  ref: 1.17.6
   sourcenum: 5
 storage:
-  ref: 1.18.20
+  ref: 1.19.0
   sourcenum: 6
 metrics:
-  ref: 1.13.0
+  ref: 1.13.1
   sourcenum: 7
 tlog:
   ref: 1.4.3
   sourcenum: 8
 kernel_settings:
-  ref: 1.3.5
+  ref: 1.3.6
   sourcenum: 9
 logging:
-  ref: 1.15.2
+  ref: 1.15.3
   sourcenum: 10
 nbde_server:
   ref: 1.5.0
@@ -46,22 +46,22 @@ sshd:
   repo: ansible-sshd
   sourcenum: 15
 ssh:
-  ref: 1.6.0
+  ref: 1.6.1
   sourcenum: 16
 ha_cluster:
-  ref: 1.25.6
+  ref: 1.26.0
   sourcenum: 17
 vpn:
-  ref: 1.6.11
+  ref: 1.6.12
   sourcenum: 18
 firewall:
-  ref: 1.10.2
+  ref: 1.11.0
   sourcenum: 19
 cockpit:
   ref: 1.7.1
   sourcenum: 20
 podman:
-  ref: 1.8.3
+  ref: 1.9.0
   sourcenum: 21
 ad_integration:
   ref: 1.6.0
@@ -73,7 +73,7 @@ journald:
   ref: 1.5.0
   sourcenum: 24
 postgresql:
-  ref: 1.4.2
+  ref: 1.4.3
   sourcenum: 25
 systemd:
   ref: 1.3.4

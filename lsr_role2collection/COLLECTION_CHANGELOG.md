@@ -1,6 +1,23 @@
 Changelog
 =========
 
+[1.110.0] - 2025-10-21
+---------------------
+
+### New Features
+
+- firewall - feat: add IPv6 ipset support, add support for ipset_options (#296)
+- ha_cluster - feat: export cluster properties and resource defaults and resource operation defaults (#318)
+- podman - feat: Support this role in container builds (#245)
+- storage - feat: Add support for creating multiple partitions (#552)
+- timesync - feat: support this role in container builds (#303)
+
+### Bug Fixes
+
+- network - fix: Skip the loopback profile when deleting all profiles except the ones explicitly included (#813)
+- network - fix: allow use of built-in routing tables (#804)
+- storage - fix: Allow running on systems without /etc/fstab present (#562)
+
 [1.109.0] - 2025-09-07
 ---------------------
 

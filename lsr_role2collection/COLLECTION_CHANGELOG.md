@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[1.111.0] - 2025-11-13
+---------------------
+
+### New Features
+
+- ha_cluster - feat: export cluster constraints (#326)
+- hpc - New Role
+- snapshot - feat: add support for "bootable" snapshots (#115)
+
+### Bug Fixes
+
+- firewall - fix: install python311-firewall on SLES 15 (#300)
+- nbde_client - fix: idempotence issue when binding fails to be added (#196)
+
 [1.110.1] - 2025-10-23
 ---------------------
 

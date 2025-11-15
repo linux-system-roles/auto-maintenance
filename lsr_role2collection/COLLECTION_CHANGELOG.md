@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.112.0] - 2025-11-15
+---------------------
+
+### New Features
+
+- sshd - feat: Add new configuration option CanonicalMatchUser on RHEL/CentOS (#332)
+
+### Bug Fixes
+
+- sshd - fix: Allow specifying OS vars from playbook_dir (#330)
+
 [1.111.0] - 2025-11-13
 ---------------------
 

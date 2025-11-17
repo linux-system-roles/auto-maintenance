@@ -1,6 +1,49 @@
 Changelog
 =========
 
+[1.113.0] - 2025-11-17
+---------------------
+
+### New Features
+
+- sshd - feat: add support for NetBSD (#338)
+
+### Bug Fixes
+
+- ad_integration - fix: cannot use community-general version 12 - no py27 and py36 support (#161)
+- aide - fix: cannot use community-general version 12 - no py27 and py36 support (#52)
+- bootloader - fix: cannot use community-general version 12 - no py27 and py36 support (#175)
+- certificate - fix: cannot use community-general version 12 - no py27 and py36 support (#300)
+- cockpit - fix: cannot use community-general version 12 - no py27 and py36 support (#245)
+- crypto_policies - fix: cannot use community-general version 12 - no py27 and py36 support (#168)
+- fapolicyd - fix: cannot use community-general version 12 - no py27 and py36 support (#83)
+- firewall - fix: cannot use community-general version 12 - no py27 and py36 support (#307)
+- gfs2 - fix: cannot use community-general version 12 - no py27 and py36 support (#70)
+- ha_cluster - fix: cannot use community-general version 12 - no py27 and py36 support (#330)
+- hpc - fix: cannot use community-general version 12 - no py27 and py36 support (#37)
+- journald - fix: cannot use community-general version 12 - no py27 and py36 support (#129)
+- kdump - fix: cannot use community-general version 12 - no py27 and py36 support (#262)
+- kernel_settings - fix: cannot use community-general version 12 - no py27 and py36 support (#281)
+- keylime_server - fix: cannot use community-general version 12 - no py27 and py36 support (#99)
+- logging - fix: cannot use community-general version 12 - no py27 and py36 support (#475)
+- metrics - fix: cannot use community-general version 12 - no py27 and py36 support (#274)
+- nbde_client - fix: cannot use community-general version 12 - no py27 and py36 support (#224)
+- nbde_server - fix: cannot use community-general version 12 - no py27 and py36 support (#205)
+- network - fix: cannot use community-general version 12 - no py27 and py36 support (#824)
+- podman - fix: cannot use community-general version 12 - no py27 and py36 support (#254)
+- postfix - fix: cannot use community-general version 12 - no py27 and py36 support (#207)
+- postgresql - fix: cannot use community-general version 12 - no py27 and py36 support (#150)
+- rhc - fix: cannot use community-general version 12 - no py27 and py36 support (#248)
+- selinux - fix: cannot use community-general version 12 - no py27 and py36 support (#312)
+- snapshot - fix: cannot use community-general version 12 - no py27 and py36 support (#132)
+- ssh - fix: cannot use community-general version 12 - no py27 and py36 support (#209)
+- storage - fix: cannot use community-general version 12 - no py27 and py36 support (#571)
+- sudo - fix: cannot use community-general version 12 - no py27 and py36 support (#85)
+- systemd - fix: cannot use community-general version 12 - no py27 and py36 support (#113)
+- timesync - fix: cannot use community-general version 12 - no py27 and py36 support (#312)
+- tlog - fix: cannot use community-general version 12 - no py27 and py36 support (#191)
+- vpn - fix: cannot use community-general version 12 - no py27 and py36 support (#219)
+
 [1.112.0] - 2025-11-15
 ---------------------
 

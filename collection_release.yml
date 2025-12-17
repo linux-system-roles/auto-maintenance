@@ -99,6 +99,3 @@ sudo:
 aide:
   ref: 1.2.2
   sourcenum: 33
-hpc:
-  ref: 0.3.1
-  sourcenum: 34

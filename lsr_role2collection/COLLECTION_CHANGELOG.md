@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[1.114.0] - 2025-12-17
+---------------------
+
+### New Features
+
+- ha_cluster - feat: add support for fencing-watchdog-timeout (#335)
+- kdump - feat: Ubuntu support (#265)
+
+### Bug Fixes
+
+- aide - fix: support new config file options, expose aide_version (#54)
+
 [1.113.0] - 2025-11-17
 ---------------------
 

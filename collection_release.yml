@@ -8,7 +8,7 @@ timesync:
   ref: 1.11.1
   sourcenum: 3
 kdump:
-  ref: 1.4.15
+  ref: 1.5.0
   sourcenum: 4
 network:
   ref: 1.17.7
@@ -49,7 +49,7 @@ ssh:
   ref: 1.6.2
   sourcenum: 16
 ha_cluster:
-  ref: 1.27.1
+  ref: 1.28.0
   sourcenum: 17
 vpn:
   ref: 1.6.13
@@ -97,5 +97,5 @@ sudo:
   ref: 1.2.7
   sourcenum: 32
 aide:
-  ref: 1.2.2
+  ref: 1.2.3
   sourcenum: 33

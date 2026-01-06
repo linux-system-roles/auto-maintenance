@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[1.115.0] - 2026-01-06
+---------------------
+
+### New Features
+
+- ssh - feat: Add new configuration option VersionAddendum (#214)
+
+### Bug Fixes
+
+- storage - fix: check for no disks specified and report correct error (#575)
+
 [1.114.0] - 2025-12-17
 ---------------------
 

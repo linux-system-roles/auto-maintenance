@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.115.2] - 2026-01-13
+---------------------
+
+### Bug Fixes
+
+- storage - fix: add vdo package for Fedora OSTree (#579)
+
 [1.115.1] - 2026-01-08
 ---------------------
 

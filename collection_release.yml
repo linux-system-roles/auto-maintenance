@@ -91,7 +91,7 @@ snapshot:
   ref: 1.6.3
   sourcenum: 30
 gfs2:
-  ref: 1.0.4
+  ref: 1.0.5
   sourcenum: 31
 sudo:
   ref: 1.2.9

@@ -49,7 +49,7 @@ ssh:
   ref: 1.7.1
   sourcenum: 16
 ha_cluster:
-  ref: 1.28.1
+  ref: 1.29.0
   sourcenum: 17
 vpn:
   ref: 1.6.15
@@ -58,7 +58,7 @@ firewall:
   ref: 1.11.4
   sourcenum: 19
 cockpit:
-  ref: 1.7.3
+  ref: 1.7.4
   sourcenum: 20
 podman:
   ref: 1.9.2

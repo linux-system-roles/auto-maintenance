@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.116.0] - 2026-01-18
+---------------------
+
+### New Features
+
+- ha_cluster - feat: Support this role in container builds (#341)
+
 [1.115.3] - 2026-01-14
 ---------------------
 

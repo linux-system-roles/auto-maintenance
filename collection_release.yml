@@ -17,7 +17,7 @@ storage:
   ref: 1.19.3
   sourcenum: 6
 metrics:
-  ref: 1.13.3
+  ref: 1.14.0
   sourcenum: 7
 tlog:
   ref: 1.4.5

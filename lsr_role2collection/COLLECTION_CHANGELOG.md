@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.117.0] - 2026-01-21
+---------------------
+
+### New Features
+
+- metrics - feat: add TLS certificate and key support for Grafana for HTTPS (#284)
+
 [1.116.0] - 2026-01-18
 ---------------------
 

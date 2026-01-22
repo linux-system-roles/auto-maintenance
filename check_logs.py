@@ -1025,6 +1025,9 @@ def get_testing_farm_result(args):
             data[var.lower()] = get_from_nested_dict(
                 environments_requested, ["variables", var], ""
             )
+        sr_role_name = get_from_nested_dict(
+            environments_requested, ["variables", "SR_ROLE_NAME"], ""
+        )
         if result["state"] == "queued":
             artifacts_url = "QUEUED"
             pipeline_type = "QUEUED"
@@ -1054,7 +1057,7 @@ def get_testing_farm_result(args):
                 ),
                 "passed": [],
                 "failed": [],
-                "role": "ALL",
+                "role": "ALL" if sr_role_name == "" else sr_role_name,
                 "build": build,
                 "ip_addresses": [],
             }

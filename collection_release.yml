@@ -17,7 +17,7 @@ storage:
   ref: 1.19.3
   sourcenum: 6
 metrics:
-  ref: 1.14.0
+  ref: 1.14.1
   sourcenum: 7
 tlog:
   ref: 1.4.5
@@ -42,7 +42,7 @@ crypto_policies:
   sourcenum: 14
 sshd:
   org: willshersystems
-  ref: v0.30.0
+  ref: v0.31.0
   repo: ansible-sshd
   sourcenum: 15
 ssh:

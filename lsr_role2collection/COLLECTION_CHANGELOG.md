@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.118.0] - 2026-01-22
+---------------------
+
+### New Features
+
+- sshd - feat: Add systemd ephemeral authorized_keys to the instantiated service file on Fedora (#344)
+- sshd - feat: New OpenSSH configuration option GSSAPIDelegateCredentials (#343)
+
 [1.117.0] - 2026-01-21
 ---------------------
 

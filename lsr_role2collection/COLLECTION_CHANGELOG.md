@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.119.0] - 2026-01-29
+---------------------
+
+### New Features
+
+- postgresql - feat: Add support for postgresql 18 (#160)
+
 [1.118.0] - 2026-01-22
 ---------------------
 

@@ -5,7 +5,6 @@ import io
 import re
 import yaml
 
-
 COLLECTION_RELEASE = "collection_release.yml"
 SPECFILE_IN = sys.argv[1]
 SPECFILE_OUT = sys.argv[2]

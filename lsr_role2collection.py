@@ -1437,14 +1437,11 @@ def role2collection():
                 with open(readme_path, encoding="utf-8") as f:
                     _s = f.read()
             else:
-                _s = textwrap.dedent(
-                    """\
+                _s = textwrap.dedent("""\
                     # {0} {1} collections
-                    """
-                ).format(namespace, collection)
+                    """).format(namespace, collection)
 
-            s = textwrap.dedent(
-                """\
+            s = textwrap.dedent("""\
                 {0}
 
                 {1}
@@ -1452,8 +1449,7 @@ def role2collection():
                 <!--ts-->
                   * {2}
                 <!--te-->
-                """
-            ).format(_s, comment, title)
+                """).format(_s, comment, title)
             with open(main_doc, "w", encoding="utf-8") as f:
                 f.write(s)
         else:
@@ -1462,19 +1458,14 @@ def role2collection():
             role_link = "{0}".format(title)
             if role_link not in s:
                 if comment not in s:
-                    text = (
-                        s
-                        + textwrap.dedent(
-                            """\
+                    text = s + textwrap.dedent("""\
 
                         {2}
 
                         <!--ts-->
                           * {3}
                         <!--te-->
-                        """
-                        ).format(namespace, collection, comment, role_link)
-                    )
+                        """).format(namespace, collection, comment, role_link)
                 else:
                     find = r"({0}\n\n<!--ts-->\n)(( |\*|\w|\[|\]|\(|\)|\.|/|-|\n|\r)+)".format(
                         comment

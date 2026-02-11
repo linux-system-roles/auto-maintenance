@@ -64,6 +64,8 @@ get_checks() {
             status=SUCCESS
         elif [ "$conclusion" = ACTION_REQUIRED ]; then  # DCO check failed
             status=FAILURE
+        elif [ "$conclusion" = SKIPPED ]; then  # e.g. [citest_skip]
+            status=SKIPPED
         else
             echo ERROR: check "$name" has unknown conclusion "$conclusion" state "$state" 1>&2
             exit 1
@@ -100,7 +102,7 @@ get_check_summary() {
         counts[$status]=$(("${counts[$status]:-0}" + 1))
         total=$(("${total:-0}" + 1))
     done
-    echo "${total:-0} ${counts[SUCCESS]:-0} ${counts[FAILURE]:-0} ${counts[PENDING]:-0} ${counts[CANCELLED]:-0} ${counts[ERROR]:-0}"
+    echo "${total:-0} ${counts[SUCCESS]:-0} ${counts[FAILURE]:-0} ${counts[PENDING]:-0} ${counts[CANCELLED]:-0} ${counts[ERROR]:-0} ${counts[SKIPPED]:-0}"
     }
 }
 
@@ -136,7 +138,7 @@ get_reviews() {
 show_pr() {
     local pr total success failure pending state review
     pr="$1"
-    read -r total success failure pending cancelled error <<< "$(get_check_summary "$pr")"
+    read -r total success failure pending cancelled error skipped <<< "$(get_check_summary "$pr")"
     if [ "$total" -eq 0 ]; then
         state=UNKNOWN
     elif [ "$total" = "$success" ]; then
@@ -149,13 +151,15 @@ show_pr() {
         state=CANCELLED
     elif [ "$error" -gt 0 ]; then
         state=ERROR
+    elif [ "$skipped" -gt 0 ]; then
+        state=SKIPPED
     else
         state=UNKNOWN
     fi
     review="$(get_reviews "$pr")"
     gh pr view "$pr" -R "$upstream_org/$repo" --json number,title,updatedAt \
       --template '#{{tablerow .number .updatedAt "'"$state"'" "'"$review"'" .title}}'
-    echo "checks: total $total successful $success failed $failure pending $pending cancelled $cancelled error $error"
+    echo "checks: total $total successful $success failed $failure pending $pending cancelled $cancelled error $error skipped $skipped"
 }
 
 merge_pr() {

@@ -1421,9 +1421,13 @@ def main():
         args.gather_errors = True
 
     if args.testing_farm_job_url:
+        result_statuses = {}
         results, failures = get_testing_farm_result(args)
         for result in results:
+            result_status = result.get("result", "running")
+            result_statuses[result_status] = result_statuses.get(result_status, 0) + 1
             print_testing_farm_result(args, result)
+        print(f"Result statuses: {result_statuses}")
         print_ansible_errors(args, failures)
     elif args.lsr_error_log:
         errors = []

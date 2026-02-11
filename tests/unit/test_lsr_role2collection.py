@@ -32,8 +32,7 @@ prefixdot = prefix + "."
 otherprefix = "mynamespace.mycollection"
 otherprefixdot = "mynamespace.mycollection."
 
-test_yaml_str = textwrap.dedent(
-    """\
+test_yaml_str = textwrap.dedent("""\
     # SPDX-License-Identifier: MIT
     ---
     - name: Ensure that the role runs with default parameters
@@ -41,8 +40,7 @@ test_yaml_str = textwrap.dedent(
       {0}:
         - {1}
             {2} {3}{4}{5}
-    """
-)
+    """)
 
 
 class LSRRole2Collection(unittest.TestCase):
@@ -647,8 +645,7 @@ class LSRRole2Collection(unittest.TestCase):
         gather_module_utils_parts(dest_module_dir_core)
 
         input = bytes(
-            textwrap.dedent(
-                """\
+            textwrap.dedent("""\
                 # pylint: disable=import-error, no-name-in-module
                 {0}.basic import AnsibleModule
                 {0}.{1} import {2}
@@ -660,8 +657,7 @@ class LSRRole2Collection(unittest.TestCase):
                 )  # noqa:E501
                 {0}.{1}.{4} import Util
                 {0}.{1} import {5}
-                """
-            ).format(
+                """).format(
                 "from ansible.module_utils",
                 module_name,
                 test_files[0],
@@ -672,8 +668,7 @@ class LSRRole2Collection(unittest.TestCase):
             "utf-8",
         )
         expected = bytes(
-            textwrap.dedent(
-                """\
+            textwrap.dedent("""\
                 # pylint: disable=import-error, no-name-in-module
                 from ansible.module_utils.basic import AnsibleModule
                 {0}.{1}.{2}.plugins.module_utils.{3} import {4}
@@ -685,8 +680,7 @@ class LSRRole2Collection(unittest.TestCase):
                 )  # noqa:E501
                 {0}.{1}.{2}.plugins.module_utils.{3}.{6} import Util
                 {0}.{1}.{2}.plugins.module_utils.{3} import {7}
-                """
-            ).format(
+                """).format(
                 "from ansible_collections",
                 namespace,
                 collection_name,

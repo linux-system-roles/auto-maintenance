@@ -19,7 +19,6 @@ from ansible.parsing.ajson import AnsibleJSONEncoder
 from ansible.plugins.callback import CallbackBase
 from ansible.release import __version__
 
-
 __metaclass__ = type
 
 DOCUMENTATION = """

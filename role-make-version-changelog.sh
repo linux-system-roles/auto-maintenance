@@ -390,7 +390,7 @@ Here are your options:
         cat --squeeze-blank "$tmp_changelog_file" > CHANGELOG.md
         gh api /repos/"$owner"/"$repo"/contents/latest/README.html?ref=docs -q .content | base64 --decode > .README.html
         git add CHANGELOG.md .README.html
-        { echo "docs(changelog): version $new_tag [citest skip]"; echo "";
+        { echo "docs(changelog): version $new_tag [citest_skip]"; echo "";
           echo "Update changelog and .README.html for version $new_tag"; } > .gitcommitmsg
         git commit -s -F .gitcommitmsg
         rm -f .gitcommitmsg "$rel_notes_file" "$new_features_file" \

@@ -931,7 +931,7 @@ def get_logs_from_beaker(args):
 
 def parse_tf_job_log(args, url, ref_dt):
     test_re_str = (
-        r"^(?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2})\s+out: :: "
+        r"^(?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2})\s+(?:out|stdout): :: "
         r"\[ [0-9]{2}:[0-9]{2}:[0-9]{2} \] "
         r":: \[ +(?P<status>[A-Z]+) +\] :: (?P<role>[a-z0-9_]+): (?P<test_name>tests_[^ ]+) "
         r"with ANSIBLE-(?P<ansible_ver>[0-9.]+) on (?P<managed_node>\S+)"

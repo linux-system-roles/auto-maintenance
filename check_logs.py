@@ -44,7 +44,10 @@ signal.signal(signal.SIGINT, lambda signum, frame: sys.exit(0))
 # there seems to be some problem on my system with IPV6 resolution
 # downloads take forever - I guess it is trying to use IPV6 first,
 # then it times out after a minute or so, then it falls back to IPV4
-requests.packages.urllib3.util.connection.HAS_IPV6 = False
+try:
+    requests.packages.urllib3.util.connection.HAS_IPV6 = False  # type: ignore
+except AttributeError:
+    pass
 
 
 TIMING_INFO = []
@@ -88,7 +91,7 @@ def print_timing_info(args):
         print(f"{info['time']}s {info['role']} {info['log_url']}")
 
 
-TZ_UTC = datetime.UTC
+TZ_UTC = getattr(datetime, "UTC", datetime.timezone.utc)
 
 
 def hr_min_sec_to_dt(ref_dt, hour, minute, second):
@@ -119,7 +122,7 @@ class AVC(object):
         elif avc_dict_or_str.startswith("type=AVC "):
             match = AVC.avc_re.match(avc_dict_or_str)
             if not match:
-                raise Exception(f"cannot parse as AVC: {avc_dict_or_str}")
+                raise ValueError(f"cannot parse as AVC: {avc_dict_or_str}")
             self.dt = datetime.datetime.fromtimestamp(float(match.group(1)), TZ_UTC)
             self.dt_iso_str = self.dt.isoformat()
             self.actions = match.group(2)
@@ -254,14 +257,15 @@ def gh_iter(op, subfield, *args, **kwargs):
 def get_statuses(gh, org, repo, pr_num):
     pr = gh.pulls.get(org, repo, pr_num)
     statuses = []
-    for status in gh_iter(
+    status_iter = gh_iter(
         gh.repos.get_combined_status_for_ref,
         "statuses",
         owner=org,
         repo=repo,
         ref=pr.head.sha,
         per_page=99,
-    ):
+    )
+    for status in status_iter:
         logging.debug(
             "%s %s %s %s %s",
             status.state,
@@ -325,13 +329,13 @@ SYSTEM_ROLE_LOG_COLLECTION = re.compile(
 
 # parse the given log file name or url and extract and return the data
 def log_file_or_url_to_data(log_file_or_url):
-    for rx in (
+    for rx in [
         SYSTEM_ROLE_UPSTREAM_LOG_RE,
         SYSTEM_ROLE_LOG_RE,
         SYSTEM_ROLE_TF_LOG_RE,
         SYSTEM_ROLE_LOG_LEGACY,
         SYSTEM_ROLE_LOG_COLLECTION,
-    ):
+    ]:
         match = rx.search(log_file_or_url)
         if match:
             return match.groupdict()
@@ -410,7 +414,9 @@ def get_error_fields(error_item, local_vars):
     return error_with_fields
 
 
-def parse_lsr_error_log(args, log_url, log_data, extra_fields={}):
+def parse_lsr_error_log(args, log_url, log_data, extra_fields=None):
+    if extra_fields is None:
+        extra_fields = {}
     errors = []
     url_data = log_file_or_url_to_data(log_url)
     role = url_data.get("role")
@@ -422,7 +428,9 @@ def parse_lsr_error_log(args, log_url, log_data, extra_fields={}):
     return errors
 
 
-def get_errors_from_ansible_log(args, log_url, extra_fields={}):
+def get_errors_from_ansible_log(args, log_url, extra_fields=None):
+    if extra_fields is None:
+        extra_fields = {}
     errors = []
     current_task = None
     total_failed = 0
@@ -447,7 +455,8 @@ def get_errors_from_ansible_log(args, log_url, extra_fields={}):
         verify = not args.disable_verify
         log_data = requests.get(log_url, verify=verify).content.decode("utf-8")
     else:  # assume a local file
-        log_data = open(log_url).read()
+        with open(log_url, encoding="utf-8") as f:
+            log_data = f.read()
 
     get_timing_info(args, role, log_url, log_data)
 
@@ -756,9 +765,7 @@ def get_beaker_job_info(args, job):
             xml_data = open(job).read()
         bs = BeautifulSoup(xml_data, "xml")
     else:  # assume it is a job number like J:1213552
-        result = subprocess.run(
-            ["bkr", "job-results", job], capture_output=True, text=True, check=True
-        )
+        result = subprocess.run(["bkr", "job-results", job], capture_output=True, text=True, check=True)
         bs = BeautifulSoup(result.stdout, "xml")
     data = {}
     data["job"] = job
@@ -797,16 +804,16 @@ def get_beaker_job_info(args, job):
     )
     for task in bs.find_all("task"):
         task_data = {"errors": []}
-        for key in (
+        for key in [
             "name",
             "result",
             "status",
             "start_time",
             "finish_time",
             "duration",
-        ):
+        ]:
             task_data[key] = task.get(key)
-            if key in ("start_time", "finish_time") and task_data[key]:
+            if key in ["start_time", "finish_time"] and task_data[key]:
                 dt = datetime.datetime.fromisoformat(task_data[key] + "+00:00")
                 task_data[key] = dt
         if task_data["name"].endswith("basic-smoke-test") or task_data["name"].endswith(
@@ -858,9 +865,11 @@ def get_beaker_job_info(args, job):
                     role = match.group(1).replace("-", "_")
                 match = re.search(r"avc_check", result.get("path"))
                 if match and role:
-                    log_url = result.find("log").get("href")
-                    avc_data = parse_avc_log(args, log_url)
-                    task_data["avcs"][role] = avc_data
+                    log_elem = result.find("log")
+                    log_url = log_elem.get("href") if log_elem else None
+                    if log_url:
+                        avc_data = parse_avc_log(args, log_url)
+                        task_data["avcs"][role] = avc_data
                     role = None
         data["tasks"].append(task_data)
     return data
@@ -873,14 +882,14 @@ def print_beaker_job_info(args, info):
     print(f"  Install start [{info['install_start']}] end [{info['post_install_end']}]")
     for task in info["tasks"]:
         sys.stdout.write("  Task")
-        for key in (
+        for key in [
             "name",
             "result",
             "status",
             "start_time",
             "finish_time",
             "duration",
-        ):
+        ]:
             val = task[key]
             if not val:
                 val = "N/A"
@@ -1356,7 +1365,9 @@ def parse_arguments():
     )
     parser.add_argument(
         "--gspread-creds",
-        default=os.environ["HOME"] + "/.config/gspread/google_secret.json",
+        default=os.path.join(
+            os.path.expanduser("~"), ".config/gspread/google_secret.json"
+        ),
         help="path to google spreadsheet api credentials",
     )
     parser.add_argument(

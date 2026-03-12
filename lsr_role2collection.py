@@ -732,6 +732,66 @@ def copy_tree_with_replace(
             lsrxfrm.run()
 
 
+def convert_tests_plugin_symlinks(tests_path, new_role, dest_path):
+    """
+    Convert symlinks in tests plugin directories to point to collection plugins.
+
+    In role tests, there may be plugin directories (library, module_utils, etc.)
+    containing symlinks that point back to the role's plugin directories. These
+    need to be converted to point to the collection's plugins directory.
+    """
+    if not tests_path.exists():
+        return
+
+    for plugin_dir_name in PLUGINS:
+        plugin_test_dir = tests_path / plugin_dir_name
+        if not plugin_test_dir.is_dir():
+            continue
+
+        for item in plugin_test_dir.iterdir():
+            if not item.is_symlink():
+                continue
+
+            link_target = os.readlink(item)
+
+            for src_plugin_dir in PLUGINS:
+                pattern = re.compile(
+                    r"(?:^|.*/){}(?:/(.*))?$".format(re.escape(src_plugin_dir))
+                )
+                match = pattern.match(link_target)
+                if match:
+                    rel_in_plugin = match.group(1) if match.group(1) else item.name
+                    src_plugin_name = dir_to_plugin(src_plugin_dir)
+
+                    if src_plugin_dir == "module_utils":
+                        new_target = (
+                            dest_path
+                            / "plugins"
+                            / src_plugin_name
+                            / (new_role + "_lsr")
+                            / rel_in_plugin
+                        )
+                    else:
+                        new_target = (
+                            dest_path / "plugins" / src_plugin_name / rel_in_plugin
+                        )
+
+                    if new_target.exists():
+                        rel_path = os.path.relpath(new_target, item.parent)
+                        logging.info(
+                            f"Converting symlink {item} to point to {rel_path}"
+                        )
+                        item.unlink()
+                        item.symlink_to(rel_path)
+                    else:
+                        logging.info(
+                            f"Matched plugin path for symlink {item} (plugin '{src_plugin_dir}', "
+                            f"relative '{rel_in_plugin}'), but computed target {new_target} does not exist; "
+                            "leaving symlink unchanged"
+                        )
+                    break
+
+
 def cleanup_symlinks(path, role, rmlist):
     """
     Clean up symlinks in tests/roles
@@ -1597,6 +1657,9 @@ def role2collection():
             logging.info(f"Copying plugin {src} to {dest}")
             lsr_copytree(src, dest)
 
+    # Convert symlinks in tests plugin directories to point to collection plugins.
+    convert_tests_plugin_symlinks(tests_dir / new_role, new_role, dest_path)
+
     # Update the python codes which import modules in plugins/{modules,modules_dir}.
     config["module_utils"] = gather_module_utils_parts(module_utils_dir)
     additional_rewrites = []
@@ -1660,6 +1723,8 @@ def role2collection():
                             ".git*",
                         ],
                     )
+                    # Convert symlinks in tests plugin directories to point to collection plugins.
+                    convert_tests_plugin_symlinks(tests_dir / dr, dr, dest_path)
                     # remove symlinks in the tests/new_role.
                     removeme = ["library", "modules", "module_utils", "roles"]
                     cleanup_symlinks(tests_dir / dr, dr, removeme)

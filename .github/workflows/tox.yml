@@ -35,4 +35,9 @@ jobs:
       - name: Run tox tests
         run: |
           set -euxo pipefail
-          tox
+          # only run black on the latest python version (currently 3.14)
+          tox_env="flake8,pylint,pytest,shellcheck"
+          if [ "${{ matrix.pyver_os.ver }}" = "3.14" ]; then
+            tox_env="${tox_env},black"
+          fi
+          tox -e "$tox_env"

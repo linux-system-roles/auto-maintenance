@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.121.0] - 2026-03-16
+---------------------
+
+### New Features
+
+- certificate - feat: Add openSUSE Leap vars (#317)
+- storage - feat: Added support for debian 13 [WIP] (#598)
+
 [1.120.5] - 2026-02-23
 ---------------------
 

@@ -93,7 +93,11 @@ clone_repo() {
             fi
         fi
     fi
-    git fetch --all --quiet
+    for remote in $(git remote); do
+        if [ "$remote" = "upstream" ] || [ "$remote" = "origin" ]; then
+            git fetch "$remote" --quiet
+        fi
+    done
 }
 
 repos=${REPOS:-$(gh repo list "$LSR_GH_ORG" -L 100 --json name -q '.[].name')}

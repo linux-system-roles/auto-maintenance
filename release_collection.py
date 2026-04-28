@@ -349,6 +349,8 @@ def process_ignore_and_lint_files(args, coll_dir):
     # roles/file.yml:61: yaml line too long (187 > 160 characters)
     # the only thing we can do is suppress these
     ansible_lint = {"skip_list": ["yaml[line-length]"]}
+    # for ignores - key is filename, value is set of lines from role ignores files
+    ignores = {}
     for role_name in os.listdir(args.src_path):
         roledir = os.path.join(args.src_path, role_name)
         if (
@@ -358,8 +360,6 @@ def process_ignore_and_lint_files(args, coll_dir):
         ):
             for file_name in os.listdir(roledir):
                 if file_name.startswith(".sanity-ansible-ignore-"):
-                    if not os.path.isdir(ignore_file_dir):
-                        os.mkdir(ignore_file_dir)
                     match = re.match(
                         r"^[.]sanity-ansible-ignore-(\d[\d.]+)[.]txt$", file_name
                     )
@@ -367,9 +367,10 @@ def process_ignore_and_lint_files(args, coll_dir):
                         ver = match.group(1)
                         ignore_file = os.path.join(ignore_file_dir, f"ignore-{ver}.txt")
                         role_ignore_file = os.path.join(roledir, file_name)
-                        with open(ignore_file, "a") as ign_fd:
-                            with open(role_ignore_file, "r") as role_ign_fd:
-                                ign_fd.write(role_ign_fd.read())
+                        with open(role_ignore_file, "r") as role_ign_fd:
+                            ignores.setdefault(ignore_file, set()).update(
+                                role_ign_fd.readlines()
+                            )
                 elif file_name == ".ansible-lint":
                     role_ansible_lint = yaml.safe_load(
                         open(os.path.join(roledir, file_name))
@@ -390,6 +391,13 @@ def process_ignore_and_lint_files(args, coll_dir):
         open(os.path.join(coll_dir, ".ansible-lint"), "w"),
         explicit_start=True,
     )
+    for ignore_file, line_set in ignores.items():
+        lines = sorted(line_set)
+        if lines:
+            if not os.path.isdir(os.path.dirname(ignore_file)):
+                os.mkdir(os.path.dirname(ignore_file))
+            with open(ignore_file, "w") as ign_fd:
+                ign_fd.writelines(lines)
 
 
 def role_to_collection(

@@ -133,7 +133,7 @@ setup_replacement = Replacement(BEGIN_SETUP_MARKER, END_SETUP_MARKER, generate_s
 f = open(SPECFILE_IN, "r")
 of = open(SPECFILE_OUT, "w")
 
-mainid_info = rolesbysourcenum.get(0)
+mainid_info = roles.get("mainid")
 
 for line in f:
     if line.startswith("%global mainid ") and mainid_info:

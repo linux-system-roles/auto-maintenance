@@ -1,6 +1,38 @@
 Changelog
 =========
 
+[1.124.0] - 2026-05-07
+---------------------
+
+### New Features
+
+- ad_integration - feat: new variable `ad_integration_secure_logging` defaulting to `true` (#192)
+- auditd - New Role
+- bootloader - feat: new variable `bootloader_secure_logging` defaulting to `true` (#209)
+- ha_cluster - feat: Parametrize no_log usage in ha_cluster role (#383)
+- ha_cluster - feat: export node attributes utilization (#382)
+- metrics - feat: new variable `metrics_secure_logging` defaulting to `true` (#315)
+- nbde_client - feat: new variable `nbde_client_secure_logging` defaulting to `true` (#257)
+- network - feat: add initial support for sle16+ (#863)
+- podman - feat: Parametrize no_log usage in podman role (#286)
+- postfix - feat: new variable `postfix_secure_logging` defaulting to `true` (#234)
+- postgresql - feat: new variable `postgresql_secure_logging` defaulting to `true` (#184)
+- trustee_client - New Role
+- trustee_server - New Role
+- vpn - feat: new variable `vpn_secure_logging` defaulting to `true` (#253)
+
+### Bug Fixes
+
+- firewall - fix: add verbosity-based no_log to facts modules (#349)
+- nbde_server - fix: firewall - use runtime instead of deprecated immediate (#234)
+- network - fix: handle_exceptions is not a valid parameter (#864)
+- rhc - fix: add verbosity-based no_log to facts modules (#276)
+- selinux - fix: add verbosity-based no_log to facts modules (#348)
+- snapshot - fix: issues found via code review (#170)
+- storage - fix: add verbosity-based no_log to facts modules (#619)
+- timesync - fix: add verbosity-based no_log to facts modules (#348)
+- tlog - fix: add verbosity-based no_log to facts modules (#219)
+
 [1.123.0] - 2026-05-07
 ---------------------
 

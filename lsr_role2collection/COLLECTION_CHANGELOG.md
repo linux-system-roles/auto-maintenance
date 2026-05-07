@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[1.123.0] - 2026-05-07
+---------------------
+
+### New Features
+
+- sshd - feat: add role fingerprints to syslog (#361)
+- sshd - feat: Add new c10s options GSSAPIAllowS4U2Self and GSSAPIProxyS4U2Services (#357)
+
 [1.122.0] - 2026-04-28
 ---------------------
 

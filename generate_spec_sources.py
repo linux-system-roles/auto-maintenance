@@ -137,7 +137,7 @@ mainid_info = roles.get("mainid")
 
 for line in f:
     if line.startswith("%global mainid ") and mainid_info:
-        new_new_line = "%global mainid " + mainid_info["ref"]
+        new_new_line = "%global mainid " + mainid_info["ref"] + "\n"
     else:
         changed_sources, new_line = sources_replacement.process_line(line)
         changed_setup, new_new_line = setup_replacement.process_line(new_line)

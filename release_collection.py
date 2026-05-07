@@ -624,6 +624,8 @@ def update_collection(args, galaxy, coll_rel):
     # major, minor, micro, hash
     versions_updated = [False, False, False, False]
     for rolename in args.include:
+        if rolename == "mainid":
+            continue
         if not args.skip_git:
             if args.use_commit_hash and rolename not in args.use_commit_hash_role:
                 args.use_commit_hash_role.append(rolename)
@@ -718,6 +720,13 @@ def update_collection(args, galaxy, coll_rel):
             return
         update_galaxy_version(args, galaxy, versions_updated)
         if not args.no_update:
+            if "mainid" in coll_rel:
+                coll_rel["mainid"]["ref"] = galaxy["version"]
+            else:
+                coll_rel["mainid"] = {
+                    "ref": galaxy["version"],
+                    "sourcenum": 0,
+                }
             with open(args.collection_release_yml.name, "w") as crf:
                 yaml.safe_dump(coll_rel, crf, sort_keys=False)
 

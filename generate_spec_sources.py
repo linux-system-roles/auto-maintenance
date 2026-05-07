@@ -84,6 +84,8 @@ def generate_sources(output):
     k.sort()
 
     for i in k:
+        if i == 0:
+            continue
         r = rolesbysourcenum[i]
         org = roles[r].get("org")
         repo = roles[r].get("repo")
@@ -100,11 +102,14 @@ def generate_sources(output):
         else:
             output.write(f"%deftag {i} {ref}\n\n")
     for i in k:
+        if i == 0:
+            continue
         output.write(f"Source{i}: %{{archiveurl{i}}}\n")
 
 
 def generate_setup(output):
-    k = list(rolesbysourcenum.keys())
+    # omit mainid - sourcenum 0
+    k = list([ii for ii in rolesbysourcenum.keys() if ii != 0])
     k.sort()
 
     output.write(
@@ -120,7 +125,6 @@ with open(COLLECTION_RELEASE, "r") as cf:
         roleinfo["sourcenum"]: rolename for rolename, roleinfo in roles.items()
     }
 
-
 sources_replacement = Replacement(
     BEGIN_SOURCES_MARKER, END_SOURCES_MARKER, generate_sources
 )
@@ -129,15 +133,20 @@ setup_replacement = Replacement(BEGIN_SETUP_MARKER, END_SETUP_MARKER, generate_s
 f = open(SPECFILE_IN, "r")
 of = open(SPECFILE_OUT, "w")
 
+mainid_info = rolesbysourcenum.get(0)
+
 for line in f:
-    changed_sources, new_line = sources_replacement.process_line(line)
-    changed_setup, new_new_line = setup_replacement.process_line(new_line)
-    if changed_sources and changed_setup:
-        sys.exit(
-            "Begin marker {} in the output of sources replacement".format(
-                setup_replacement.begin_marker
+    if line.startswith("%global mainid ") and mainid_info:
+        new_new_line = "%global mainid " + mainid_info["ref"]
+    else:
+        changed_sources, new_line = sources_replacement.process_line(line)
+        changed_setup, new_new_line = setup_replacement.process_line(new_line)
+        if changed_sources and changed_setup:
+            sys.exit(
+                "Begin marker {} in the output of sources replacement".format(
+                    setup_replacement.begin_marker
+                )
             )
-        )
     of.write(new_new_line)
 
 for i in (sources_replacement, setup_replacement):

@@ -1,5 +1,5 @@
 mainid:
-  ref: 1.124.2
+  ref: 1.124.3
   sourcenum: 0
 postfix:
   ref: 1.8.0
@@ -109,5 +109,5 @@ trustee_server:
   ref: 1.0.0
   sourcenum: 35
 auditd:
-  ref: 1.0.0
+  ref: 1.0.1
   sourcenum: 36

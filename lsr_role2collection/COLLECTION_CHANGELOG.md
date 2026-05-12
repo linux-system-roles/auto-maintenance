@@ -1,6 +1,21 @@
 Changelog
 =========
 
+[1.125.0] - 2026-05-12
+---------------------
+
+### New Features
+
+- network - feat: Use verbosity-based logging in network role (#868)
+
+### Bug Fixes
+
+- podman - fix: Use verbosity level 3 for no_log (#289)
+- postgresql - fix: Use verbosity level 3 for no_log (#186)
+- rhc - fix: Use verbosity level 3 for no_log (#278)
+- snapshot - fix: Use verbosity level 3 for no_log (#172)
+- trustee_server - fix: Use verbosity level 3 for no_log (#18)
+
 [1.124.3] - 2026-05-08
 ---------------------
 

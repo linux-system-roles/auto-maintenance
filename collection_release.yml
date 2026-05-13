@@ -1,5 +1,5 @@
 mainid:
-  ref: 1.125.0
+  ref: 1.125.1
   sourcenum: 0
 postfix:
   ref: 1.8.0
@@ -52,7 +52,7 @@ ssh:
   ref: 1.8.0
   sourcenum: 16
 ha_cluster:
-  ref: 1.31.0
+  ref: 1.31.1
   sourcenum: 17
 vpn:
   ref: 1.8.0
@@ -70,7 +70,7 @@ ad_integration:
   ref: 1.8.0
   sourcenum: 22
 rhc:
-  ref: 1.7.2
+  ref: 1.7.3
   sourcenum: 23
 journald:
   ref: 1.6.0

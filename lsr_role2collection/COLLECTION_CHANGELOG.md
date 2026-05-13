@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.125.1] - 2026-05-13
+---------------------
+
+### Bug Fixes
+
+- ha_cluster - fix: check for corosync-qdevice service in bad state before stopping (#385)
+
 [1.125.0] - 2026-05-12
 ---------------------
 

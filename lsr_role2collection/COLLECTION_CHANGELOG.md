@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.125.2] - 2026-05-21
+---------------------
+
+### Bug Fixes
+
+- ad_integration - fix: set crypto_policies_reboot_ok to reboot and apply RC4 crypto policy (#194)
+
 [1.125.1] - 2026-05-13
 ---------------------
 

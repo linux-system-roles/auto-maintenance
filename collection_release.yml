@@ -1,5 +1,5 @@
 mainid:
-  ref: 1.125.1
+  ref: 1.125.2
   sourcenum: 0
 postfix:
   ref: 1.8.0
@@ -67,7 +67,7 @@ podman:
   ref: 1.11.1
   sourcenum: 21
 ad_integration:
-  ref: 1.8.0
+  ref: 1.8.1
   sourcenum: 22
 rhc:
   ref: 1.7.3

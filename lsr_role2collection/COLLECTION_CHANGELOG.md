@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.125.3] - 2026-06-02
+---------------------
+
+### Bug Fixes
+
+- network - fix: correctly retry device read when device is unstable (#874)
+- sudo - fix: use correct spacing before tags (#123)
+- sudo - fix: support continuation lines in scan_sudoers (#122)
+
 [1.125.2] - 2026-05-21
 ---------------------
 

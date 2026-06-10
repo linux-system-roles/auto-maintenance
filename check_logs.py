@@ -765,7 +765,9 @@ def get_beaker_job_info(args, job):
             xml_data = open(job).read()
         bs = BeautifulSoup(xml_data, "xml")
     else:  # assume it is a job number like J:1213552
-        result = subprocess.run(["bkr", "job-results", job], capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["bkr", "job-results", job], capture_output=True, text=True, check=True
+        )
         bs = BeautifulSoup(result.stdout, "xml")
     data = {}
     data["job"] = job

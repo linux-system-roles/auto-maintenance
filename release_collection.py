@@ -513,7 +513,15 @@ def create_collection_extra_files(args, coll_dir, galaxy=None):
             ee_dependencies.append("system: bindep.txt")
         if galaxy["dependencies"]:
             with open(collection_req_yml_dest, "w") as crf:
-                crf.write("---\ncollections:\n")
+                crf.write(
+                    "---\n"
+                    "# fedora.linux_system_roles still supports EL7, which limits dependency collection versions.\n"
+                    "# Ansible allows only one version per dependency; you cannot pin different versions\n"
+                    "# for different managed hosts.\n"
+                    "# If you do not need to manage EL7 hosts, you may force-install dependencies at the\n"
+                    "# latest versions instead of the ones listed below.\n"
+                    "collections:\n"
+                )
                 for k in galaxy["dependencies"].keys():
                     crf.write("  - name: {0}\n".format(k))
             ee_dependencies.append("galaxy: requirements.yml")

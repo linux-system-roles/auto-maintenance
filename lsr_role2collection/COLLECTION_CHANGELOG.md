@@ -1,6 +1,15 @@
 Changelog
 =========
 
+[1.125.4] - 2026-06-12
+---------------------
+
+### Bug Fixes
+
+- firewall - fix: ignore network device interface file that is not found (#359)
+- firewall - fix: ensure firewall_config is reset (#355)
+- firewall - fix: role should not configure firewall if only getting facts (#354)
+
 [1.125.3] - 2026-06-02
 ---------------------
 

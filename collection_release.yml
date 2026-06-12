@@ -1,5 +1,5 @@
 mainid:
-  ref: 1.125.3
+  ref: 1.125.4
   sourcenum: 0
 postfix:
   ref: 1.8.0
@@ -58,7 +58,7 @@ vpn:
   ref: 1.8.0
   sourcenum: 18
 firewall:
-  ref: 1.12.1
+  ref: 1.12.2
   sourcenum: 19
 cockpit:
   ref: 1.8.0

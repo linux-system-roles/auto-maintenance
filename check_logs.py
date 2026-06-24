@@ -687,8 +687,8 @@ def parse_beaker_job_log(args, start_dt_utc, taskout_url):
     start_data = None
     job_data = {
         "roles": {},
-        "passed": [],
-        "failed": [],
+        "passed": set(),
+        "failed": set(),
         "status": "RUNNING",
         "last_test": "N/A",
         "last_line": "",
@@ -739,10 +739,11 @@ def parse_beaker_job_log(args, start_dt_utc, taskout_url):
             elif start_data:
                 btr = BeakerTestRec(start_dt, start_data, data)
                 job_data["roles"].setdefault(data["role"], {})[data["test_name"]] = btr
+                role_test_name = btr.role + "/" + btr.test_name
                 if data["status"] == "PASS":
-                    job_data["passed"].append(btr)
+                    job_data["passed"].add(role_test_name)
                 else:
-                    job_data["failed"].append(btr)
+                    job_data["failed"].add(role_test_name)
                 start_data = None
     return job_data
 
@@ -908,7 +909,7 @@ def print_beaker_job_info(args, info):
         if job_data["status"] != "RUNNING" and job_data.get("duration"):
             print(f"  Duration {job_data['duration']}")
         if args.failed_tests_to_show > 0:
-            for failed_test in job_data["failed"][-args.failed_tests_to_show:]:  # fmt: skip
+            for failed_test in sorted(list(job_data["failed"]))[-args.failed_tests_to_show:]:  # fmt: skip
                 print(f"    failed {failed_test}")
             print_avcs_and_tasks(args, task)
     print("")
@@ -940,18 +941,26 @@ def get_logs_from_beaker(args):
     print_ansible_errors(args, errors)
 
 
+# mh (multihost) and bst (basic-smoke-test) have slightly different log formats
 def parse_tf_job_log(args, url, ref_dt):
-    test_re_str = (
+    test_re_str_mh = (
         r"^(?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2})\s+(?:out|stdout): :: "
         r"\[ [0-9]{2}:[0-9]{2}:[0-9]{2} \] "
         r":: \[ +(?P<status>[A-Z]+) +\] :: (?P<role>[a-z0-9_]+): (?P<test_name>tests_[^ ]+) "
         r"with ANSIBLE-(?P<ansible_ver>[0-9.]+) on (?P<managed_node>\S+)"
     )
-    test_re = re.compile(test_re_str)
+    test_re_mh = re.compile(test_re_str_mh)
+    test_re_str_bst = (
+        r"^(?P<hour>[0-9]{2}):(?P<min>[0-9]{2}):(?P<sec>[0-9]{2})\s+(?:out|stdout): :: "
+        r"\[ [0-9]{2}:[0-9]{2}:[0-9]{2} \] "
+        r":: \[ +(?P<status>[A-Z]+) +\] :: Test (?P<role>[a-z0-9_]+)/(?P<test_name>tests_[^ ]+) "
+        r".* with ANSIBLE-(?P<ansible_ver>[0-9.]+)"
+    )
+    test_re_bst = re.compile(test_re_str_bst)
     job_data = {
         "roles": {},
-        "passed": [],
-        "failed": [],
+        "passed": set(),
+        "failed": set(),
         "status": "running",
         "last_test": "N/A",
         "last_line": "",
@@ -966,7 +975,9 @@ def parse_tf_job_log(args, url, ref_dt):
             if ip_matches:
                 job_data["ip_addresses"].extend(ip_matches)
 
-        match = test_re.search(line)
+        match = test_re_mh.search(line)
+        if not match:
+            match = test_re_bst.search(line)
         if match:
             data = match.groupdict()
             test_data = (
@@ -974,7 +985,7 @@ def parse_tf_job_log(args, url, ref_dt):
                 .setdefault(data["role"], {})
                 .setdefault(data["test_name"], {})
             )
-            test_name = data["role"] + "/" + data["test_name"]
+            role_test_name = data["role"] + "/" + data["test_name"]
             dt = ref_dt.replace(
                 hour=int(data["hour"]),
                 minute=int(data["min"]),
@@ -985,14 +996,14 @@ def parse_tf_job_log(args, url, ref_dt):
                 dt = dt + datetime.timedelta(days=1)
             if data["status"] == "BEGIN":
                 test_data["start_dt"] = dt
-                job_data["last_test"] = test_name
+                job_data["last_test"] = role_test_name
             else:
                 test_data["end_dt"] = dt
                 test_data["status"] = data["status"]
                 if data["status"] == "PASS":
-                    job_data["passed"].append(test_name)
+                    job_data["passed"].add(role_test_name)
                 else:
-                    job_data["failed"].append(test_name)
+                    job_data["failed"].add(role_test_name)
             job_data["roles"][data["role"]][data["test_name"]] = test_data
 
     # Remove duplicate IP addresses
@@ -1032,6 +1043,8 @@ def get_testing_farm_result(args):
             "SR_USE_COLLECTIONS",
             "SR_EXCLUDED_TESTS",
             "SR_ONLY_TESTS",
+            "SYSTEM_ROLES_ONLY_TESTS",
+            "SYSTEM_ROLES_USE_COLLECTIONS",
         ]:
             data[var.lower()] = get_from_nested_dict(
                 environments_requested, ["variables", var], ""
@@ -1055,6 +1068,7 @@ def get_testing_farm_result(args):
                 "plan_filter": get_from_nested_dict(
                     result, ["test", "fmf", "plan_filter"], ""
                 ),
+                "plan_name": get_from_nested_dict(result, ["test", "fmf", "name"], ""),
                 "state": result["state"],
                 "artifacts_url": artifacts_url,
                 "pipeline_type": pipeline_type,
@@ -1066,8 +1080,8 @@ def get_testing_farm_result(args):
                 "updated_ts": datetime.datetime.fromisoformat(
                     result["updated"] + "+00:00"
                 ),
-                "passed": [],
-                "failed": [],
+                "passed": set(),
+                "failed": set(),
                 "role": "ALL" if sr_role_name == "" else sr_role_name,
                 "build": build,
                 "ip_addresses": [],
@@ -1090,16 +1104,34 @@ def get_testing_farm_result(args):
 
                 xml_data = requests.get(data["xunit_url"], verify=verify).content
                 bs = BeautifulSoup(xml_data, "xml")
+                # see if test run logs have status in the name
+                log_set = bs.find_all("log", href=SYSTEM_ROLE_TF_LOG_RE)
+                if not log_set:
+                    # basic-smoke-test run in TF has a different log file name format so we have to
+                    # parse the job log to get the test results
+                    job_logs = bs.find_all("log", href=re.compile(r"log[.]txt$"))
+                    if job_logs and len(job_logs) > 0:
+                        job_log_url = job_logs[0].attrs["href"]
+                        data["job_data"] = parse_tf_job_log(
+                            args, job_log_url, data["created_ts"]
+                        )
+                        data["passed"].update(data["job_data"]["passed"])
+                        data["failed"].update(data["job_data"]["failed"])
+                        if args.get_addresses and "ip_addresses" in data["job_data"]:
+                            data["ip_addresses"] = data["job_data"]["ip_addresses"]
                 for log_set in bs.find_all("logs"):
                     for log_item in log_set.find_all("log", href=SYSTEM_ROLE_TF_LOG_RE):
                         log_url = log_item.attrs["href"]
                         match = SYSTEM_ROLE_TF_LOG_RE.search(log_url)
                         test_result = match.groupdict()
                         status = test_result["test_status"]
+                        role_test_name = (
+                            test_result["role"] + "/" + test_result["test_name"]
+                        )
                         if status == "SUCCESS":
-                            data["passed"].append(test_result)
+                            data["passed"].add(role_test_name)
                         else:
-                            data["failed"].append(test_result)
+                            data["failed"].add(role_test_name)
                         if args.all_statuses or status == "FAIL":
                             errors.extend(
                                 get_errors_from_ansible_log(
@@ -1114,8 +1146,8 @@ def get_testing_farm_result(args):
                 data["job_data"] = parse_tf_job_log(
                     args, log_item.attrs["href"], data["created_ts"]
                 )
-                data["passed"].extend(data["job_data"]["passed"])
-                data["failed"].extend(data["job_data"]["failed"])
+                data["passed"].update(data["job_data"]["passed"])
+                data["failed"].update(data["job_data"]["failed"])
                 if args.get_addresses and "ip_addresses" in data["job_data"]:
                     data["ip_addresses"] = data["job_data"]["ip_addresses"]
         elif result["state"] == "queued":
@@ -1134,7 +1166,7 @@ def print_testing_farm_result(args, result):
         val = result[key]
         if key == "ip_addresses":
             val = ",".join(val)
-        elif not val or isinstance(val, (list, dict)):
+        elif not val or isinstance(val, (list, dict, set)):
             continue
         new_val = f"{sep}{key}={val}"
         if len(line) + len(new_val) > max_line_len:
@@ -1154,7 +1186,7 @@ def print_testing_farm_result(args, result):
         print("  last line: " + result["job_data"]["last_line"])
     if args.failed_tests_to_show > 0 and result.get("failed"):
         print("  Failures:")
-        for failed_test in result["failed"][-args.failed_tests_to_show:]:  # fmt: skip
+        for failed_test in sorted(list(result["failed"]))[-args.failed_tests_to_show:]:  # fmt: skip
             print(f"    failed {failed_test}")
     print("")
 

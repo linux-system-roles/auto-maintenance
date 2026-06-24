@@ -105,7 +105,7 @@ DEFAULT_EXCLIST=${DEFAULT_EXCLIST:-"tft-tests test-harness linux-system-roles.gi
                     sap-hana-preconfigure experimental-azure-firstboot sap-preconfigure \
                     auto-maintenance image_builder sap-netweaver-preconfigure ci-testing \
                     meta_test tox-lsr tuned .github lsr-gh-action-py26 \
-                    ee_linux_system_roles ee_linux_automation lsr-woke-action"}
+                    ee_linux_system_roles ee_linux_automation lsr-woke-action linux-system-roles-upstream-metrics"}
 declare -A EXARRAY
 for repo in $DEFAULT_EXCLIST ${EXCLIST:-}; do
     # EXARRAY is a "set" of excluded repos

@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.126.0] - 2026-06-24
+---------------------
+
+### New Features
+
+- sshd - feat: Add verbosity-based logging to reduce verbose output (#366)
+
 [1.125.4] - 2026-06-12
 ---------------------
 

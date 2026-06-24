@@ -1,6 +1,24 @@
 Changelog
 =========
 
+[1.127.0] - 2026-06-24
+---------------------
+
+### New Features
+
+- crypto_policies - feat: regenerate policy automatically if check fails, add crypto_policies_force_regenerate (#197)
+- podman - feat: Add restarts and restarts_on to allow services to be restarted if dependencies change (#296)
+
+### Bug Fixes
+
+- bootloader - fix: support duplicate option names with different values (#214)
+- firewall - fix: ensure rich rule handling is idempotent (#358)
+- nbde_server - fix: Prevent symlink following privilege escalation in nbde_server_tang module (#240)
+- podman - fix: use correct repo name for copr repo (#298)
+- selinux - fix: ensure policy modules are loaded before they can be referenced (#354)
+- storage - fix: only install stratis if requested (#624)
+- trustee_server - fix: do not use cert '-subj' with hostname to generate cert, use subjectAltName (#24)
+
 [1.126.0] - 2026-06-24
 ---------------------
 

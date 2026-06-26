@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[1.127.2] - 2026-06-26
+---------------------
+
+### Bug Fixes
+
+- firewall - fix: ensure firewalld is responding to requests after starting (#365)
+
 [1.127.1] - 2026-06-25
 ---------------------
 

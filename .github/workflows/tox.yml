@@ -22,7 +22,7 @@ jobs:
     runs-on: ${{ matrix.pyver_os.os }}
     steps:
       - name: checkout PR
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:

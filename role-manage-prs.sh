@@ -9,13 +9,20 @@ repo=${repo:-$(git remote get-url origin | awk -F'/' '{print $NF}')}
 
 AUTHOR="${AUTHOR:-"@me"}"
 APP="${APP:-""}"
-declare -a searchargs=("--search" "draft:false")
-if [ -n "$APP" ]; then
-    searchargs=("--app" "$APP")
-elif [ "$AUTHOR" != "@all" ]; then
-    searchargs=("--author" "$AUTHOR")
+searchargsstr=""
+searchargs=()
+if [ "${SHOW_SYSTEMROLLER:-false}" = false ]; then
+    searchargsstr="$searchargsstr -author:systemroller"
 fi
-
+if [ -n "$APP" ]; then
+    searchargs+=("--app" "$APP")
+elif [ "$AUTHOR" != "@all" ]; then
+    searchargs+=("--author" "$AUTHOR")
+fi
+if [ "${SHOW_DRAFTS:-true}" = false ]; then
+    searchargsstr="$searchargsstr draft:false"
+fi
+searchargs+=("--search" "$searchargsstr")
 declare -a mergeargs=()
 DELETE_BRANCH="${DELETE_BRANCH:-true}"
 if [ "$DELETE_BRANCH" = true ]; then
@@ -157,8 +164,8 @@ show_pr() {
         state=UNKNOWN
     fi
     review="$(get_reviews "$pr")"
-    gh pr view "$pr" -R "$upstream_org/$repo" --json number,title,updatedAt \
-      --template '#{{tablerow .number .updatedAt "'"$state"'" "'"$review"'" .title}}'
+    gh pr view "$pr" -R "$upstream_org/$repo" --json number,title,updatedAt,isDraft \
+      --template '{{$draft := ""}}{{if .isDraft}}{{$draft = "DRAFT"}}{{end}}#{{tablerow .number $draft .updatedAt "'"$state"'" "'"$review"'" .title}}'
     echo "checks: total $total successful $success failed $failure pending $pending cancelled $cancelled error $error skipped $skipped"
 }
 

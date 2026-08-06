@@ -1,23 +1,23 @@
 mainid:
-  ref: 2.0.0
+  ref: 2.1.0
   sourcenum: 0
 postfix:
   ref: 1.8.1
   sourcenum: 1
 selinux:
-  ref: 1.12.2
+  ref: 1.13.0
   sourcenum: 2
 timesync:
-  ref: 1.13.0
+  ref: 1.14.0
   sourcenum: 3
 kdump:
-  ref: 1.6.1
+  ref: 1.7.0
   sourcenum: 4
 network:
   ref: 1.20.3
   sourcenum: 5
 storage:
-  ref: 1.21.3
+  ref: 1.22.0
   sourcenum: 6
 metrics:
   ref: 1.16.2
@@ -38,10 +38,10 @@ nbde_client:
   ref: 1.6.0
   sourcenum: 12
 certificate:
-  ref: 1.7.0
+  ref: 1.8.0
   sourcenum: 13
 crypto_policies:
-  ref: 1.7.0
+  ref: 1.8.0
   sourcenum: 14
 sshd:
   org: willshersystems
@@ -58,7 +58,7 @@ vpn:
   ref: 1.8.1
   sourcenum: 18
 firewall:
-  ref: 1.12.4
+  ref: 1.13.0
   sourcenum: 19
 cockpit:
   ref: 1.8.1
@@ -88,7 +88,7 @@ fapolicyd:
   ref: 1.2.1
   sourcenum: 28
 bootloader:
-  ref: 2.0.0
+  ref: 2.1.0
   sourcenum: 29
 snapshot:
   ref: 1.8.0

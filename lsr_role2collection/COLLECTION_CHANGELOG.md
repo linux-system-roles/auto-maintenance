@@ -1,6 +1,20 @@
 Changelog
 =========
 
+[2.1.0] - 2026-08-06
+---------------------
+
+### New Features
+
+- bootloader - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#230)
+- certificate - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#353)
+- crypto_policies - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#207)
+- firewall - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#378)
+- kdump - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#302)
+- selinux - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#369)
+- storage - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#641)
+- timesync - feat: Write roles fingerprints to /var/log/sysroles.jsonl [citest_skip] (#364)
+
 [2.0.0] - 2026-07-27
 ---------------------
 

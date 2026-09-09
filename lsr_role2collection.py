@@ -116,6 +116,12 @@ def get_item_type(item):
         raise LSRException(f"Error: unknown type of item: {item}")
 
 
+def _represent_none(representer, data):
+    # Ensure None values are represented as the string "null".
+    # Otherwise an empty value will be output, which ansible-lint does not like.
+    return representer.represent_scalar("tag:yaml.org,2002:null", "null")
+
+
 class LSRFileTransformerBase(object):
     # we used to try to not deindent comment lines in the Ansible yaml,
     # but this changed the indentation when comments were used in
@@ -163,6 +169,7 @@ class LSRFileTransformerBase(object):
         self.file_type = get_file_type(self.ruamel_data)
         self.outputfile = None
         self.outputstream = sys.stdout
+        self.ruamel_yaml.representer.add_representer(type(None), _represent_none)
 
     def run(self):
         if self.file_type == "vars":

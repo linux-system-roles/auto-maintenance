@@ -6,6 +6,7 @@ import re
 import shutil
 import tempfile
 import textwrap
+from io import StringIO
 from pathlib import Path
 import unittest
 
@@ -17,6 +18,7 @@ from lsr_role2collection import (
     gather_module_utils_parts,
     add_rolename,
     config,
+    LSRFileTransformerBase,
 )
 
 src_path = os.environ.get("COLLECTION_SRC_PATH", "/var/tmp/linux-system-roles")
@@ -730,3 +732,64 @@ class LSRRole2Collection(unittest.TestCase):
         expected = "LICENSE-" + rolename
         output = add_rolename(input, rolename)
         self.assertEqual(output, expected)
+
+    def test_none_dumped_as_null(self):
+        """Empty YAML nulls are written as the string null for ansible-lint."""
+        # fmt: off
+        src = textwrap.dedent(
+            """\
+            ---
+            argument_specs:
+              main:
+                options:
+                  some_option:
+                    type: str
+                    default:
+                    choices:
+                      - ""
+                      -
+                      - none
+            """
+        )
+        expected = textwrap.dedent(
+            """\
+            ---
+            argument_specs:
+              main:
+                options:
+                  some_option:
+                    type: str
+                    default: null
+                    choices:
+                      - ""
+                      - null
+                      - none
+            """
+        )
+        # fmt: on
+        tmpdir = tempfile.TemporaryDirectory()
+        filepath = Path(tmpdir.name) / "argument_specs.yml"
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(src)
+        transformer_args = {
+            "namespace": namespace,
+            "collection": collection_name,
+            "prefix": prefixdot,
+            "subrole_prefix": "",
+            "replace_dot": "_",
+            "role_modules": set(),
+            "src_owner": "linux-system-roles",
+            "top_dir": dest_path,
+            "extra_mapping_src_owner": [],
+            "extra_mapping_src_role": [],
+            "extra_mapping_dest_prefix": [],
+            "extra_mapping_dest_role": [],
+        }
+        lsrft = LSRFileTransformerBase(
+            str(filepath), rolename, newrolename, transformer_args
+        )
+        lsrft.run()
+        out = StringIO()
+        lsrft.outputstream = out
+        lsrft.write()
+        self.assertEqual(expected, out.getvalue())

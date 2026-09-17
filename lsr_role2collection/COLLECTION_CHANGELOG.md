@@ -1,6 +1,52 @@
 Changelog
 =========
 
+[2.5.0] - 2026-09-17
+---------------------
+
+### New Features
+
+- aide - feat: Argument spec implementation for aide role (#113)
+- bootloader - feat: Argument spec implementation dszabo (#239)
+- certificate - feat: Add argument spec validation to Certificate role (#359)
+- cockpit - feat: Argument spec implementation for cockpit role (#295)
+- crypto_policies - feat: Argument spec implementation for crypto policies role (#213)
+- fapolicyd - feat: Argument spec implementation for fapolicyd role (#129)
+- firewall - feat: Add argument spec validation to Firewall role (#384)
+- journald - feat: Argument spec implementation for journald role (#183)
+- kdump - feat: Argument spec implementation for kdump role (#315)
+- kernel_settings - feat: Argument spec implementation for kernel settings role (#341)
+- nbde_client - feat: Argument spec implementation (#283)
+- nbde_server - feat: Argument spec implementation for nbde server role (#267)
+- postfix - feat: Argument spec implementation for postfix role (#258)
+- postgresql - feat: Argument spec implementation for postgresql role (#209)
+- rhc - feat: Argument spec implementation for rhc role (#310)
+- sudo - feat: Argument spec implementation for sudo role (#143)
+- timesync - feat: Argument spec implementation for timesync role (#380)
+- tlog - feat: Argument spec implementation for tlog role (#242)
+- trustee_client - feat: Argument spec implementation for trustee client role (#59)
+- trustee_server - feat: Argument spec implementation for trustee server role (#40)
+
+### Bug Fixes
+
+- ad_integration - fix: Move ini_file calls to a shared include task file (#223)
+- ad_integration - fix: Select ini_file module by managed node python version (#215)
+- ad_integration - fix: Use the bare ini_file module so it works on ansible 2.9 and newer (#213)
+- ha_cluster - fix: Fixes for the latest upstream pcs (#431)
+- network - fix: reject network_state dns-resolver when NM global-dns is configured (#912)
+- network - fix: escape control characters in IfcfgUtil.ValueEscape (#894)
+- podman - fix: Relax collection-requirements version constraints (#323)
+- rhc - fix: Move subscription-manager module calls to shared include task files (#309)
+- rhc - fix: Select RHSM modules by managed node python version (#299)
+- selinux - fix: Move SELinux module calls to shared include task files (#387)
+- selinux - fix: Select SELinux modules by managed node python version (#377)
+- selinux - fix: Vendor ansible-2.9-compatible SELinux modules (#374)
+- storage - fix: Move mount calls to a shared include task file (#660)
+- storage - fix: Select mount module by managed node python version (#647)
+- systemd - fix: remove debug tasts (#176)
+- tlog - fix: Move ini_file calls to a shared include task file (#250)
+- tlog - fix: Select ini_file module by managed node python version (#240)
+
 [2.4.2] - 2026-08-24
 ---------------------
 

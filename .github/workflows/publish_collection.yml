@@ -11,12 +11,12 @@ jobs:
 
     steps:
       - name: Checkout auto-maintenance repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7.0.1
         with:
           token: ${{ secrets.GH_PUSH_TOKEN }}
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@v7.0.0
 
       - name: Install dependencies
         shell: bash
@@ -78,9 +78,8 @@ jobs:
 
       - name: Create tag
         if: ${{ steps.build.outputs.updated == 1 }}
-        uses: mathieudutour/github-tag-action@af99e60ce8132224b8e6ebab5023449fe256ed46 # v7.0.0
+        uses: linux-system-roles/.github/github-actions/tag@main
         with:
-          commit_sha: ${{ steps.build.outputs.commit }}
           github_token: ${{ secrets.GH_PUSH_TOKEN }}
           custom_tag: ${{ steps.build.outputs.tagname }}
           tag_prefix: ''
@@ -88,7 +87,7 @@ jobs:
       - name: Create Release
         id: create_release
         if: ${{ steps.build.outputs.updated == 1 }}
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+        uses: linux-system-roles/.github/github-actions/release@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:

@@ -6,15 +6,25 @@
 
 set -euo pipefail
 
-# The toolchain (antsibull-docs, sphinx, pandoc, etc.) must be installed from
-# requirements.txt before running this script: pip install -r requirements.txt
-for tool in antsibull-docs sphinx-build pandoc; do
+# The toolchain must be installed from requirements.txt before running this script:
+# pip install -r requirements.txt
+for tool in antsibull-docs sphinx-build; do
     command -v "$tool" >/dev/null 2>&1 || {
         echo "error: $tool not found on PATH" >&2
         echo "Install the toolchain with: pip install -r requirements.txt" >&2
         exit 1
     }
 done
+# pandoc ships inside the pypandoc-binary package; resolve its path and verify it.
+PANDOC_PATH="$(python3 -c 'import pypandoc; print(pypandoc.get_pandoc_path())' 2>/dev/null)" || {
+    echo "error: pypandoc not installed or pandoc not found" >&2
+    echo "Install the toolchain with: pip install -r requirements.txt" >&2
+    exit 1
+}
+[ -x "$PANDOC_PATH" ] || {
+    echo "error: pandoc at $PANDOC_PATH is not executable" >&2
+    exit 1
+}
 
 # SCRIPT_DIR: where the helpers live. ROLE_DIR: the role to build (arg, default CWD).
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -64,12 +74,14 @@ export ANSIBLE_COLLECTIONS_PATH="$WORK/collections"
 
 # antsibull writes the config it needs (conf.py, antsibull-docs.cfg).
 mkdir -p "$WORK/site"
+echo "Initializing antsibull-docs..." >&2
 antsibull-docs sphinx-init --use-current --squash-hierarchy \
     --dest-dir "$WORK/site" fedora.linux_system_roles
 
 cd "$WORK/site"
 
 # 1. antsibull: spec -> RST (an intermediate for Sphinx; not shipped).
+echo "Converting argument_specs.yml to RST with antsibull-docs..." >&2
 chmod og-w rst   # antsibull-docs requires this dir not be group/other-writable
 antsibull-docs --config-file antsibull-docs.cfg collection \
     --cleanup everything --use-current --squash-hierarchy \
@@ -79,15 +91,19 @@ antsibull-docs --config-file antsibull-docs.cfg collection \
 printf '\nhtml_copy_source = False\nhtml_show_sourcelink = False\n' >> conf.py
 
 # 2. Sphinx renders the RST to the styled HTML site.
+echo "Building HTML with Sphinx..." >&2
 sphinx-build -M html rst build -q -c .
 
 # 3. html_to_singlefile.py -> one self-contained README.html.
+echo "Generating README.html (self-contained)..." >&2
 python3 "$SCRIPT_DIR/html_to_singlefile.py" --drop-scripts --standalone --drop-fonts \
     "build/html/${ROLE_NAME}_role.html" "$ROLE_DIR/README.html"
 
 # 4. html_to_md.py -> README.md.
+echo "Generating README.md..." >&2
 python3 "$SCRIPT_DIR/html_to_md.py" \
     "build/html/${ROLE_NAME}_role.html" "$ROLE_DIR/README.md"
 
+echo "Done." >&2
 echo "MD  : $ROLE_DIR/README.md"
-echo "HTML: $ROLE_DIR/README.html (single self-contained file)"
+echo "HTML: $ROLE_DIR/README.html"

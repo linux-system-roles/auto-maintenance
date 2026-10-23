@@ -17,7 +17,10 @@ import sys
 
 from bs4 import BeautifulSoup
 
+import pypandoc
+
 NEST_MARKER = "\N{BULLET} "  # one per nesting level in the Parameter/Key column
+PANDOC_PATH = pypandoc.get_pandoc_path()
 
 
 # --- pandoc + text helpers -------------------------------------------------
@@ -26,7 +29,7 @@ NEST_MARKER = "\N{BULLET} "  # one per nesting level in the Parameter/Key column
 def run_pandoc(fragment):
     """Convert an HTML fragment to GitHub-Flavored Markdown (raw, multi-line)."""
     return subprocess.run(
-        ["pandoc", "-f", "html", "-t", "gfm", "--wrap=none"],
+        [PANDOC_PATH, "-f", "html", "-t", "gfm", "--wrap=none"],
         input=fragment,
         capture_output=True,
         text=True,
@@ -58,8 +61,11 @@ def pandoc_inline_many(fragments):
 
 
 def esc_cell(text):
-    """Escape the pipe character so cell content cannot break the table."""
-    return text.replace("|", "\\|")
+    """Escape unescaped pipe characters so cell content cannot break the table.
+
+    Preserves pipes already escaped by pandoc (preceded by backslash).
+    """
+    return re.sub(r"(?<!\\)\|", r"\\|", text)
 
 
 def gh_slug(text):

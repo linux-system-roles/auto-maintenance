@@ -27,7 +27,7 @@ Writes `README.md` and `README.html` into the role directory.
 Requirements: `python3` and network access (on first pip install).
 
 Install the toolchain once with `pip install -r requirements.txt` (into a venv if working standalone).
-Then run `build_docs.sh` — the script checks that all tools (`antsibull-docs`, `sphinx-build`, `pandoc`) are on `PATH` and exits with a clear error if they're missing.
+Then run `build_docs.sh` — the script checks that `antsibull-docs` and `sphinx-build` are on `PATH`, resolves `pandoc` from the installed `pypandoc-binary` package, and exits with a clear error if they're missing.
 
 The toolchain uses a patched `antsibull-docs` fork (pinned in `requirements.txt`) that adds rendering of a role's `return:` key (the "Return Variables" table), which released antsibull-docs lacks; the pin can be dropped once that support ships upstream.
 

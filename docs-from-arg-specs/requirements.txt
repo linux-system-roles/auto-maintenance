@@ -1,0 +1,6 @@
+antsibull-docs @ https://github.com/linux-system-roles/antsibull-docs/archive/4dbd2bd1f8ff6c434dcc49ae6856b1d06338da17.tar.gz
+ansible-pygments
+sphinx
+sphinx-ansible-theme
+pypandoc-binary
+beautifulsoup4

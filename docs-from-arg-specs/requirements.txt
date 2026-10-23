@@ -1,0 +1,6 @@
+antsibull-docs @ git+https://github.com/spetrosi/antsibull-docs@dcef106ec0e3ad06b14f63714e48ad8c4506c7ff
+ansible-pygments
+sphinx
+sphinx-ansible-theme
+pypandoc-binary
+beautifulsoup4

@@ -6,26 +6,14 @@
 
 set -euo pipefail
 
-# Toolchain venv, created once and reused (override with ANTSIBULL_RV_VENV, delete
-# to refresh). First run needs network.
-# Pinned commit on the role-return-values branch for reproducible installs.
-ANTSIBULL_RV_SPEC='antsibull-docs @ git+https://github.com/spetrosi/antsibull-docs@dcef106ec0e3ad06b14f63714e48ad8c4506c7ff'
-ANTSIBULL_RV_VENV="${ANTSIBULL_RV_VENV:-${XDG_CACHE_HOME:-$HOME/.cache}/lsr-antsibull-docs}"
-# (Re)install if antsibull-docs or the pandoc symlink is missing.
-if [ ! -x "$ANTSIBULL_RV_VENV/bin/antsibull-docs" ] || [ ! -e "$ANTSIBULL_RV_VENV/bin/pandoc" ]; then
-    echo "Installing patched antsibull-docs and pandoc into $ANTSIBULL_RV_VENV ..." >&2
-    python3 -m venv "$ANTSIBULL_RV_VENV"
-    "$ANTSIBULL_RV_VENV/bin/pip" install --quiet --upgrade pip
-    "$ANTSIBULL_RV_VENV/bin/pip" install --quiet \
-        "$ANTSIBULL_RV_SPEC" ansible-pygments sphinx sphinx-ansible-theme pypandoc-binary
-    # pandoc lives inside the pypandoc package; link it onto the venv bin (on PATH).
-    ln -sf "$("$ANTSIBULL_RV_VENV/bin/python" -c 'import pypandoc; print(pypandoc.get_pandoc_path())')" \
-        "$ANTSIBULL_RV_VENV/bin/pandoc"
-fi
-PATH="$ANTSIBULL_RV_VENV/bin:$PATH"
-
+# The toolchain (antsibull-docs, sphinx, pandoc, etc.) must be installed from
+# requirements.txt before running this script: pip install -r requirements.txt
 for tool in antsibull-docs sphinx-build pandoc; do
-    command -v "$tool" >/dev/null 2>&1 || { echo "error: $tool not found on PATH" >&2; exit 1; }
+    command -v "$tool" >/dev/null 2>&1 || {
+        echo "error: $tool not found on PATH" >&2
+        echo "Install the toolchain with: pip install -r requirements.txt" >&2
+        exit 1
+    }
 done
 
 # SCRIPT_DIR: where the helpers live. ROLE_DIR: the role to build (arg, default CWD).

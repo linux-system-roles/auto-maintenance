@@ -24,11 +24,12 @@ build_docs.sh [ROLE_DIR]      # ROLE_DIR defaults to the current directory
 
 Writes `README.md` and `README.html` into the role directory.
 
-Requirements: `python3`, `git`, and network access on the first run.
-`build_docs.sh` installs the toolchain into a reusable venv: `antsibull-docs` from a patched GitHub fork (cloned with `git`; see the note below), and `sphinx`, `ansible-pygments`, `sphinx-ansible-theme`, and `pandoc` (via `pypandoc-binary`) from PyPI.
-Set `ANTSIBULL_RV_VENV` to change the venv location; delete it to refresh.
+Requirements: `python3` and network access (on first pip install).
 
-> The venv uses a patched antsibull-docs fork (`git+https://github.com/spetrosi/antsibull-docs@role-return-values`) that adds rendering of a role's `return:` key (the "Return Variables" table), which released antsibull-docs lacks; drop it once that support ships upstream.
+Install the toolchain once with `pip install -r requirements.txt` (into a venv if working standalone).
+Then run `build_docs.sh` — the script checks that all tools (`antsibull-docs`, `sphinx-build`, `pandoc`) are on `PATH` and exits with a clear error if they're missing.
+
+The toolchain uses a patched `antsibull-docs` fork (pinned in `requirements.txt`) that adds rendering of a role's `return:` key (the "Return Variables" table), which released antsibull-docs lacks; the pin can be dropped once that support ships upstream.
 
 ## How it works
 

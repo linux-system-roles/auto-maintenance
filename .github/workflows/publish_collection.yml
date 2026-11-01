@@ -16,7 +16,7 @@ jobs:
           token: ${{ secrets.GH_PUSH_TOKEN }}
 
       - name: Setup Python
-        uses: actions/setup-python@v7.0.0
+        uses: actions/setup-python@v7.1.0
 
       - name: Install dependencies
         shell: bash

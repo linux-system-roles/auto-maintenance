@@ -51,12 +51,12 @@ for item in "$ROLE_DIR"/meta/*; do
     [ "$name" = "argument_specs.yml" ] && continue
     ln -s "$item" "$ROLE_LINK/meta/$name"
 done
-# If meta/set_vars_specs.yml exists, merge its return: into the spec; else use the
-# spec as-is (set_vars_specs.yml is optional).
-if [ -f "$ROLE_DIR/meta/set_vars_specs.yml" ]; then
-    python3 "$SCRIPT_DIR/merge_set_vars.py" \
+# If meta/extra_specs.yml exists, merge its notes: and return: into the spec; else
+# use the spec as-is (extra_specs.yml is optional).
+if [ -f "$ROLE_DIR/meta/extra_specs.yml" ]; then
+    python3 "$SCRIPT_DIR/merge_extra_specs.py" \
         "$ROLE_DIR/meta/argument_specs.yml" \
-        "$ROLE_DIR/meta/set_vars_specs.yml" \
+        "$ROLE_DIR/meta/extra_specs.yml" \
         "$ROLE_LINK/meta/argument_specs.yml"
 else
     ln -s "$ROLE_DIR/meta/argument_specs.yml" "$ROLE_LINK/meta/argument_specs.yml"
@@ -87,8 +87,9 @@ antsibull-docs --config-file antsibull-docs.cfg collection \
     --cleanup everything --use-current --squash-hierarchy \
     --dest-dir rst fedora.linux_system_roles
 
-# Don't ship the RST source or the "Show Source" link.
-printf '\nhtml_copy_source = False\nhtml_show_sourcelink = False\n' >> conf.py
+# Don't ship the RST source or the "Show Source" link. Disable Sphinx smartquotes
+# so ASCII ' and " are kept verbatim (the linters reject Unicode quotes).
+printf '\nhtml_copy_source = False\nhtml_show_sourcelink = False\nsmartquotes = False\n' >> conf.py
 
 # 2. Sphinx renders the RST to the styled HTML site.
 echo "Building HTML with Sphinx..." >&2

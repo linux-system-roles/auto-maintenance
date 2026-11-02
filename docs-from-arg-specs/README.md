@@ -1,6 +1,6 @@
 # docs-from-arg-specs
 
-Generate a role's `README.md` and `README.html` from its `meta/argument_specs.yml` (and optional `meta/set_vars_specs.yml`), so the docs are authored once in native [antsibull-docs][antsibull] fields and rendered from there.
+Generate a role's `README.md` and `README.html` from its `meta/argument_specs.yml` (and optional `meta/extra_specs.yml`), so the docs are authored once in native [antsibull-docs][antsibull] fields and rendered from there.
 
 Run `build_docs.sh` against a role directory — locally, or from a tox env, or git hook.
 `README.md` is the canonical output; `README.html` is a single, self-contained styled preview.
@@ -10,7 +10,7 @@ Run `build_docs.sh` against a role directory — locally, or from a tox env, or 
 | File | Purpose |
 |---|---|
 | `build_docs.sh` | Orchestrator — builds `README.md` + `README.html` for a role. Run this. |
-| `merge_set_vars.py` | Folds `meta/set_vars_specs.yml`'s `return:` into a temporary copy of `argument_specs.yml` at build time. |
+| `merge_extra_specs.py` | Folds `meta/extra_specs.yml`'s `notes:` and `return:` into a temporary copy of `argument_specs.yml` at build time. |
 | `html_to_singlefile.py` | Collapses the Sphinx HTML site into one self-contained `README.html`. |
 | `html_to_md.py` | Converts the Sphinx HTML page into `README.md` (pandoc + Markdown pipe tables). |
 
@@ -34,7 +34,7 @@ The toolchain uses a patched `antsibull-docs` fork (pinned in `requirements.txt`
 ## How it works
 
 ```
-merge_set_vars.py    (restore return: into a temp argument_specs.yml)
+merge_extra_specs.py (restore notes: and return: into a temp argument_specs.yml)
       │
 antsibull-docs       (argument_specs.yml -> RST)
       │
@@ -50,14 +50,14 @@ antsibull-docs operates on collections, so `build_docs.sh` mirrors the role into
 
 ## Role inputs
 
-- `meta/argument_specs.yml` — role docs in native antsibull fields (`short_description`, `description`, `author`, `notes`, `attributes`, `options`, `examples`).
-- `meta/set_vars_specs.yml` *(optional)* — variables the role returns, under a top-level `return:` key (`type`, `returned`, `sample`, `contains`).
-  It lives separately because the released ansible-lint schema rejects a `return:` key in `argument_specs.yml`; a `notes` entry there points at it, and `merge_set_vars.py` folds it back in (and drops that note) at build time.
+- `meta/argument_specs.yml` — role docs in native antsibull fields (`short_description`, `description`, `author`, `attributes`, `options`, `examples`).
+- `meta/extra_specs.yml` *(optional)* — documentation the released ansible-lint schema rejects in `argument_specs.yml`: a top-level `notes:` key (the role's "Notes" section) and a top-level `return:` key describing returned variables (`type`, `returned`, `sample`, `contains`).
+  It lives separately because the released ansible-lint schema rejects `notes:` and `return:` in `argument_specs.yml`; `merge_extra_specs.py` folds them back in at build time.
 
 ## Running the helpers directly
 
 ```bash
-merge_set_vars.py ARGUMENT_SPECS.yml SET_VARS_SPECS.yml DEST.yml
+merge_extra_specs.py ARGUMENT_SPECS.yml EXTRA_SPECS.yml DEST.yml
 html_to_singlefile.py [--drop-scripts] [--standalone] [--drop-fonts] IN.html OUT.html
 html_to_md.py IN.html OUT.md
 ```

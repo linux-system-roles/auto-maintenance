@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 
 import pypandoc
 
-NEST_MARKER = "\N{BULLET} "  # one per nesting level in the Parameter/Key column
+NEST_MARKER = "- "  # one per nesting level in the Parameter/Key column
 PANDOC_PATH = pypandoc.get_pandoc_path()
 
 
@@ -348,6 +348,7 @@ def main():
     md = run_pandoc(body.decode_contents())
     md = re.sub(r"</?div[^>]*>\n?", "", md)  # leftover section wrapper divs
     md = re.sub(r"\n{3,}", "\n\n", md)
+    md = md.lstrip("\n")  # remove leading empty lines
     for key, rendered in replacements.items():
         md = md.replace(key, rendered)
 

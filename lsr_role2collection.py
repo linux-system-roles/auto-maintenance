@@ -392,6 +392,7 @@ DO_NOT_COPY = (
 )
 
 ALL_DIRS = ROLE_DIRS + PLUGINS + TESTS + DOCS + DO_NOT_COPY
+EXCLUDE_FROM_COPY = (".git", "plans", "vendor")
 
 IMPORT_RE = re.compile(
     rb"(\bimport) (ansible\.module_utils\.)(\S+)(.*)(\s+#.+|.*)$", flags=re.M
@@ -1426,7 +1427,7 @@ def role2collection():
             extra_script = None
 
     _extras = set(os.listdir(src_path)).difference(ALL_DIRS)
-    for dir in (".git", "plans"):
+    for dir in EXCLUDE_FROM_COPY:
         try:
             _extras.remove(dir)
         except KeyError:

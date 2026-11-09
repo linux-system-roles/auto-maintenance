@@ -106,6 +106,8 @@ lsr_role2collection.py [-h] [--namespace NAMESPACE] [--collection COLLECTION]
                      regex.
                      In addition, 'fedora.linux_system_roles:NAMESPACE.COLLECTION' is in the
                      mapping, 'fedora.linux_system_roles' is converted to 'NAMESPACE.COLLECTION'.
+                     If the role contains subroles, the subroles will automatically be added to
+                     the extra mapping.
 --meta-runtime /path/to/runtime.yml
                      This is the path to the collection meta/runtime.yml - the default is
                      $HOME/linux-system-roles/auto-maintenance/lsr_role2collection/runtime.yml.

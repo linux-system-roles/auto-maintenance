@@ -1113,6 +1113,39 @@ def process_ansible_lint(extra, dest, new_role):
 config = {}
 
 
+# if the role contains subroles, and a subrole includes another subrole like
+# mainrole/roles/subroleA/tasks/main.yml:
+# include_role:
+#   name: subroleB
+# we want to convert this to the collection format
+# include_role:
+#   name: NAMESPACE.COLLECTION.private_mainrole_subrole_subroleB
+def add_subrole_mappings(
+    extra_mapping, src_path, namespace, collection, subrole_prefix, replace_dot
+):
+    """Map source subroles to their names in the collection."""
+    subroles_dir = src_path / "roles"
+    if not subroles_dir.is_dir():
+        return
+
+    mapped_roles = {mapping["src_name"]["role"] for mapping in extra_mapping}
+    for subrole in sorted(subroles_dir.iterdir()):
+        if not subrole.is_dir() or subrole.name in mapped_roles:
+            continue
+        dest_role = subrole.name.replace(".", replace_dot)
+        if subrole_prefix and not dest_role.startswith(subrole_prefix):
+            dest_role = subrole_prefix + dest_role
+        extra_mapping.append(
+            {
+                "src_name": {"src_owner": None, "role": subrole.name},
+                "dest_name": {
+                    "dest_prefix": namespace + "." + collection + ".",
+                    "role": dest_role,
+                },
+            }
+        )
+
+
 def role2collection():
     HOME = os.environ.get("HOME")
     parser = argparse.ArgumentParser()
@@ -1198,7 +1231,9 @@ def role2collection():
             "collection format with the optional given namespace and collection "
             "as well as the given FQCN with other FQCN. In addition, if 'fedora."
             "linux_system_roles:NAMESPACE.COLLECTION' is in the mapping, "
-            "'fedora.linux_system_roles' is converted to 'NAMESPACE.COLLECTION'."
+            "'fedora.linux_system_roles' is converted to 'NAMESPACE.COLLECTION'. "
+            "If the role contains subroles, the subrole will automatically be "
+            "added to the extra mapping list."
         ),
     )
     default_meta_runtime = Path(__file__).parent / "lsr_role2collection" / "runtime.yml"
@@ -1246,6 +1281,21 @@ def role2collection():
     replace_dot = args.replace_dot
     subrole_prefix = args.subrole_prefix
     readme_path = args.readme
+
+    src_path = args.src_path.resolve()
+    src_owner = args.src_owner
+    if not src_owner:
+        src_owner = os.path.basename(src_path)
+    _tasks_main = src_path / "tasks/main.yml"
+    if not _tasks_main.exists():
+        src_path = src_path / role
+        _tasks_main = src_path / "tasks/main.yml"
+
+    if not _tasks_main.exists():
+        logging.error(
+            f"Neither {src_path} nor {src_path.parent} is a role top directory."
+        )
+        sys.exit(errno.ENOENT)
 
     # Assume fedora is the default namespace and linux_system_roles is
     # the default collection.
@@ -1367,6 +1417,9 @@ def role2collection():
     extra_mapping, extra_coll_mapping = parse_extra_mapping(
         args.extra_mapping, namespace, collection, role
     )
+    add_subrole_mappings(
+        extra_mapping, src_path, namespace, collection, subrole_prefix, replace_dot
+    )
 
     extra_mapping_src_owner = list(
         map(itemgetter("src_owner"), list(map(itemgetter("src_name"), extra_mapping)))
@@ -1401,21 +1454,6 @@ def role2collection():
     module_utils_dir = plugin_dir / "module_utils"
     docs_dir = dest_path / "docs"
     meta_dir = dest_path / "meta"
-
-    src_path = args.src_path.resolve()
-    src_owner = args.src_owner
-    if not src_owner:
-        src_owner = os.path.basename(src_path)
-    _tasks_main = src_path / "tasks/main.yml"
-    if not _tasks_main.exists():
-        src_path = src_path / role
-        _tasks_main = src_path / "tasks/main.yml"
-
-    if not _tasks_main.exists():
-        logging.error(
-            f"Neither {src_path} nor {src_path.parent} is a role top directory."
-        )
-        sys.exit(errno.ENOENT)
 
     extra_script = args.extra_script
     if extra_script and not which(extra_script):

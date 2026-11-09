@@ -11,6 +11,7 @@ from pathlib import Path
 import unittest
 
 from lsr_role2collection import (
+    add_subrole_mappings,
     file_replace,
     copy_tree_with_replace,
     import_replace,
@@ -47,6 +48,54 @@ test_yaml_str = textwrap.dedent("""\
 
 class LSRRole2Collection(unittest.TestCase):
     """test lsr_role2collection"""
+
+    def test_add_subrole_mappings(self):
+        """Map subroles to the same names used when copying them."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            role_path = Path(tmpdir) / "metrics"
+            subroles_path = role_path / "roles"
+            for name in ("pcp", "keyserver", "foo.bar"):
+                (subroles_path / name).mkdir(parents=True)
+            (subroles_path / "README.md").touch()
+            mappings = [
+                {
+                    "src_name": {"src_owner": None, "role": "keyserver"},
+                    "dest_name": {"dest_prefix": None, "role": "custom_keyserver"},
+                }
+            ]
+
+            add_subrole_mappings(
+                mappings,
+                role_path,
+                "fedora",
+                "linux_system_roles",
+                "private_metrics_subrole_",
+                "_",
+            )
+
+            self.assertEqual(
+                mappings,
+                [
+                    {
+                        "src_name": {"src_owner": None, "role": "keyserver"},
+                        "dest_name": {"dest_prefix": None, "role": "custom_keyserver"},
+                    },
+                    {
+                        "src_name": {"src_owner": None, "role": "foo.bar"},
+                        "dest_name": {
+                            "dest_prefix": "fedora.linux_system_roles.",
+                            "role": "private_metrics_subrole_foo_bar",
+                        },
+                    },
+                    {
+                        "src_name": {"src_owner": None, "role": "pcp"},
+                        "dest_name": {
+                            "dest_prefix": "fedora.linux_system_roles.",
+                            "role": "private_metrics_subrole_pcp",
+                        },
+                    },
+                ],
+            )
 
     def create_test_tree(self, top, template, params, ext, is_vertical=True):
         path = top

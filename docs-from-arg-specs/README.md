@@ -13,8 +13,9 @@ Run `build_docs.sh` against a role directory — locally, or from a tox env, or 
 | `merge_extra_specs.py` | Folds `meta/extra_specs.yml`'s `notes:` and `return:` into a temporary copy of `argument_specs.yml` at build time. |
 | `html_to_singlefile.py` | Collapses the Sphinx HTML site into one self-contained `README.html`. |
 | `html_to_md.py` | Converts the Sphinx HTML page into `README.md` (pandoc + Markdown pipe tables). |
+| `set_role_title.py` | Rewrites the role name in the rendered HTML title (used when `LSR_README_ROLE_NAME_STYLE=short`; see Usage). |
 
-Keep the four files together; `build_docs.sh` finds the helpers next to itself.
+Keep the five files together; `build_docs.sh` finds the helpers next to itself.
 
 ## Usage
 
@@ -23,6 +24,15 @@ build_docs.sh [ROLE_DIR]      # ROLE_DIR defaults to the current directory
 ```
 
 Writes `README.md` and `README.html` into the role directory.
+
+By default the title keeps the collection FQCN that antsibull emits
+(`# fedora.linux_system_roles.bootloader role -- ...`). Set
+`LSR_README_ROLE_NAME_STYLE=short` to use the bare role name instead
+(`# bootloader role -- ...`), which is namespace-agnostic and works for any role:
+
+```
+LSR_README_ROLE_NAME_STYLE=short build_docs.sh [ROLE_DIR]
+```
 
 Requirements: `python3` and network access (on first pip install).
 
@@ -60,6 +70,7 @@ antsibull-docs operates on collections, so `build_docs.sh` mirrors the role into
 merge_extra_specs.py ARGUMENT_SPECS.yml EXTRA_SPECS.yml DEST.yml
 html_to_singlefile.py [--drop-scripts] [--standalone] [--drop-fonts] IN.html OUT.html
 html_to_md.py IN.html OUT.md
+set_role_title.py HTML_FILE ROLE_NAME
 ```
 
 [antsibull]: https://github.com/ansible-community/antsibull-docs

@@ -689,7 +689,7 @@ checks and tests status and review status for the PR.  Actions:
 * `v NUM` - View the PR in a browser
 * `a NUM` - Merge PR with admin override.  This uses `gh pr merge NUM -r -d --admin`
 * `t NUM` - View detailed status of tests/checks not reporting SUCCESS
-* `ci NUM` - Add `[citest]` comment to PR to trigger CI testing
+* `ci NUM [args]` - Add `/citest [all|custom args]` comment to PR to trigger CI testing
 * `s NUM /path/to/script` - Run a script against a PR.  The role name and PR
   number are passed to the script.  This can be used to perform whatever action
   you want against the PR e.g. check logs for specific errors.

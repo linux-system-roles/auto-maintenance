@@ -219,7 +219,7 @@ while [ "$done" = false ]; do
 Actions:
 "NUM" - merge PR                 | "w" - list PRs in browser
 "l" - refresh the list           | "v NUM" - view PR in browser
-"a NUM" - merge with admin priv. | "ci NUM" - add "[citest]" comment to PR
+"a NUM" - merge with admin priv. | "ci NUM [all|<custom>]" - add "/citest" comment to PR
 "t NUM" - view test/check detail | "s NUM /path/to/script" - run script
 "c NUM [comment]" - close PR with optional comment
 "d NUM [diff args]" - gh pr diff NUM [args]
@@ -248,8 +248,13 @@ EOF
         if merge_pr "${BASH_REMATCH[1]}" --admin; then
             unset PR_LIST["${BASH_REMATCH[1]}"]
         fi
-    elif [[ "$input" =~ ^ci\ ([0-9]+)$ ]]; then
-        gh pr comment "${BASH_REMATCH[1]}" --body "[citest]" -R "$upstream_org/$repo"
+    elif [[ "$input" =~ ^ci\ ([0-9]+)(\ (.+))?$ ]]; then
+        if [ -n "${BASH_REMATCH[2]}" ]; then
+            citest_args="${BASH_REMATCH[2]}"
+        else
+            citest_args=all
+        fi
+        gh pr comment "${BASH_REMATCH[1]}" --body "/citest $citest_args" -R "$upstream_org/$repo"
     elif [[ "$input" =~ ^t\ ([0-9]+)$ ]]; then
         get_check_detail "${BASH_REMATCH[1]}" "!=" SUCCESS
     elif [[ "$input" =~ ^s\ ([0-9]+)\ (.+)$ ]]; then

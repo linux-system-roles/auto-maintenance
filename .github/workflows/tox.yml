@@ -8,9 +8,9 @@ jobs:
       matrix:
         pyver_os:
           - ver: '3.8'
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - ver: '3.9'
-            os: ubuntu-latest
+            os: ubuntu-24.04
           - ver: '3.10'
             os: ubuntu-latest
           - ver: '3.11'

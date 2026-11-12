@@ -31,7 +31,7 @@ STANDALONE_CSS = """
 .wy-nav-side, .wy-nav-top, .wy-breadcrumbs, .rst-footer-buttons { display: none !important; }
 .wy-breadcrumbs + hr { display: none !important; }  /* rule left after hiding breadcrumbs */
 .wy-nav-content-wrap { margin-left: 0 !important; background: #fff !important; }
-.wy-nav-content { max-width: 900px; }
+.wy-nav-content { max-width: none; }  /* fill the window; theme default caps at 800px */
 .DocSite-globalNav, .DocSite-nav { display: none !important; }
 .rst-content .admonition-title:before { display: none !important; }
 """

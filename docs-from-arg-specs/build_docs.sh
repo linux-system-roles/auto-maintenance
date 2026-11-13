@@ -95,17 +95,22 @@ printf '\nhtml_copy_source = False\nhtml_show_sourcelink = False\nsmartquotes = 
 echo "Building HTML with Sphinx..." >&2
 sphinx-build -M html rst build -q -c .
 
-# 2b. Optionally rewrite the page title role name. Done on the rendered HTML so
-# both README.html and README.md (generated from it below) inherit it.
+# 2a. Clean up antsibull's rendered page in place: remove the "This role is part
+# of the <collection>" note, and (for the short style) rewrite the page title to
+# the bare role name. Done on the rendered HTML so both README.html and README.md
+# (generated from it below) inherit the changes.
 # LSR_README_ROLE_NAME_STYLE selects the name used in the title:
 #   fqcn (default) -> the collection FQCN antsibull emits
 #                     (e.g. "fedora.linux_system_roles.bootloader")
 #   short          -> the bare role name (e.g. "bootloader"); namespace-agnostic,
 #                     so it works for any role regardless of its Galaxy namespace
+echo "Cleaning up the rendered page..." >&2
 if [ "${LSR_README_ROLE_NAME_STYLE:-fqcn}" = short ]; then
-    echo "Rewriting page title to short role name..." >&2
-    python3 "$SCRIPT_DIR/set_role_title.py" \
+    python3 "$SCRIPT_DIR/fixup_role_html.py" \
         "build/html/${ROLE_NAME}_role.html" "$ROLE_NAME"
+else
+    python3 "$SCRIPT_DIR/fixup_role_html.py" \
+        "build/html/${ROLE_NAME}_role.html"
 fi
 
 # 3. html_to_singlefile.py -> one self-contained README.html.

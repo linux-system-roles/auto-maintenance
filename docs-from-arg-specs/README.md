@@ -13,7 +13,7 @@ Run `build_docs.sh` against a role directory — locally, or from a tox env, or 
 | `merge_extra_specs.py` | Folds `meta/extra_specs.yml`'s `notes:` and `return:` into a temporary copy of `argument_specs.yml` at build time. |
 | `html_to_singlefile.py` | Collapses the Sphinx HTML site into one self-contained `README.html`. |
 | `html_to_md.py` | Converts the Sphinx HTML page into `README.md` (pandoc + Markdown pipe tables). |
-| `set_role_title.py` | Rewrites the role name in the rendered HTML title (used when `LSR_README_ROLE_NAME_STYLE=short`; see Usage). |
+| `fixup_role_html.py` | Cleans up antsibull's rendered HTML in place: removes the "This role is part of the \<collection\>" note, and (when `LSR_README_ROLE_NAME_STYLE=short`; see Usage) rewrites the role name in the title. |
 
 Keep the five files together; `build_docs.sh` finds the helpers next to itself.
 
@@ -70,7 +70,7 @@ antsibull-docs operates on collections, so `build_docs.sh` mirrors the role into
 merge_extra_specs.py ARGUMENT_SPECS.yml EXTRA_SPECS.yml DEST.yml
 html_to_singlefile.py [--drop-scripts] [--standalone] [--drop-fonts] IN.html OUT.html
 html_to_md.py IN.html OUT.md
-set_role_title.py HTML_FILE ROLE_NAME
+fixup_role_html.py HTML_FILE [ROLE_NAME]
 ```
 
 [antsibull]: https://github.com/ansible-community/antsibull-docs

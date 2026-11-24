@@ -1,6 +1,21 @@
 Changelog
 =========
 
+[2.7.0] - 2026-11-24
+---------------------
+
+### New Features
+
+- sshd - feat: Add SLE16 support and keep the SLE15 crypto policy (#393)
+- sshd - feat: Argument spec implementation for ansible-sshd role (#392)
+- sshd - feat: simpler patchset to allow sshd list options to be expressed as yaml lists (#390)
+
+### Bug Fixes
+
+- sshd - fix: eliminate second instance of option list (#391)
+- sshd - fix: testsuite failures following !378 (#386)
+- sshd - fix: Change systemd unit status according to sshd_systemd_unit (#378)
+
 [2.6.0] - 2026-11-23
 ---------------------
 

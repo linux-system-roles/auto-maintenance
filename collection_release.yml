@@ -1,5 +1,5 @@
 mainid:
-  ref: 2.6.0
+  ref: 2.7.0
   sourcenum: 0
 postfix:
   ref: 1.11.0
@@ -45,7 +45,7 @@ crypto_policies:
   sourcenum: 14
 sshd:
   org: willshersystems
-  ref: v0.34.0
+  ref: v0.35.0
   repo: ansible-sshd
   sourcenum: 15
 ssh:
